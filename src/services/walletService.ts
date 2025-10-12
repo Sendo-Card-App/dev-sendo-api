@@ -65,10 +65,7 @@ class WalletService {
                 include: [{ model: UserModel, as: 'user' }],
                 //lock: true
             });
-
-            // On check si la carte possede des dettes
-            await settleCardDebtsIfAny(toWallet!.matricule, toWallet!.userId)
-    
+            
             // 2. Validations initiales
             if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
             if (fromWallet.balance < amount) throw new Error('Solde insuffisant');
@@ -77,7 +74,7 @@ class WalletService {
             await fromWallet.decrement('balance', { by: amount, transaction });
             await toWallet.increment('balance', { by: amount, transaction });
 
-            // Enregistrement de la transaction côté initiateur
+            // 4. Enregistrement de la transaction côté initiateur
             const transactionCreate: TransactionCreate = {
                 userId: fromWallet?.user?.id || 0,
                 type: typesTransaction['4'],
@@ -92,12 +89,16 @@ class WalletService {
                 method: typesMethodTransaction['3']
             }
             const transac = await transactionService.createTransaction(transactionCreate)
+
+            // 4. On check si la carte possede des dettes
+            await settleCardDebtsIfAny(toWallet!.matricule, toWallet!.userId)
+            const newToWallet = await toWallet.reload()
             
             await transaction.commit();
             
             return {
                 sender: fromWallet,
-                receiver: toWallet,
+                receiver: newToWallet,
                 transaction: transac
             };
     

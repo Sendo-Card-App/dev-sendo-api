@@ -8,6 +8,7 @@ import { sendEmailWithHTML } from "./emailService";
 import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
 import transactionService from "./transactionService";
+import cardService, { VirtualCardDebtCreate } from "./cardService";
 
 
 class CashinService {
@@ -33,6 +34,47 @@ class CashinService {
                 if (
                     checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
                 ) {
+                    // On enregistre la transaction réussie
+                    const transactionToCreate: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: Number(object.totalAmount),
+                        status: "COMPLETED",
+                        userId: virtualCard.userId,
+                        currency: object.cardCurrencyCode,
+                        totalAmount: Number(object.totalAmount),
+                        method: typesMethodTransaction['2'],
+                        transactionReference: object.transactionId,
+                        virtualCardId: virtualCard?.id,
+                        description: object.reference,
+                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard.userId,
+                        receiverType: 'User',
+                        createdAt: new Date(object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreate)
+
+                    // On enregistre la transaction du paiement des frais
+                    const transactionToCreateFees: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: 0,
+                        status: "COMPLETED",
+                        userId: virtualCard.userId,
+                        currency: object.cardCurrencyCode,
+                        totalAmount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        method: typesMethodTransaction['2'],
+                        transactionReference: object.transactionId,
+                        virtualCardId: virtualCard?.id,
+                        description: object.reference,
+                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard.userId,
+                        receiverType: 'User',
+                        sendoFees: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        createdAt: new Date(object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreateFees)
+
                     // On envoie la notification
                     await notificationService.save({
                         title: 'Sendo',
@@ -47,12 +89,62 @@ class CashinService {
                         'Paiement sur la carte',
                         `<p>${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
-                } else {
+                } else if (checkTransaction.statusUpdates.find((update: any) => update.status === "FAILED")) {
+                    // On enregistre la transaction réussie
+                    const transactionToCreateFees: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: Number(object.totalAmount),
+                        status: "COMPLETED",
+                        userId: virtualCard.userId,
+                        currency: object.cardCurrencyCode,
+                        totalAmount: Number(object.totalAmount),
+                        method: typesMethodTransaction['2'],
+                        transactionReference: object.transactionId,
+                        virtualCardId: virtualCard?.id,
+                        description: object.reference,
+                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard.userId,
+                        receiverType: 'User',
+                        createdAt: new Date(object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreateFees)
+
+                    // On enregistre la transaction des frais échouée
+                    const transactionToCreateDebt: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: 0,
+                        status: "FAILED",
+                        userId: virtualCard.userId,
+                        currency: object.cardCurrencyCode,
+                        totalAmount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        method: typesMethodTransaction['2'],
+                        transactionReference: object.transactionId,
+                        virtualCardId: virtualCard.id,
+                        description: object.reference,
+                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard.userId,
+                        receiverType: 'User',
+                        sendoFees: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        createdAt: new Date(object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreateDebt)
+
+                    // on enregistre le reste comme dette
+                    const debt: VirtualCardDebtCreate = {
+                        amount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        userId: virtualCard.userId,
+                        cardId: virtualCard.id,
+                        intitule: object.reference || 'Frais de rejet'
+                    }
+                    await cardService.saveDebt(debt)
+
                     // On envoie la notification
                     await notificationService.save({
                         title: 'Sendo',
-                        content: `${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}`,
-                        userId: virtualCard?.user?.id ?? 0,
+                        content: `${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Vous avez néanmoins une dette de ${arrondiSuperieur(sendoFees)} XAF enregistrée.`,
+                        userId: virtualCard.userId,
                         status: 'SENDED',
                         token: token?.token ?? '',
                         type: 'SUCCESS_TRANSACTION_CARD'
@@ -60,7 +152,7 @@ class CashinService {
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
-                        `<p>${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}</p>`
+                        `<p>${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Vous avez néanmoins une dette de ${arrondiSuperieur(sendoFees)} XAF enregistrée.</p>`
                     )
                 }
             } else {

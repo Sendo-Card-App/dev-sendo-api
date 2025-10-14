@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import authService from "@services/authService";
 import logger from "@config/logger";
 import { generateTokens, verifyToken } from "@config/jwt";
-import { TokenModel, UserModel } from "@models/index.model";
+import { TokenModel, UserModel, WalletModel } from "@models/index.model";
 import { v4 as uuidv4 } from 'uuid';
 import { generateVerificationToken } from '@services/tokenService';
 import { typesStatusUser, typesToken } from "@utils/constants";
@@ -340,7 +340,13 @@ class AuthController {
     const { token } = req.query;
     
     try {
-      if (!token) sendError(res, 400, 'Token manquant');
+      if (!token) {
+        //sendError(res, 400, 'Token manquant');
+        return res.status(400).render('verification-result', {
+          message: 'Token manquant',
+          status: 400
+        })
+      }
       const verificationToken = await TokenModel.findOne({
         where: { 
           token: token as string,
@@ -349,12 +355,20 @@ class AuthController {
       });
 
       if (!verificationToken) {
-        return sendError(res, 400, 'Token invalide');
+        //return sendError(res, 400, 'Token invalide');
+        return res.status(400).render('verification-result', {
+          message: 'Token invalide',
+          status: 404
+        })
       }
 
       const user = await UserModel.findByPk(verificationToken.userId);
       if (!user) {
-        return sendError(res, 404, 'Utilisateur non trouvé');
+        //return sendError(res, 404, 'Utilisateur non trouvé');
+        return res.status(404).render('verification-result', {
+          message: 'Utilisateur non trouvé',
+          status: 404
+        })
       }
 
       user.isVerifiedEmail = true;
@@ -366,7 +380,12 @@ class AuthController {
       })
 
       await sendEmailVerificationSuccess(user);
-      sendResponse(res, 200, 'Adresse email du compte vérifié avec succès');
+      //sendResponse(res, 200, 'Adresse email du compte vérifié avec succès');
+      return res.status(200).render('verification-result', { 
+        message: `<h4>Bonjour ${user.firstname} ${user.lastname}</h4>
+        <p>Votre compte a été vérifié avec succès</p>`,
+        status: 200
+      });
     } catch (error: any) {
       sendError(res, 500, 'Erreur de vérification', [error.message]);
     }
@@ -498,6 +517,44 @@ class AuthController {
       sendResponse(res, 200, 'Mot de passe mis à jour');
     } catch (error: any) {
       sendError(res, 500, 'Erreur de mise à jour', [error.message]);
+    }
+  }
+
+  async verifyToken(req: Request, res: Response) {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) return sendError(res, 401, 'Token manquant');
+
+      const token = authHeader.split(' ')[1];
+      const decoded = verifyToken(token) as { id: number; deviceId: string };
+
+      const tokenEntry = await TokenModel.findOne({
+        where: {
+          userId: decoded.id,
+          deviceId: decoded.deviceId,
+          tokenType: typesToken['0'],
+        },
+        include: [{
+          model: UserModel,
+          as: 'user',
+          include: [{ model: WalletModel, as: 'wallet' }],
+        }],
+      });
+
+      if (!tokenEntry?.user) return sendError(res, 401, 'Session invalide');
+
+      if (!tokenEntry.user.isVerifiedEmail)
+        return sendError(res, 403, 'Email non vérifié');
+
+      if (tokenEntry.user.status !== 'ACTIVE')
+        return sendError(res, 403, 'Compte suspendu ou bloqué');
+
+      return sendResponse(res, 200, 'Utilisateur authentifié', {
+        user: tokenEntry.user,
+        deviceId: decoded.deviceId,
+      });
+    } catch (err: any) {
+      return sendError(res, 401, 'Token invalide', [err.message]);
     }
   }
 }

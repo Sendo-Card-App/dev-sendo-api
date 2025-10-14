@@ -471,4 +471,32 @@ router.post('/otp/send', OTPController.sendOTP);
  */
 router.post('/otp/verify', OTPController.verifyOTP);
 
+/**
+ * @swagger
+ * /auth/verify-token:
+ *   post:
+ *     summary: Vérifier la validité d'un token d'authentification
+ *     tags:
+ *       - Auth
+ *     responses:
+ *       200:
+ *         description: Vérification réussie ou échouée
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                 deviceId:
+ *                   type: string
+ *       401:
+ *         description: Session invalide
+ *       403:
+ *         description: Email non vérifié ou compte suspendu
+ *       500:
+ *         description: Erreur lors de la vérification du token
+ */
+router.post('/verify-token', authController.verifyToken);
+
 export default router;

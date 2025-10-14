@@ -70,7 +70,8 @@ export const roles: any[] = [
     { name: 'MANAGEMENT_CONTROLLER' },
     { name: 'CUSTOMER_ADVISER' },
     { name: 'CARD_MANAGER' },
-    { name: 'CUSTOMER' }
+    { name: 'CUSTOMER' },
+    { name: 'MERCHANT' }
 ]
 
 export const configs: ConfigModelCreate[] = [
@@ -338,7 +339,7 @@ export const typesProviderMobile = [
 export type TypesProviderMobile = typeof typesProviderMobile[number];
 
 export const typesKYCFile = [
-    'ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE'
+    'ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE', 'RCCM', 'ARTICLES_ASSOCIATION_PROOF'
 ] as const
 export type TypesKYCFile = typeof typesKYCFile[number]
 

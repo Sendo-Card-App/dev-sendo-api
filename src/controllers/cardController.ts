@@ -1091,15 +1091,15 @@ class CardController {
             const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
             
             const transactionToCreate: TransactionCreate = {
-                amount: fees,
+                amount: 0,
                 type: typesTransaction['8'],
                 status: mapNeeroStatusToSendo(checkTransaction.status),
                 userId: req.user!.id,
                 currency: typesCurrency['0'],
-                totalAmount: fees,
+                totalAmount: Number(fees),
                 method: typesMethodTransaction['2'],
                 transactionReference: cashin.id,
-                sendoFees: parseInt(`${fees}`),
+                sendoFees: Number(fees),
                 virtualCardId: virtualCard!.id,
                 description: 'Frais infos carte',
                 receiverId: req.user!.id,

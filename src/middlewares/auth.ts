@@ -1,5 +1,5 @@
 import { verifyToken } from "@config/jwt";
-import { TokenModel, UserModel, WalletModel } from "@models/index.model";
+import { RoleModel, TokenModel, UserModel, WalletModel } from "@models/index.model";
 import { sendError, sendResponse } from "@utils/apiResponse";
 import { typesToken } from "@utils/constants";
 import { Request, Response, NextFunction } from 'express';
@@ -26,7 +26,18 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       include: [{
         model: UserModel,
         as: 'user',
-        include: [{ model: WalletModel, as: 'wallet' }],
+        include: [
+          { 
+            model: WalletModel, 
+            as: 'wallet' 
+          },
+          {
+            model: RoleModel,
+            as: 'roles',
+            attributes: ['id', 'name'],
+            through: { attributes: [] }
+          }
+        ],
         required: true
       }]
     });

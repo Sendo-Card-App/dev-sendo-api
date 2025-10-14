@@ -44,6 +44,10 @@ const router = express.Router();
  *                 type: string 
  *               roleId:
  *                 type: integer
+ *               typeMerchantAccount:
+ *                 type: string
+ *                 enum: ['Particulier', 'Entreprise']
+ *                 required: false
  *     responses:
  *       201:
  *         description: Utilisateur créé

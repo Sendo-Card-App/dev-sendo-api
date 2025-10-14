@@ -12,6 +12,7 @@ import { TypesCurrency, typesToken } from '@utils/constants';
 import ConfigModel from '@models/config.model';
 import { TokenModel } from '@models/index.model';
 import notificationService from './notificationService';
+import MerchantModel from '@models/merchant.model';
 
 interface UpdatePassword {
     oldPassword: string;
@@ -324,6 +325,39 @@ class UserService {
     async getPictureUser(userId: number) {
         const user = await UserModel.findByPk(userId)
         return user?.picture
+    }
+
+    async getMerchant(id: number) {
+        const merchant = await MerchantModel.findByPk(id, {
+            include: [{ 
+                model: UserModel, 
+                as: 'user',
+                attributes: { exclude: ['password'] },
+                include:[
+                    {
+                        model: KycDocumentModel,
+                        as: 'kycDocuments'
+                    },
+                    {
+                        model: WalletModel,
+                        as: 'wallet'
+                    },
+                    {
+                        model: TransactionModel,
+                        as: 'transactions',
+                        attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'],
+                        order: [['createdAt', 'DESC']],
+                        limit: 10
+                    }
+                ]
+            }]
+        })
+
+        if (!merchant) {
+            throw new Error('Utilisateur non trouvé');
+        }
+
+        return merchant;
     }
 }
 

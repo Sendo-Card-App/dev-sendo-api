@@ -7,7 +7,7 @@ import { PaginatedData } from '../types/BaseEntity';
 import { sendEmailVerificationKYC, sendGlobalEmail } from '@services/emailService';
 import transactionService from '@services/transactionService';
 import walletService from '@services/walletService';
-import { typesKYCStatus, typesMethodTransaction, typesNotification, TypesStatusTransaction, typesStatusTransaction, TypesStatusUser, TypesStatusWallet, typesTransaction } from '@utils/constants';
+import { typesKYCStatus, typesMethodTransaction, typesStatusTransaction, TypesStatusUser, TypesStatusWallet, typesTransaction } from '@utils/constants';
 import logger from '@config/logger';
 import mobileMoneyController from './mobileMoneyController';
 import UserModel from '@models/user.model';
@@ -17,10 +17,10 @@ import cashoutService from '@services/cashoutService';
 
 class AdminController {
     async getAllDocuments(req: Request, res: Response) {
-        const { page, limit, startIndex, status } = res.locals.pagination;
+        const { typeAccount, page, limit, startIndex, status } = res.locals.pagination;
 
         try {
-            const documents = await adminService.getAllDocuments(status, limit, startIndex);
+            const documents = await adminService.getAllDocuments(typeAccount, status, limit, startIndex);
             const totalPages = Math.ceil(documents.count / limit);
             const responseData: PaginatedData = {
                 page,
@@ -47,10 +47,10 @@ class AdminController {
     }
 
     async getPendingDocuments(req: Request, res: Response) {
-        const { page, limit, startIndex } = res.locals.pagination;
+        const { typeAccount, page, limit, startIndex } = res.locals.pagination;
         
         try {
-            const documents = await adminService.getDocumentsPending(limit, startIndex);
+            const documents = await adminService.getDocumentsPending(typeAccount, limit, startIndex);
             const totalPages = Math.ceil(documents.count / limit);
             const responseData: PaginatedData = {
                 page,

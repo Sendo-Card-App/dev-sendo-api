@@ -7,6 +7,7 @@ declare global {
   namespace Express {
     interface User extends UserModel {
       role?: RoleModel;
+      roles?: RoleModel[];
       kycStatus?: {
         verified: boolean;
         lastDocumentDate?: Date;
@@ -27,4 +28,4 @@ declare global {
   }
 }
 
-type RoleType = 'SUPER_ADMIN' | 'SYSTEM_ADMIN' | 'COMPLIANCE_OFFICER' | 'TECHNICAL_DIRECTOR' | 'MANAGEMENT_CONTROLLER' | 'CUSTOMER_ADVISER' | 'CARD_MANAGER' | 'CUSTOMER';
+type RoleType = 'SUPER_ADMIN' | 'SYSTEM_ADMIN' | 'COMPLIANCE_OFFICER' | 'TECHNICAL_DIRECTOR' | 'MANAGEMENT_CONTROLLER' | 'CUSTOMER_ADVISER' | 'CARD_MANAGER' | 'CUSTOMER' | 'MERCHANT';

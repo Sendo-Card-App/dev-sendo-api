@@ -260,8 +260,8 @@ class WebhookController {
             console.log("exchange rates fees : ", totalAmountWithEchangeRates)
             const feesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_FEES') // 2
             console.log("feees card : ", Number(feesCard!.value))
-            const feesCardPercentage = await configService.getConfigByName('SENDO_TRANSACTION_CARD_PERCENTAGE')
-            const totalAmountWithFeesCardPercentage = totalAmountWithEchangeRates * (Number(feesCardPercentage!.value) / 100) // 3
+            const feesCardPercentage = await configService.getConfigByName('SENDO_TRANSACTION_CARD_PERCENTAGE') // 3
+            const totalAmountWithFeesCardPercentage = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentage!.value) / 100) // 3
             console.log("transaction card percentage : ", totalAmountWithFeesCardPercentage)
             const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
             const token = await notificationService.getTokenExpo(virtualCard?.user?.id ?? 0)
@@ -284,8 +284,7 @@ class WebhookController {
                     // Si la carte a assez de fonds pour prélever les frais SENDO
                     if (
                         (Number(balanceObject.balance) >= arrondiSuperieur(sendoFees)) &&
-                        virtualCard && 
-                        token
+                        virtualCard
                     ) {
                         console.log("la balance de la carte couvre les frais sendo")
                         // On prélève les frais SENDO sur la transaction
@@ -302,36 +301,13 @@ class WebhookController {
                             arrondiSuperieur(sendoFees), 
                             event.data.object, 
                             virtualCard, 
-                            token, 
+                            token!, 
                             false
                         )
-                        
-                        // On enregistre la transaction
-                        const transactionToCreate: TransactionCreate = {
-                            type: 'PAYMENT',
-                            amount: Number(event.data.object?.totalAmount),
-                            status: "COMPLETED",
-                            userId: virtualCard?.user?.id ?? 0,
-                            currency: event.data.object.cardCurrencyCode,
-                            totalAmount: arrondiSuperieur(sendoFees) + Number(event.data.object?.totalAmount),
-                            method: typesMethodTransaction['2'],
-                            transactionReference: event.data.object.transactionId,
-                            virtualCardId: virtualCard?.id,
-                            description: event.data.object.reference,
-                            partnerFees: Number(event.data.object.totalAmount) - amountNum,
-                            provider: 'CARD',
-                            receiverId: virtualCard?.user?.id ?? 0,
-                            receiverType: 'User',
-                            sendoFees: arrondiSuperieur(sendoFees),
-                            createdAt: new Date(event.data.object.transactionDate)
-                        }
-                        await transactionService.createTransaction(transactionToCreate)
-                        
                     } else if (
                         (Number(balanceObject.balance) < arrondiSuperieur(sendoFees)) && 
                         Number(balanceObject.balance) > 0 &&
-                        virtualCard &&
-                        token
+                        virtualCard
                     ) {
                         console.log("la balance de la carte ne couvre pas les frais sendo")
                         // Si la carte n'a pas assez de fonds pour prélever les frais, on prélève tout ce qu'elle a
@@ -348,29 +324,9 @@ class WebhookController {
                             Number(balanceObject.balance), 
                             event.data.object, 
                             virtualCard, 
-                            token, 
+                            token!, 
                             false
                         )
-
-                        // ensuite on enregistre la transaction
-                        const transactionToCreate: TransactionCreate = {
-                            type: 'PAYMENT',
-                            amount: Number(event.data.object?.totalAmount),
-                            status: mapNeeroStatusToSendo(event.data.object.status),
-                            userId: virtualCard?.user?.id ?? 0,
-                            currency: event.data.object.cardCurrencyCode,
-                            totalAmount: Number(balanceObject.balance) + Number(event.data.object?.totalAmount),
-                            method: typesMethodTransaction['2'],
-                            transactionReference: event.data.object.transactionId,
-                            virtualCardId: virtualCard?.id,
-                            description: event.data.object.reference,
-                            partnerFees: Number(event.data.object.totalAmount) - amountNum,
-                            provider: 'CARD',
-                            receiverId: virtualCard?.user?.id ?? 0,
-                            receiverType: 'User',
-                            sendoFees: Number(balanceObject.balance)
-                        }
-                        await transactionService.createTransaction(transactionToCreate)
 
                         // ensuite on vérifie si le wallet possède de l'argent
                         console.log("on vérifie si le wallet possède de l'argent")

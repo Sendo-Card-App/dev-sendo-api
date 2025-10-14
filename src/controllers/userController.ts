@@ -3,7 +3,7 @@ import { sendResponse, sendError } from '@utils/apiResponse';
 import userService from '@services/userService';
 import logger from '@config/logger';
 import { generatePassword } from '@utils/functions';
-import { sendEmailVerification, sendPasswordModifiedMail, sendUserMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
+import { sendEmailVerification, sendPasswordModifiedMail, sendUserMail, sendUserMerchantMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
 import { PaginatedData } from '../types/BaseEntity';
 import adminService from '@services/adminService';
 import authService from '@services/authService';
@@ -12,6 +12,8 @@ import TokenModel from '@models/token.model';
 import { typesToken } from '@utils/constants';
 import Expo from 'expo-server-sdk';
 import CodePhoneModel from '@models/code-phone.model';
+import UserModel from '@models/user.model';
+import MerchantModel from '@models/merchant.model';
 
 
 class UserController {
@@ -46,7 +48,8 @@ class UserController {
       address, 
       roleId, 
       dateOfBirth, 
-      placeOfBirth 
+      placeOfBirth,
+      typeMerchantAccount 
     } = req.body;
     const password = generatePassword()
     
@@ -79,10 +82,18 @@ class UserController {
       const user = await authService.register(newUser);
       if (user) {
         const roleParsed = parseInt(roleId)
-        if (roleParsed !== 8) {
+        if (roleParsed < 8) {
           await adminService.attributeRoleUser(user.id, roleParsed)
+        } else if (roleParsed === 9 && typeMerchantAccount) {
+          await adminService.createMerchant(
+            user.id, 
+            typeMerchantAccount as 'Particulier' | 'Entreprise'
+          )
+          await sendUserMerchantMail(user, password, typeMerchantAccount)
+        } else if (roleParsed !== 9) {
+          await sendUserMail(user, password);
         }
-        await sendUserMail(user, password);
+        
 
         // Génération du token de vérification
         const verificationToken = generateVerificationToken();
@@ -127,7 +138,12 @@ class UserController {
         return sendError(res, 400, 'Utilisateur non authentifié ou ID invalide');
       }
       
-      const user = await userService.getMe(req.user.id);
+      let user: UserModel | MerchantModel | null;
+      if (req.user.roles?.some(role => role.name === 'MERCHANT')) {
+        user = await userService.getMerchant(req.user.id);
+      } else {
+        user = await userService.getMe(req.user.id);
+      }
       
       if (!user) {
         return sendError(res, 404, 'Utilisateur non trouvé');

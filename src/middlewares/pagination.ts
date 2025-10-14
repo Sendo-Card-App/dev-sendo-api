@@ -18,6 +18,7 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
 
   // Autres paramètres (type, status, method) laissés tels quels, mais vous pouvez aussi valider
   const type = req.query.type as string | undefined;
+  const typeAccount = req.query.typeAccount as 'MERCHANT' | 'CUSTOMER' | undefined;
   const status = req.query.status as string | undefined;
   const method = req.query.method as string | undefined;
   const search = req.query.search as string | undefined;
@@ -31,6 +32,7 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
     limit, 
     startIndex, 
     type, 
+    typeAccount,
     status,
     method,
     startDate,

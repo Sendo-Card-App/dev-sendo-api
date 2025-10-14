@@ -7,6 +7,7 @@ import { requestLogger } from '@middlewares/requestLogger';
 import cors from 'cors';
 import http from 'http';
 import socket from '@config/socket';
+import path from 'path';
 
 export function createApp() {
   const app = express();
@@ -38,6 +39,9 @@ export function createApp() {
   });
 
   app.use(errorHandler);
+
+  app.set('view engine', 'pug');
+  app.set('views', path.join(__dirname, 'views'));
 
   const io = socket(server);
 

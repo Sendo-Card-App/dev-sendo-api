@@ -6,6 +6,7 @@ import sequelize from '@config/db';
 class KycDocumentModel extends Model {
   declare id: number;
   declare type: TypesKYCFile;
+  declare typeAccount: 'MERCHANT' | 'CUSTOMER'
   declare status: TypesKYCStatus;
   declare url: string;
   declare publicId: string;
@@ -28,6 +29,11 @@ KycDocumentModel.init(
     type: {
       type: DataTypes.ENUM(...typesKYCFile),
       allowNull: false,
+    },
+    typeAccount: {
+      type: DataTypes.ENUM('MERCHANT', 'CUSTOMER'),
+      allowNull: false,
+      defaultValue: 'CUSTOMER'
     },
     status: {
       type: DataTypes.ENUM(...typesKYCStatus),

@@ -163,4 +163,78 @@ router.delete(
     kycController.deleteKYC
 )
 
+/**
+ * @swagger
+ * /kyc/onboarding-merchant:
+ *   post:
+ *     summary: Envoi des documents KYC pour un Merchant
+ *     description: Permet à un utilisateur de type Merchant d'envoyer ses documents KYC. 
+ *                  Vérifie que l'utilisateur n'a pas déjà uploadé ses KYC et gère la suppression en cas d'erreur.
+ *     tags:
+ *       - KYC
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 description: Type de document KYC
+ *                 enum: [ID_PROOF, ADDRESS_PROOF, RCCM, NIU_PROOF, SELFIE, ARTICLES_ASSOCIATION_PROOF]
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Fichiers KYC à uploader
+ *     responses:
+ *       201:
+ *         description: KYC envoyés avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: KYC envoyés avec succès
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: number
+ *                       userId:
+ *                         type: number
+ *                       type:
+ *                         type: string
+ *                       url:
+ *                         type: string
+ *                       publicId:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *       400:
+ *         description: Erreur de validation ou document manquant
+ *       401:
+ *         description: Utilisateur non authentifié
+ *       500:
+ *         description: Erreur serveur lors de l'upload KYC
+ */
+router.post(
+    '/onboarding-merchant',
+    authMiddleware,
+    hasRole(['MERCHANT']),
+    upload_multi,
+    (req, res) => kycController.sendDocsMerchant(req, res)
+);
+
 export default router;

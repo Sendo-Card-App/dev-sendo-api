@@ -1,4 +1,5 @@
 import KycDocumentModel from "@models/kyc-document.model";
+import MerchantModel from "@models/merchant.model";
 import RoleModel from "@models/role.model";
 import UserRoleModel from "@models/user-role.model";
 import UserModel from "@models/user.model";
@@ -17,9 +18,10 @@ class AdminService {
         return AdminService.instance;
     }
 
-    async getAllDocuments(status: string, limit: number, startIndex: number) {
+    async getAllDocuments(typeAccount: 'MERCHANT' | 'CUSTOMER', status: string, limit: number, startIndex: number) {
         const where: Record<string, any> = {};
         if (status) where.status = status;
+        if (typeAccount) where.typeAccount = typeAccount;
         
         return await KycDocumentModel.findAndCountAll({
             where,
@@ -35,9 +37,15 @@ class AdminService {
         });
     }
     
-    async getDocumentsPending(limit: number, startIndex:number) {
+    async getDocumentsPending(typeAccount: 'MERCHANT' | 'CUSTOMER', limit: number, startIndex:number) {
+        const where: Record<string, any> = {};
+        if (typeAccount) where.typeAccount = typeAccount;
+
         return await KycDocumentModel.findAndCountAll({
-            where: { status: 'PENDING' },
+            where: { 
+                status: 'PENDING',
+                ...where
+            },
             include: [
                 { 
                     association: 'user', 
@@ -125,6 +133,19 @@ class AdminService {
         return UserModel.findOne({
             where: {email: email}
         })
+    }
+
+    async createMerchant(userId: number, typeAccount: 'Particulier' | 'Entreprise') {
+        await UserRoleModel.create({
+            userId: userId,
+            roleId: 9
+        })
+        const merchant = await MerchantModel.create({
+            userId: userId,
+            typeAccount: typeAccount,
+            status: 'PENDING'
+        });
+        return merchant;
     }
 }
 

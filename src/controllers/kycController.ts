@@ -86,7 +86,7 @@ class KycController {
             }
             
             // Vérifier si l'utilisateur a déjà uploadé ses KYC
-            const checkFilesKycUSers = await kycService.checkKYCIsUploaded(req.user.id);
+            const checkFilesKycUSers = await kycService.checkKYCIsUploaded(req.user.id, 'User');
             if (checkFilesKycUSers) {
                 throw new Error("Vous avez déjà envoyé vos KYC");
             }
@@ -215,6 +215,56 @@ class KycController {
             sendError(res, 500, 'Erreur mise à jour KYC', [error.message]);
         }
     }
+
+    async sendDocsMerchant(req: Request, res: Response) {
+        const { type } = req.body
+        try {
+            if (!req.user) throw new Error('Utilisateur non authentifié');
+
+            const files = req.files as Express.Multer.File[];
+         
+            if (!files || files.length === 0) {
+                throw new Error('Veuillez fournir un document');
+            }
+            
+            // Vérifier si l'utilisateur a déjà uploadé ses KYC
+            const checkFilesKycUSers = await kycService.checkKYCIsUploaded(req.user.id, 'Merchant');
+            if (checkFilesKycUSers) {
+                throw new Error("Vous avez déjà envoyé vos KYC");
+            }
+
+            const results = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                const doc = await KycDocumentModel.create({
+                    userId: req.user.id,
+                    type,
+                    url: file.path,
+                    publicId: file.filename,
+                    status: typesKYCStatus['0']
+                });
+                
+                results.push(doc);
+            }
+
+            logger.info("KYC Merchant envoyés", {
+                user: `${req.user?.firstname} ${req.user?.lastname}`,
+                documents: results.map(r => `${r.type} - ${r.status}`).join(', ')
+            });
+
+            sendResponse(res, 201, 'KYC envoyés avec succès', results);
+        } catch (error: any) {
+            //Suppression des KYC uploadés
+            const kycDocuments = await kycService.getKycDocuments(req.user! .id)
+            if (kycDocuments.length > 0) {
+                kycDocuments.map(k => kycService.deleteKYC(k.publicId))
+            }
+            
+            sendError(res, 500, 'Erreur KYC', [error.message]);
+        }
+    } 
      
     private detectTypeFromName(file: Express.Multer.File): string {
         const documentTypes = [

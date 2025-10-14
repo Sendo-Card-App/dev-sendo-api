@@ -80,6 +80,25 @@ export const sendUserMail = async (user: UserModel, password: string) => {
     });
 }
 
+export const sendUserMerchantMail = async (user: UserModel, password: string, typeMerchantAccount: string) => {
+    await transporter.sendMail({
+        from: sender,
+        to: user.email,
+        subject: 'Nouveau compte créé',
+        category: 'Création de compte agent',
+        html: basicEmailTemplate(
+            `
+                <p>${user.firstname} ${user.lastname}, votre compte agent a été créé, voici vos identifiants de connexion :</p>
+                <ul>
+                    <li><b>Email : </b>${user.email}</li>
+                    <li><b>Mot de passe : </b>${password}</li>
+                    <li><b>Type de compte agent : </b>${typeMerchantAccount}</li>
+                </ul>
+            `
+        )
+    });
+}
+
 export const successCreatingAccount = async (user: UserModel, code: string) => {
     await transporter.sendMail({
         from: sender,

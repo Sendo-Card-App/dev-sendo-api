@@ -4,14 +4,14 @@ import { createApp } from './app';
 import sequelize from '@config/db';
 import schedulerService from '@services/schedulerService';
 
-const devPort = Number(process.env.PORT) || 3001;
+const prodPort = Number(process.env.PORT) || 3001;
 
-const { server: devServer } = createApp();
+const { server: prodServer } = createApp();
 
 sequelize.sync({ force: false }).then(() => {
-  devServer.listen(devPort, () => {
-    console.log(`Dev server running on http://localhost:${devPort}`);
-    console.log(`Dev API Docs on http://localhost:${devPort}/api/docs`);
+  prodServer.listen(prodPort, () => {
+    console.log(`Test server running on http://localhost:${prodPort}`);
+    console.log(`Test API Docs on http://localhost:${prodPort}/api/docs`);
   });
   
   //schedulerService.startCheckTransactionsSmobilpay();

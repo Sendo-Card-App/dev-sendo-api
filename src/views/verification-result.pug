@@ -1,0 +1,63 @@
+doctype html
+html(lang="fr")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1")
+    title Email Notification
+    style.
+      /* Reset et styles généraux */
+      body {
+        margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f7f7f7;
+        color: #333333;
+      }
+      .email-wrapper {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        overflow: hidden;
+        border: 1px solid #e5e5e5;
+      }
+      .email-header {
+        background-color: #7ddd7d;
+        color: white;
+        padding: 20px;
+        text-align: center;
+        font-size: 1.6em;
+        font-weight: bold;
+      }
+      .email-content {
+        padding: 20px;
+        font-size: 1em;
+        line-height: 1.5em;
+        color: #333;
+      }
+      a {
+        color: #7ddd7d;
+        text-decoration: none;
+        font-weight: bold;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      ul {
+        padding-left: 20px;
+        margin-top: 0;
+        margin-bottom: 1em;
+      }
+      li {
+        margin-bottom: 0.5em;
+      }
+      .footer {
+        background-color: #f0f0f0;
+        color: #888888;
+        font-size: 0.9em;
+        text-align: center;
+        padding: 15px;
+      }
+  body
+    .email-wrapper
+      .email-header Sendo Team
+      .email-content !{message}
+      .footer &copy; #{new Date().getFullYear()} Sendo. Tous droits réservés.

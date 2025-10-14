@@ -23,6 +23,7 @@ import SharedExpenseModel from './shared-expense.model';
 import PaymentMethodModel from './payment-method.model';
 import CardTransactionDebtsModel from './card-transaction-debts.model';
 import sequelize from '@config/db';
+import MerchantModel from './merchant.model';
 
 class UserModel extends Model<
   InferAttributes<UserModel>,
@@ -88,6 +89,7 @@ class UserModel extends Model<
   declare paymentMethods?: NonAttribute<PaymentMethodModel[]>;
   declare paymentMethod?: NonAttribute<PaymentMethodModel>;
   declare debts?: NonAttribute<CardTransactionDebtsModel[]>;
+  declare merchant?: NonAttribute<MerchantModel>;
   //declare requests?: NonAttribute<RequestModel[]>;
   declare static associations: {
     roles: Association<UserModel, RoleModel>;

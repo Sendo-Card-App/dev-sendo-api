@@ -19,6 +19,12 @@ const router = Router();
  *       - BearerAuth: []
  *     parameters:
  *       - in: query
+ *         name: typeAccount
+ *         required: true
+ *         type: string
+ *         enum: ['MERCHANT', 'CUSTOMER']
+ *         default: 'CUSTOMER'
+ *       - in: query
  *         name: page
  *         required: false
  *         type: integer
@@ -111,6 +117,12 @@ router.get(
  *     security:
  *       - BearerAuth: []
  *     parameters:
+ *       - in: query
+ *         name: typeAccount
+ *         required: true
+ *         type: string
+ *         enum: ['MERCHANT', 'CUSTOMER']
+ *         default: 'CUSTOMER'
  *       - in: query
  *         name: page
  *         required: false

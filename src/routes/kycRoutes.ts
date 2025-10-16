@@ -1,7 +1,7 @@
 import { Router } from "express";
 import kycController from "@controllers/kycController";
 import { authMiddleware } from "@middlewares/auth";
-import { upload_multi, upload_single } from "@config/cloudinary";
+import { upload_merchant, upload_multi, upload_single } from "@config/cloudinary";
 import { hasRole } from "@middlewares/roleMiddleware";
 
 const router = Router();
@@ -233,7 +233,7 @@ router.post(
     '/onboarding-merchant',
     authMiddleware,
     hasRole(['MERCHANT']),
-    upload_multi,
+    upload_merchant,
     (req, res) => kycController.sendDocsMerchant(req, res)
 );
 

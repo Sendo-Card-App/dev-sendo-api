@@ -9,7 +9,6 @@
     "test": "cross-env NODE_ENV=test jest"
   },
   "dependencies": {
-    "@api/fastforex": "file:.api/apis/fastforex",
     "@sequelize/core": "^7.0.0-alpha.46",
     "@types/date-fns": "^2.6.3",
     "@types/nanoid": "^3.0.0",
@@ -37,6 +36,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "^3.14.0",
     "nodemailer": "^7.0.9",
+    "pug": "^3.0.3",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",

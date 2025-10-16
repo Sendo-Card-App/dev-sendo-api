@@ -359,6 +359,86 @@ class UserService {
 
         return merchant;
     }
+
+    async getAllMerchants(
+        limit: number,
+        startIndex: number,
+        status?: string
+    ) {
+        const where: Record<string, any> = {};
+        if (status) {
+            where.status = status;
+        }
+        const limitNum = Number(limit);
+        const offsetNum = Number(startIndex);
+        
+        return MerchantModel.findAndCountAll({
+            limit: limitNum,
+            offset: offsetNum,
+            where,
+            include: [{ 
+                model: UserModel,
+                as: 'user',
+                attributes: { exclude: ['password'] },
+                include: [
+                    {
+                        model: WalletModel,
+                        as: 'wallet',
+                        attributes: ['id', 'balance', 'currency', 'status', 'matricule']
+                    },
+                    {
+                        model: RoleModel,
+                        as: 'roles',
+                        attributes: ['id', 'name'],
+                        through: { attributes: [] }
+                    }
+                ]
+            }]
+        });
+    }
+
+    async getMerchantByUserId(userId: number) {
+        return MerchantModel.findByPk(userId, {
+            include: [{ 
+                model: UserModel,
+                as: 'user',
+                attributes: { exclude: ['password'] },
+                include: [
+                    {
+                        model: WalletModel,
+                        as: 'wallet',
+                        attributes: ['id', 'balance', 'currency', 'status', 'matricule']
+                    },
+                    {
+                        model: RoleModel,
+                        as: 'roles',
+                        attributes: ['id', 'name'],
+                        through: { attributes: [] }
+                    }
+                ]
+            }]
+        })
+    }
+
+    async updateStatusMerchant(id: number, status: 'ACTIVE' | 'REFUSED') {
+        const options: UpdateOptions = {
+            where: { id },
+            returning: true
+        };
+        const merchantExits = await MerchantModel.findByPk(id, {
+            include: [{ 
+                model: UserModel,
+                as: 'user',
+                attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+            }]
+        });
+        if (!merchantExits) {
+            throw new Error('Le marchand n\'exite pas');
+        }
+        await MerchantModel.update({ status }, options);
+
+        return merchantExits.reload();
+    }
 }
 
 export default new UserService();

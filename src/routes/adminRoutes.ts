@@ -4,6 +4,7 @@ import { hasRole } from '@middlewares/roleMiddleware';
 import { authMiddleware } from '@middlewares/auth';
 import { paginationMiddleware } from '@middlewares/pagination';
 import statisticController from '@controllers/statisticController';
+import userController from '@controllers/userController';
 
 const router = Router();
 
@@ -498,6 +499,56 @@ router.put(
     authMiddleware, 
     hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN']),
     adminController.updateStatusUser
+)
+
+/**
+ * @swagger
+ * /admin/users/merchant/change-status:
+ *   put:
+ *     summary: Changer le status d'un compte marchant à partir de son ID
+ *     description: Changer le status d'un compte marchant à partir de son id
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID du compte marchant.
+ *       - in: query
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Status à assigner `ACTIVE`, `REFUSED`
+ *     responses:
+ *       '200':
+ *         description: Success response with the new status of the user.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: string
+ *             example:
+ *               status: 200
+ *               message: Le status du compte a été mis à jour
+ *       403:
+ *         description: Accès refusé
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             example:
+ *               status: 500
+ *               message: "Une erreur est survenu"
+ */
+router.put(
+    '/users/merchant/change-status',
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN']),
+    userController.updateStatusMerchant
 )
 
 /**

@@ -43,9 +43,9 @@ WalletModel.init(
     },
     balance: {
       type: DataTypes.FLOAT,
-      defaultValue: 0.0,
+      defaultValue: 0,
       validate: {
-        min: 0.0,
+        min: 0,
       },
     },
     currency: {
@@ -102,26 +102,11 @@ WalletModel.init(
           if (!userExists) {
             throw new Error('Utilisateur lié au portefeuille introuvable');
           }
-
-          /*
-          await TransactionModel.create({
-            amount: wallet.balance - (wallet.previous('balance') ?? 0),
-            type:
-              wallet.balance - (wallet.previous('balance') ?? 0) > 0
-                ? typesTransaction['0']
-                : typesTransaction['1'],
-            userId: wallet.userId,
-            status: typesStatusTransaction['1'],
-            currency: typesCurrency['0'],
-          }, {
-            hooks: false
-          });
-          */
         }
       },
       beforeUpdate: (wallet) => {
         if (wallet.getDataValue('balance') < 0) {
-          throw new Error('Solde négatif interdit');
+          //throw new Error('Solde négatif interdit');
         }
       },
       afterSync: async () => {

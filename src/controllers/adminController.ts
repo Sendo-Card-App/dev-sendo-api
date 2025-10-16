@@ -337,7 +337,7 @@ class AdminController {
                     user.email,
                     'Status de votre compte',
                     `<h4>Voici le nouveau status de votre compte :</h4>
-                    <p>Status :</p> <b>${user.status}</b>`
+                    <p>Status : <b>${user.status}</b></p>`
                 )
 
                 logger.info("Status de l'utilisateur mis à jour", {

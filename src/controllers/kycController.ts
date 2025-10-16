@@ -241,6 +241,7 @@ class KycController {
                 const doc = await KycDocumentModel.create({
                     userId: req.user.id,
                     type,
+                    typeAccount: 'MERCHANT',
                     url: file.path,
                     publicId: file.filename,
                     status: typesKYCStatus['0']

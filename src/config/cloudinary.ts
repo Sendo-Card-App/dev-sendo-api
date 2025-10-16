@@ -35,6 +35,20 @@ const storageOptions: CloudinaryStorageOptions = {
     },
 };
 
+const storageMerchantOptions: CloudinaryStorageOptions = {
+    cloudinary: cloudinary,
+    params: {
+        folder: 'documents_merchant',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'img'],
+        resource_type: 'auto',
+        public_id: async (req, file) => {
+            const userId = req.user?.id;
+            const timestamp = Date.now();
+            return `merchant_${userId}_${timestamp}`;
+        },
+    },
+};
+
 const storageOptionsMessageFiles: CloudinaryStorageOptions = {
     cloudinary: cloudinary,
     params: {
@@ -111,6 +125,7 @@ const storagePicture = new CloudinaryStorage(storageOptionsPicture);
 const storageRequest = new CloudinaryStorage(storageOptionsRequest);
 const storageFileBank = new CloudinaryStorage(storageOptionsFileRequest);
 const storageMessageFile = new CloudinaryStorage(storageOptionsMessageFiles);
+const storageMerchant = new CloudinaryStorage(storageMerchantOptions);
 
 export const upload = multer({
     storage,
@@ -125,6 +140,17 @@ export const upload = multer({
 
 export const upload_multi = multer({
     storage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // Limit de 2 MB
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/(jpg|jpeg|png|pdf|img)$/)) {
+            return cb(new Error('Format de fichier non supporté'));
+        }
+        cb(null, true);
+    }
+}).array('files');
+
+export const upload_merchant = multer({
+    storage: storageMerchant,
     limits: { fileSize: 2 * 1024 * 1024 }, // Limit de 2 MB
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/(jpg|jpeg|png|pdf|img)$/)) {

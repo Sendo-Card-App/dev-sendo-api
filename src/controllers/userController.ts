@@ -3,7 +3,7 @@ import { sendResponse, sendError } from '@utils/apiResponse';
 import userService from '@services/userService';
 import logger from '@config/logger';
 import { generatePassword } from '@utils/functions';
-import { sendEmailVerification, sendPasswordModifiedMail, sendUserMail, sendUserMerchantMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
+import { sendEmailVerification, sendGlobalEmail, sendPasswordModifiedMail, sendUserMail, sendUserMerchantMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
 import { PaginatedData } from '../types/BaseEntity';
 import adminService from '@services/adminService';
 import authService from '@services/authService';
@@ -437,6 +437,66 @@ class UserController {
       sendResponse(res, 200, 'Photo de profil retournée', { link: picture })
     } catch (error: any) {
       sendError(res, 500, 'Erreur lors de la récupération de la picture du user', [error.message]);
+    }
+  }
+
+  async getMerchants(req: Request, res: Response) {
+    const { status, page, limit, startIndex } = res.locals.pagination;
+    try {
+      const merchants = await userService.getAllMerchants(limit, startIndex, status);
+      const totalItems = Number(merchants.count);
+      const limitNum = Number(limit);
+      const totalPages = Math.ceil(totalItems / limitNum);
+
+      const responseData: PaginatedData = {
+        page,
+        totalPages,
+        totalItems: merchants.count,
+        items: merchants.rows
+      };
+      sendResponse(res, 200, 'Marchands récupérés', responseData);
+    } catch (error: any) {
+      sendError(res, 500, 'Erreur serveur', [error.message]);
+    }
+  }
+
+  async getMerchantById(req: Request, res: Response) {
+    const { id } = req.params
+    if (!id) {
+      sendError(res, 500, 'Veuillez fournir le merchant ID');
+    }
+    try {
+      const merchant = await userService.getMerchantByUserId(Number(id))
+      sendResponse(res, 200, 'Marchand récupéré', merchant)
+    } catch (error: any) {
+      sendError(res, 400, 'Erreur de la récupération du marchand', [error.message]);
+    }
+  }
+
+  async updateStatusMerchant(req: Request, res: Response) {
+    const { id, status } = req.query
+    if (!id || !status) {
+      sendError(res, 500, 'Veuillez fournir le merchant ID et le nouveau status');
+    }
+    try {
+      const merchantUpdated = await userService.updateStatusMerchant(Number(id), status as 'ACTIVE' | 'REFUSED')
+      
+      await sendGlobalEmail(
+        merchantUpdated.user!.email,
+        'Status de votre compte',
+        `<h4>Voici le nouveau status de votre compte :</h4>
+        <p>Status : <b>${merchantUpdated.status}</b></p>`
+      )
+
+      logger.info("Status du marchant mis à jour", {
+        merchant: `Merchant ID : ${merchantUpdated.id} - ${merchantUpdated.user!.firstname} ${merchantUpdated.user!.lastname}`,
+        status: `${merchantUpdated.status}`,
+        admin: req.user ? `Admin ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}` : 'Utilisateur non trouvé'
+      });
+
+      sendResponse(res, 200, 'Statut du marchand modifié avec succès', merchantUpdated)
+    } catch (error: any) {
+      sendError(res, 400, 'Erreur de la modification du statut du marchand', [error.message]);
     }
   }
 }

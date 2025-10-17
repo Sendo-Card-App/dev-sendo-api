@@ -19,6 +19,7 @@ import tontineRoutes from './tontineRoutes';
 import pubRoutes from './pubRoutes';
 import webhookRoutes from './webhookRoutes';
 import emailRoutes from './emailRoutes';
+import merchantRoutes from './merchantRoutes';
 
 const router = express.Router();
 
@@ -42,5 +43,6 @@ router.use('/tontines', tontineRoutes);
 router.use('/admin/pubs', pubRoutes);
 router.use('/webhook', webhookRoutes);
 router.use("/email", emailRoutes);
+router.use("/merchant", merchantRoutes);
 
 export default router;

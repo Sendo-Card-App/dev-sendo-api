@@ -328,36 +328,36 @@ class UserService {
     }
 
     async getMerchant(id: number) {
-        const merchant = await MerchantModel.findByPk(id, {
-            include: [{ 
-                model: UserModel, 
-                as: 'user',
-                attributes: { exclude: ['password'] },
-                include:[
-                    {
-                        model: KycDocumentModel,
-                        as: 'kycDocuments'
-                    },
-                    {
-                        model: WalletModel,
-                        as: 'wallet'
-                    },
-                    {
-                        model: TransactionModel,
-                        as: 'transactions',
-                        attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'],
-                        order: [['createdAt', 'DESC']],
-                        limit: 10
-                    }
-                ]
-            }]
-        })
+        const user = await UserModel.findByPk(id, {
+            attributes: { exclude: ['password'] },
+            include: [
+                {
+                    model: KycDocumentModel,
+                    as: 'kycDocuments'
+                },
+                {
+                    model: MerchantModel,
+                    as: 'merchant'
+                },
+                {
+                    model: WalletModel,
+                    as: 'wallet',
+                    attributes: ['id', 'balance', 'currency', 'status', 'matricule']
+                },
+                {
+                    model: TransactionModel,
+                    as: 'transactions',
+                    attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'],
+                    order: [['createdAt', 'DESC']]
+                }
+            ]
+        });
 
-        if (!merchant) {
+        if (!user) {
             throw new Error('Utilisateur non trouvé');
         }
 
-        return merchant;
+        return user;
     }
 
     async getAllMerchants(

@@ -31,6 +31,7 @@ import PartyCard from './party-card.model';
 import CardTransactionDebtsModel from './card-transaction-debts.model';
 import { PalierModel } from './palier.model';
 import { CommissionModel } from './commission.model';
+import MerchantModel from './merchant.model';
 
   UserModel.belongsTo(UserModel, {
     as: 'referrer',

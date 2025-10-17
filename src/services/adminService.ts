@@ -136,13 +136,9 @@ class AdminService {
     }
 
     async createMerchant(userId: number, typeAccount: 'Particulier' | 'Entreprise') {
-        await UserRoleModel.create({
-            userId: userId,
-            roleId: 9
-        })
         const merchant = await MerchantModel.create({
-            userId: userId,
-            typeAccount: typeAccount,
+            userId,
+            typeAccount,
             status: 'PENDING'
         });
         return merchant;

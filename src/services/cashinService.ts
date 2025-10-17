@@ -24,9 +24,10 @@ class CashinService {
         try {
             const cashin = await neeroService.createCashInPayment(cashinPayload)
                                     
-            await wait(5000)
+            await wait(10000)
         
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            console.log('checkTransaction cashinService : ', checkTransaction)
 
             const total = troisChiffresApresVirgule(Number(object.totalAmount) + arrondiSuperieur(sendoFees))
 
@@ -61,16 +62,16 @@ class CashinService {
                         status: "COMPLETED",
                         userId: virtualCard.userId,
                         currency: object.cardCurrencyCode,
-                        totalAmount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
-                        transactionReference: object.transactionId,
+                        transactionReference: cashin.id,
                         virtualCardId: virtualCard?.id,
                         description: object.reference,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
                         receiverType: 'User',
-                        sendoFees: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        sendoFees: sendoFees,
                         createdAt: new Date(object.transactionDate)
                     }
                     await transactionService.createTransaction(transactionToCreateFees)
@@ -89,7 +90,7 @@ class CashinService {
                         'Paiement sur la carte',
                         `<p>${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
-                } else if (checkTransaction.statusUpdates.find((update: any) => update.status === "FAILED")) {
+                } else if (checkTransaction.statusUpdates.some((update: any) => update.status === "FAILED")) {
                     // On enregistre la transaction réussie
                     const transactionToCreateFees: TransactionCreate = {
                         type: 'PAYMENT',
@@ -117,7 +118,7 @@ class CashinService {
                         status: "FAILED",
                         userId: virtualCard.userId,
                         currency: object.cardCurrencyCode,
-                        totalAmount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
                         transactionReference: object.transactionId,
                         virtualCardId: virtualCard.id,
@@ -126,14 +127,14 @@ class CashinService {
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
                         receiverType: 'User',
-                        sendoFees: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        sendoFees: sendoFees,
                         createdAt: new Date(object.transactionDate)
                     }
                     await transactionService.createTransaction(transactionToCreateDebt)
 
                     // on enregistre le reste comme dette
                     const debt: VirtualCardDebtCreate = {
-                        amount: troisChiffresApresVirgule(arrondiSuperieur(sendoFees)),
+                        amount: sendoFees,
                         userId: virtualCard.userId,
                         cardId: virtualCard.id,
                         intitule: object.reference || 'Frais de rejet'
@@ -143,7 +144,7 @@ class CashinService {
                     // On envoie la notification
                     await notificationService.save({
                         title: 'Sendo',
-                        content: `${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Vous avez néanmoins une dette de ${arrondiSuperieur(sendoFees)} XAF enregistrée.`,
+                        content: `${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.`,
                         userId: virtualCard.userId,
                         status: 'SENDED',
                         token: token?.token ?? '',
@@ -152,7 +153,7 @@ class CashinService {
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
-                        `<p>${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Vous avez néanmoins une dette de ${arrondiSuperieur(sendoFees)} XAF enregistrée.</p>`
+                        `<p>${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.</p>`
                     )
                 }
             } else {

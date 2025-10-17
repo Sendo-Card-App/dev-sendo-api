@@ -446,6 +446,7 @@ class TontineController {
             const account = await tontineService.updateSequestreAccount(
                 Number(tontineId),
                 Number(amount),
+                req.user!.id,
                 'DEPOSIT'
             )
 
@@ -468,6 +469,7 @@ class TontineController {
             const account = await tontineService.updateSequestreAccount(
                 Number(tontineId),
                 Number(amount),
+                req.user!.id,
                 'WITHDRAWAL'
             )
 

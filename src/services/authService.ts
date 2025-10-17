@@ -1,6 +1,6 @@
 import UserModel from "@models/user.model";
 import { UserCreate } from "../types/User";
-import { TokenModel, WalletModel } from "@models/index.model";
+import { RoleModel, TokenModel, WalletModel } from "@models/index.model";
 import { Op } from "sequelize";
 
 class AuthService {

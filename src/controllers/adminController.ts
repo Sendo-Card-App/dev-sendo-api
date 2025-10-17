@@ -146,7 +146,7 @@ class AdminController {
     async bulkReview(req: Request, res: Response) {
         try {
             const { documents } = req.body;
-            const adminId = req.user?.id;
+            const adminId = req.user!.id;
 
             if (!adminId) sendError(res, 500, 'Admin non authentifié');
 

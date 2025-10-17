@@ -29,6 +29,8 @@ import CompteSequestreModel from './compte-sequestre.model';
 import PaymentMethodModel from './payment-method.model';
 import PartyCard from './party-card.model';
 import CardTransactionDebtsModel from './card-transaction-debts.model';
+import { PalierModel } from './palier.model';
+import { CommissionModel } from './commission.model';
 
   UserModel.belongsTo(UserModel, {
     as: 'referrer',
@@ -231,6 +233,11 @@ import CardTransactionDebtsModel from './card-transaction-debts.model';
   UserModel.hasMany(CardTransactionDebtsModel, { foreignKey: 'userId', as: 'debts' });
   VirtualCardModel.hasMany(CardTransactionDebtsModel, { foreignKey: 'cardId', as: 'debts' });
 
+  /** -------------------------------
+   * Palier ↔ Commission
+   * ------------------------------- */
+  CommissionModel.hasMany(PalierModel, { foreignKey: 'commissionId', as: 'palier' });
+  PalierModel.belongsTo(CommissionModel, { foreignKey: 'commissionId', as: 'commission' });
 
 export {
   RoleModel,

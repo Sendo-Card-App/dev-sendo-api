@@ -62,7 +62,11 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
     });
 };
 
-export const sendUserMail = async (user: UserModel, password: string) => {
+export const sendUserMail = async (
+    user: UserModel, 
+    password: string, 
+    typeAccount: 'Particulier' | 'Entreprise' | 'Customer'
+) => {
     await transporter.sendMail({
         from: sender,
         to: user.email,
@@ -70,29 +74,11 @@ export const sendUserMail = async (user: UserModel, password: string) => {
         category: 'Création de compte',
         html: basicEmailTemplate(
             `
-                <p>${user.firstname} ${user.lastname}, votre compte a été créé, voici vos identifiants de connexion :</p>
+                <p>${user.firstname} ${user.lastname}, votre compte ${typeAccount != 'Customer' && 'agent'} a été créé, voici vos identifiants de connexion :</p>
                 <ul>
                     <li><b>Email : </b>${user.email}</li>
                     <li><b>Mot de passe : </b>${password}</li>
-                </ul>
-            `
-        )
-    });
-}
-
-export const sendUserMerchantMail = async (user: UserModel, password: string, typeMerchantAccount: string) => {
-    await transporter.sendMail({
-        from: sender,
-        to: user.email,
-        subject: 'Nouveau compte créé',
-        category: 'Création de compte agent',
-        html: basicEmailTemplate(
-            `
-                <p>${user.firstname} ${user.lastname}, votre compte agent a été créé, voici vos identifiants de connexion :</p>
-                <ul>
-                    <li><b>Email : </b>${user.email}</li>
-                    <li><b>Mot de passe : </b>${password}</li>
-                    <li><b>Type de compte agent : </b>${typeMerchantAccount}</li>
+                    ${typeAccount != 'Customer' && `<li><b>Type de compte agent : </b>${typeAccount}</li>`}
                 </ul>
             `
         )

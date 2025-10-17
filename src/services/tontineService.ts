@@ -1290,7 +1290,12 @@ class TontineService {
         });
     }
 
-    async updateSequestreAccount(tontineId: number, amount: number, action: 'DEPOSIT' | 'WITHDRAWAL') {
+    async updateSequestreAccount(
+        tontineId: number, 
+        amount: number, 
+        adminId: number,
+        action: 'DEPOSIT' | 'WITHDRAWAL'
+    ) {
         const account = await CompteSequestreModel.findOne({
             where: { tontineId }
         })
@@ -1303,7 +1308,22 @@ class TontineService {
 
         if (action === 'DEPOSIT') account.soldeActuel = account.soldeActuel + amount;
         else account.soldeActuel = account.soldeActuel - amount;
-        account.save();
+        await account.save();
+
+        const transaction: TransactionCreate = {
+            amount: amount,
+            userId: adminId,
+            type: 'TONTINE_PAYMENT',
+            status: 'COMPLETED',
+            totalAmount: amount,
+            currency: 'XAF',
+            description: action === 'DEPOSIT' ? `Dépôt par Sendo dans compte séquestre tontine #${account.tontineId}` : `Retrait par Sendo du compte séquestre tontine #${account.tontineId}`,
+            provider: 'SYSTEM',
+            receiverType: 'User',
+            receiverId: adminId,
+            method: 'WALLET'
+        };
+        await transactionService.createTransaction(transaction);
 
         return account.reload();
     }

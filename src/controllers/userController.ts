@@ -3,7 +3,7 @@ import { sendResponse, sendError } from '@utils/apiResponse';
 import userService from '@services/userService';
 import logger from '@config/logger';
 import { generatePassword } from '@utils/functions';
-import { sendEmailVerification, sendGlobalEmail, sendPasswordModifiedMail, sendUserMail, sendUserMerchantMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
+import { sendEmailVerification, sendGlobalEmail, sendPasswordModifiedMail, sendUserMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
 import { PaginatedData } from '../types/BaseEntity';
 import adminService from '@services/adminService';
 import authService from '@services/authService';
@@ -82,18 +82,17 @@ class UserController {
       const user = await authService.register(newUser);
       if (user) {
         const roleParsed = parseInt(roleId)
-        if (roleParsed < 8) {
-          await adminService.attributeRoleUser(user.id, roleParsed)
-        } else if (roleParsed === 9 && typeMerchantAccount) {
+        await adminService.attributeRoleUser(user.id, roleParsed)
+        
+        if (roleParsed === 9 && typeMerchantAccount) {
           await adminService.createMerchant(
             user.id, 
             typeMerchantAccount as 'Particulier' | 'Entreprise'
           )
-          await sendUserMerchantMail(user, password, typeMerchantAccount)
-        } else if (roleParsed !== 9) {
-          await sendUserMail(user, password);
+          await sendUserMail(user, password, typeMerchantAccount)
+        } else {
+          await sendUserMail(user, password, 'Customer');
         }
-        
 
         // Génération du token de vérification
         const verificationToken = generateVerificationToken();

@@ -167,12 +167,13 @@ class WalletController {
             const transaction: TransactionCreate = {
                 userId: wallet!.user!.id,
                 type: 'DEPOSIT',
-                amount: Number(amount),
+                amount: 0,
                 status: 'COMPLETED',
                 currency: 'XAF',
                 totalAmount: Number(amount),
                 method: 'WALLET',
                 description: "Dépôt par SENDO",
+                sendoFees: Number(amount),
                 receiverId: wallet!.user!.id,
                 transactionReference: generateAlphaNumeriqueString(12),
                 receiverType: 'User'
@@ -209,10 +210,11 @@ class WalletController {
             const transaction: TransactionCreate = {
                 userId: wallet!.user!.id,
                 type: 'WITHDRAWAL',
-                amount: Number(amount),
+                amount: 0,
                 status: 'COMPLETED',
                 currency: 'XAF',
                 totalAmount: Number(amount),
+                sendoFees: Number(amount),
                 method: 'WALLET',
                 description: "Retrait par SENDO",
                 receiverId: wallet!.user!.id,

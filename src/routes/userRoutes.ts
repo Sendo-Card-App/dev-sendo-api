@@ -132,6 +132,70 @@ router.get(
 
 /**
  * @swagger
+ * /users/merchants:
+ *   get:
+ *     summary: Liste de tous les marchants (agents)
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         type: integer
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         type: integer
+ *         default: 10
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste de tous les marchants (agents) récupérée avec succès
+ *         content:
+ *           application/json:
+ *            schema:
+ *              type: object
+ */
+router.get(
+    '/merchants',
+    authMiddleware,
+    paginationMiddleware,
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER_ADVISER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CARD_MANAGER']),
+    userController.getMerchants
+)
+
+/**
+ * @swagger
+ * /users/merchant/{id}:
+ *   get:
+ *     summary: Récupérer les données d'un marchant par son ID
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         $ref: '#/components/responses/User'
+ *       404:
+ *         description: Utilisateur non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
+router.get(
+    '/merchant/:id',
+    authMiddleware,
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER_ADVISER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CARD_MANAGER']),
+    userController.getMerchantById
+)
+
+/**
+ * @swagger
  * /users/{id}:
  *   get:
  *     summary: Récupérer les données d'un utilisateur

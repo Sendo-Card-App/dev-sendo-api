@@ -341,7 +341,6 @@ class AuthController {
     
     try {
       if (!token) {
-        //sendError(res, 400, 'Token manquant');
         return res.status(400).render('verification-result', {
           message: 'Token manquant',
           status: 400
@@ -364,7 +363,6 @@ class AuthController {
 
       const user = await UserModel.findByPk(verificationToken.userId);
       if (!user) {
-        //return sendError(res, 404, 'Utilisateur non trouvé');
         return res.status(404).render('verification-result', {
           message: 'Utilisateur non trouvé',
           status: 404
@@ -372,6 +370,7 @@ class AuthController {
       }
 
       user.isVerifiedEmail = true;
+      user.isVerifiedPhone = true;
       await user.save();
       await verificationToken.destroy();
 

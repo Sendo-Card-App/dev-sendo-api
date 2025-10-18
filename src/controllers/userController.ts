@@ -138,7 +138,9 @@ class UserController {
       }
       
       let user: UserModel | MerchantModel | null;
-      if (req.user.roles?.some(role => role.name === 'MERCHANT')) {
+      const isMerchant = Array.isArray(req.user.roles) && req.user.roles.some(role => role.name === 'MERCHANT');
+
+      if (isMerchant) {
         user = await userService.getMerchant(req.user.id);
       } else {
         user = await userService.getMe(req.user.id);

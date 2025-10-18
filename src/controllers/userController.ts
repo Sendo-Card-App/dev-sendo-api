@@ -138,7 +138,6 @@ class UserController {
       }
       
       let user: UserModel | MerchantModel | null;
-      console.log('roles users : ', req.user.roles)
       const isMerchant = Array.isArray(req.user.roles) && req.user.roles.some(role => role.name === 'MERCHANT');
 
       if (isMerchant) {

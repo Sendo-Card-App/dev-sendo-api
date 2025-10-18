@@ -9,7 +9,6 @@ import transactionService from '@services/transactionService';
 import walletService from '@services/walletService';
 import { typesKYCStatus, typesMethodTransaction, typesStatusTransaction, TypesStatusUser, TypesStatusWallet, typesTransaction } from '@utils/constants';
 import logger from '@config/logger';
-import mobileMoneyController from './mobileMoneyController';
 import UserModel from '@models/user.model';
 import kycService from '@services/kycService';
 import notificationService from '@services/notificationService';

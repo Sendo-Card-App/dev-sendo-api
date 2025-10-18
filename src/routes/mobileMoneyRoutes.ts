@@ -226,7 +226,7 @@ router.post(
     '/neero/init/withdrawal',
     authMiddleware, 
     verifyPasscode, 
-    //checkKYC,
+    checkKYC,
     hasRole(['CUSTOMER']),
     mobileMoneyController.debitWalletNeero
 )

@@ -437,6 +437,12 @@ class UserService {
         }
         await MerchantModel.update({ status }, options);
 
+        const user = await UserModel.findByPk(merchantExits.userId)
+        user!.isVerifiedKYC = true;
+        user!.isVerifiedEmail = true;
+        user!.isVerifiedPhone = true;
+        await user?.save();
+
         return merchantExits.reload();
     }
 }

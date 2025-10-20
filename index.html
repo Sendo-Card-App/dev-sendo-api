@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Socket.IO Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Test client Socket.IO</h1>
+  <script>
+    // Remplacez http://localhost:3000 par l'URL de votre serveur Socket.IO
+    const socket = io('http://localhost:3000', {
+        path: '/api/socket.io',
+        auth: { token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZGV2aWNlSWQiOiIwNWZjYTFmOC0zNmU3LTQ4MmEtYjZlMy05NDZjMDk4YzM2NzQiLCJpYXQiOjE3NTMyNzAyOTAsImV4cCI6MTc1Mzg3NTA5MH0.WhC11nKak-63ZycjwdzDSKFY4EeJT21i2rOkHH3JDKM' } // ou vide si pas d'auth pour test
+    });
+
+    socket.on('connect', () => {
+      console.log('Connecté avec l’id:', socket.id);
+      // Exemple : joindre une conversation
+      socket.emit('join_conversation', 'test');
+      // Exemple : envoyer un message
+      socket.emit('send_message', {
+        conversationId: 'test',
+        content: 'Bonjour depuis le client test !'
+      });
+    });
+
+    socket.on('new_message', (message) => {
+      console.log('Nouveau message reçu:', message);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Erreur de connexion:', error.message);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Déconnecté du serveur');
+    });
+  </script>
+</body>
+</html>

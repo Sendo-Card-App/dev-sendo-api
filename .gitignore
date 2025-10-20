@@ -1,0 +1,11 @@
+node_modules
+public
+dist
+bin
+.dist
+logs
+.env
+.env.local
+.env.*.local
+google-services.json
+serviceAccountKey.json

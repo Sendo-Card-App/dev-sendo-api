@@ -20,6 +20,7 @@ import pubRoutes from './pubRoutes';
 import webhookRoutes from './webhookRoutes';
 import emailRoutes from './emailRoutes';
 import merchantRoutes from './merchantRoutes';
+import debtRoutes from './debtRoutes';
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.use('/wallet', walletRoutes)
 router.use('/kyc', kycRoutes);
 router.use('/transactions', transactionRoutes);
 router.use('/cards', cardRoutes);
+router.use('/debts', debtRoutes);
 router.use('/admin', adminRoutes);
 router.use('/requests', requestRoutes);
 router.use('/configs', configRoutes);

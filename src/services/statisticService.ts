@@ -864,7 +864,9 @@ class StatisticsService {
                         attributes: ['type', [fn('SUM', col('sendoFees')), 'totalFees']],
                         where: {
                             ...whereClause,
-                            status: 'COMPLETED'
+                            status: {
+                                [Op.notIn]: ['FAILED', 'BLOCKED']
+                            }
                         }, 
                         group: ['type'],
                         transaction

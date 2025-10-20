@@ -251,7 +251,7 @@ const options: swaggerJsdoc.Options = {
     servers: [
       {
         url: 'https://dev.api.sf-e.ca/api',
-        description: 'Serveur de test en ligne',
+        description: 'Serveur de test en production',
       },
       {
         url: 'http://localhost:3001/api',
@@ -274,6 +274,10 @@ const options: swaggerJsdoc.Options = {
       {
         name: 'Virtual Cards',
         description: 'Gestion des cartes virtuelles'
+      },
+      {
+        name: 'Debts',
+        description: 'Gestion des dettes'
       },
       {
         name: 'Transactions',
@@ -338,10 +342,6 @@ const options: swaggerJsdoc.Options = {
       {
         name: 'Email',
         description: 'Gestion de l\'envoi d\'emails'
-      },
-      {
-        name: 'Merchant',
-        description: 'Gestion des operations des agents'
       }
     ]
   },

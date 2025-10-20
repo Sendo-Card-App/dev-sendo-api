@@ -16,6 +16,7 @@ import PaymentMethodModel from "@models/payment-method.model";
 import { CardPayload } from "../types/Neero";
 import userService from "@services/userService";
 import cashinService from "@services/cashinService";
+import debtService from "@services/debtService";
 
 const WEBHOOK_SECRET = process.env.NEERO_WEBHOOK_KEY || ''
 
@@ -162,22 +163,35 @@ class WebhookController {
                     const matricule = transaction.user!.wallet!.matricule;
                     const amountNum = Number(transaction.amount)
                     const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
-
-                    await walletService.creditWallet(
-                        matricule,
-                        amountNum
-                    )
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Votre retrait de ${transaction.amount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
-                        userId: transaction.user!.id,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_CARD'
-                    })
+                    if (transaction.amount > 0) {
+                        await walletService.creditWallet(
+                            matricule,
+                            amountNum
+                        )
+
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Votre retrait de ${transaction.amount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
+                            userId: transaction.user!.id,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'SUCCESS_WITHDRAWAL_CARD'
+                        })
+                    } else {
+                        const debt = await debtService.getOneDebt(virtualCard!.id)
+                        debt!.destroy()
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `${transaction.description} d'un montant de ${transaction.totalAmount} XAF`,
+                            userId: transaction.user!.id,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'SUCCESS_WITHDRAWAL_CARD'
+                        })
+                    }
                 }
             } else if (
                 mapNeeroStatusToSendo(event.data.object.newStatus) === "FAILED" ||

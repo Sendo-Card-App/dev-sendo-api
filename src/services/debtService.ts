@@ -113,6 +113,10 @@ class DebtService {
             where: { cardId: idCard }
         })
     }
+
+    async getDebtById(id: number) {
+        return CardTransactionDebtsModel.findByPk(id)
+    }
 }
 
 export default new DebtService();

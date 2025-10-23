@@ -24,7 +24,7 @@ class CashinService {
         try {
             const cashin = await neeroService.createCashInPayment(cashinPayload)
                                     
-            await wait(10000)
+            await wait(3000)
         
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
             console.log('checkTransaction cashinService : ', checkTransaction)
@@ -35,26 +35,6 @@ class CashinService {
                 if (
                     checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
                 ) {
-                    // On enregistre la transaction réussie
-                    const transactionToCreate: TransactionCreate = {
-                        type: 'PAYMENT',
-                        amount: Number(object.totalAmount),
-                        status: "COMPLETED",
-                        userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
-                        totalAmount: Number(object.totalAmount),
-                        method: typesMethodTransaction['2'],
-                        transactionReference: object.transactionId,
-                        virtualCardId: virtualCard?.id,
-                        description: object.reference,
-                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
-                        provider: 'CARD',
-                        receiverId: virtualCard.userId,
-                        receiverType: 'User',
-                        createdAt: new Date(object.transactionDate)
-                    }
-                    await transactionService.createTransaction(transactionToCreate)
-
                     // On enregistre la transaction du paiement des frais
                     const transactionToCreateFees: TransactionCreate = {
                         type: 'PAYMENT',
@@ -91,26 +71,6 @@ class CashinService {
                         `<p>${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
                 } else if (checkTransaction.statusUpdates.some((update: any) => update.status === "FAILED")) {
-                    // On enregistre la transaction réussie
-                    const transactionToCreateFees: TransactionCreate = {
-                        type: 'PAYMENT',
-                        amount: Number(object.totalAmount),
-                        status: "COMPLETED",
-                        userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
-                        totalAmount: Number(object.totalAmount),
-                        method: typesMethodTransaction['2'],
-                        transactionReference: object.transactionId,
-                        virtualCardId: virtualCard?.id,
-                        description: object.reference,
-                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
-                        provider: 'CARD',
-                        receiverId: virtualCard.userId,
-                        receiverType: 'User',
-                        createdAt: new Date(object.transactionDate)
-                    }
-                    await transactionService.createTransaction(transactionToCreateFees)
-
                     // On enregistre la transaction des frais échouée
                     const transactionToCreateDebt: TransactionCreate = {
                         type: 'PAYMENT',
@@ -155,6 +115,27 @@ class CashinService {
                         'Paiement sur la carte',
                         `<p>${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.</p>`
                     )
+                } else {
+                    // On enregistre la transaction des frais échouée
+                    const transactionToCreateDebt: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: 0,
+                        status: 'PENDING',
+                        userId: virtualCard.userId,
+                        currency: object.cardCurrencyCode,
+                        totalAmount: sendoFees,
+                        method: typesMethodTransaction['2'],
+                        transactionReference: object.transactionId,
+                        virtualCardId: virtualCard.id,
+                        description: object.reference,
+                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard.userId,
+                        receiverType: 'User',
+                        sendoFees: sendoFees,
+                        createdAt: new Date(object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreateDebt)
                 }
             } else {
                 if (

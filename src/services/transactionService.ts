@@ -6,7 +6,7 @@ import { Op } from "sequelize";
 import { getUTCBoundaries } from "@utils/functions";
 import walletService from "./walletService";
 import mobileMoneyService from "./mobileMoneyService";
-import { typesMethodTransaction, typesNotification, typesTransaction } from "@utils/constants";
+import { TypesMethodTransaction, typesMethodTransaction, typesNotification, TypesTransaction, typesTransaction } from "@utils/constants";
 import mobileMoneyController from "@controllers/mobileMoneyController";
 import notificationService from "./notificationService";
 import VirtualCardModel from "@models/virtualCard.model";
@@ -483,6 +483,25 @@ class TransactionService {
             }
         }
     }
+
+    async getLastUserTransactionByType(
+        userId: number, 
+        type: TypesTransaction,
+        method: TypesMethodTransaction,
+        amount: number
+    ) {
+        return await TransactionModel.findOne({
+            where: {
+                userId: userId,
+                type: type,
+                method: method,
+                amount: amount
+            },
+            order: [['createdAt', 'DESC']],
+            limit: 1
+        });
+    }
+
 }
 
 export default new TransactionService();

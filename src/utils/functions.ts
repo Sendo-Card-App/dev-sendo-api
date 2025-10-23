@@ -1,10 +1,11 @@
 import { randomInt } from 'crypto';
 import crypto from 'crypto';
-import { TypesDemande, TypesStatusCard, TypesStatusDemande, typesStatusTransaction } from './constants';
+import { TypesDemande, TypesMethodTransaction, TypesStatusCard, TypesStatusDemande, typesStatusTransaction, TypesTransaction } from './constants';
 import FundRequestModel from '@models/fund-request.model';
 import { Request } from 'express';
 import axios from 'axios';
 import { extname } from 'path';
+import transactionService from '@services/transactionService';
 
 // Interface pour représenter un fichier téléchargé
 export interface DownloadedFile {
@@ -384,3 +385,18 @@ export function troisChiffresApresVirgule(nombre: number): number {
   return Math.round(nombre * 1000) / 1000;
 }
 
+export async function canInitiateTransaction(
+  userId: number, 
+  type: TypesTransaction,
+  method: TypesMethodTransaction,
+  amount: number
+): Promise<boolean> {
+  const lastTransaction = await transactionService.getLastUserTransactionByType(userId, type, method, amount);
+  if (!lastTransaction) {
+    return true; // Pas de transaction précédente
+  }
+  const lastTimestamp = new Date(lastTransaction.createdAt).getTime();
+  const currentTimestamp = Date.now();
+  const diffMinutes = (currentTimestamp - lastTimestamp) / (1000 * 60);
+  return diffMinutes >= 3;
+}

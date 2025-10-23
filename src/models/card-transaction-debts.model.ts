@@ -2,6 +2,7 @@ import { CreationOptional, DataTypes, ForeignKey, InferAttributes, InferCreation
 import UserModel from './user.model';
 import VirtualCardModel from './virtualCard.model';
 import sequelize from '@config/db';
+import TransactionModel from './transaction.model';
 
 class CardTransactionDebtsModel extends Model<
   InferAttributes<CardTransactionDebtsModel>,

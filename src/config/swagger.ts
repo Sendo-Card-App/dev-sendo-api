@@ -342,10 +342,6 @@ const options: swaggerJsdoc.Options = {
       {
         name: 'Email',
         description: 'Gestion de l\'envoi d\'emails'
-      },
-      {
-        name: 'Merchant',
-        description: 'Gestion des operations des agents'
       }
     ]
   },

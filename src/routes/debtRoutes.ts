@@ -102,6 +102,43 @@ router.post(
 
 /**
  * @swagger
+ * /debts/{idDebt}/debit-partial-from-card:
+ *   post:
+ *     summary: Payer une dette partiellement par son ID a travers la carte
+ *     description: Payer une dette partiellement par son ID a travers la carte
+ *     tags: [Debts]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idDebt
+ *         required: true
+ *         type: number
+ *         default: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               idCard:
+ *                 type: number
+ *               partialAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: La requête a été initiée avec succès
+ */
+router.post(
+    '/:idDebt/debit-partial-from-card',
+    authMiddleware,
+    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
+    debtController.debitPartialDebtFromCard
+)
+
+/**
+ * @swagger
  * /debts/{idCard}/pay-from-card:
  *   post:
  *     summary: Payer toutes les dettes d'une carte virtuelle a travers la carte
@@ -159,6 +196,43 @@ router.post(
 
 /**
  * @swagger
+ * /debts/{idDebt}/debit-partial-from-wallet:
+ *   post:
+ *     summary: Payer une dette partiellement par son ID a travers le wallet
+ *     description: Payer une dette partiellement par son ID a travers le wallet
+ *     tags: [Debts]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idDebt
+ *         required: true
+ *         type: number
+ *         default: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             properties:
+ *               userId:
+ *                 type: number
+ *               partialAmount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: La requête a été initiée avec succès
+ */
+router.post(
+    '/:idDebt/debit-partial-from-wallet',
+    authMiddleware,
+    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
+    debtController.debitPartialFromWallet
+)
+
+/**
+ * @swagger
  * /debts/{userId}/pay-from-wallet:
  *   post:
  *     summary: Payer toutes les dettes d'une carte virtuelle a travers le wallet
@@ -181,6 +255,31 @@ router.post(
     authMiddleware,
     hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
     debtController.payDebtsFromWallet
+)
+
+/**
+ * @swagger
+ * /debts/{idDebt}:
+ *   delete:
+ *     summary: Supprimer une dette
+ *     tags: [Debts]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idDebt
+ *         required: true
+ *         type: integer
+ *         default: 123
+ *     responses:
+ *       204:
+ *         description: Dette supprimée avec succès
+ */
+router.delete(
+    '/:idDebt',
+    authMiddleware,
+    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
+    debtController.deleteDebt
 )
 
 export default router;

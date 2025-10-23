@@ -5,7 +5,7 @@ import notificationService from "@services/notificationService";
 import transactionService from "@services/transactionService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
 import { TransactionCreate } from "../types/Transaction";
-import { sendResponse } from "@utils/apiResponse";
+import { sendError, sendResponse } from "@utils/apiResponse";
 import { arrondiSuperieur, checkSignatureNeero, mapNeeroStatusToSendo, roundToNextMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
 import { Request, Response } from "express";
 import configService from "@services/configService";
@@ -17,6 +17,7 @@ import { CardPayload } from "../types/Neero";
 import userService from "@services/userService";
 import cashinService from "@services/cashinService";
 import debtService from "@services/debtService";
+import { PaginatedData } from "../types/BaseEntity";
 
 const WEBHOOK_SECRET = process.env.NEERO_WEBHOOK_KEY || ''
 
@@ -32,10 +33,13 @@ class WebhookController {
         const event = req.body;
         console.log('Événement webhook reçu : ', event)
 
+        await neeroService.saveWebhookEvent(req)
+
+        sendResponse(res, 200, 'Webhook reçu', true)
+
         // Webhook pour les transactions intents
         if (event.type === "transactionIntent.statusUpdated") {
             const transactionReference =  event.data.object.transactionIntentId.trim();
-            console.log(`transaction intent id : ${transactionReference}`)
             const transaction = await transactionService.getTransactionByReference(String(transactionReference))
 
             if (
@@ -192,11 +196,23 @@ class WebhookController {
                             type: 'SUCCESS_WITHDRAWAL_CARD'
                         })
                     }
+                } else if (
+                    transaction?.type === 'VIEW_CARD_DETAILS' &&
+                    transaction.status === 'PENDING' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    transaction.status = 'COMPLETED';
+                    await transaction.save();
                 }
             } else if (
                 mapNeeroStatusToSendo(event.data.object.newStatus) === "FAILED" ||
                 mapNeeroStatusToSendo(event.data.object.status) === "FAILED"
             ) {
+                if (transaction && transaction.status === 'PENDING') {
+                    transaction.status = 'FAILED';
+                    await transaction.save();
+                }
+
                 const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
                 await notificationService.save({
                     title: 'Sendo',
@@ -286,6 +302,27 @@ class WebhookController {
                 // On enregistre la transaction
                 if (mapNeeroStatusToSendo(event.data.object.status) === 'COMPLETED') {
                     console.log("on entre dans le success")
+
+                    // On enregistre la transaction réussie
+                    const transactionToCreate: TransactionCreate = {
+                        type: 'PAYMENT',
+                        amount: Number(event.data.object.totalAmount),
+                        status: "COMPLETED",
+                        userId: virtualCard!.userId,
+                        currency: event.data.object.cardCurrencyCode,
+                        totalAmount: Number(event.data.object.totalAmount),
+                        method: typesMethodTransaction['2'],
+                        transactionReference: event.data.object.transactionId,
+                        virtualCardId: virtualCard?.id,
+                        description: event.data.object.reference,
+                        partnerFees: Number(event.data.object.totalAmount) - (Number(event.data.object.transactionOriginAmount) || Number(event.data.object.baseAmount)),
+                        provider: 'CARD',
+                        receiverId: virtualCard!.userId,
+                        receiverType: 'User',
+                        createdAt: new Date(event.data.object.transactionDate)
+                    }
+                    await transactionService.createTransaction(transactionToCreate)
+
                     const card = await cardService.getPaymentMethodCard(virtualCard?.id ?? 0)
                     let balanceObject = null;
                     console.log("on check le solde de la carte virtuelle")
@@ -417,7 +454,7 @@ class WebhookController {
                             await cardService.saveDebt(debt)
                         }
                     } 
-                } else if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
+                } else if (event.data.object.status == 'FAILED') {
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
@@ -640,90 +677,65 @@ class WebhookController {
                     card: `${virtualCard!.cardName} - ${virtualCard!.cardId}`
                 });
             }
-        } /*else if (event.type === "CASHOUT" && event.paymentType === "NEERO_CARD_CASHIN") {
-            const transactionId = event.data.object.transactionIntentId
-            const neeroTransaction = await neeroService.getTransactionIntentById(transactionId)
-            const transaction = await transactionService.getTransactionByReference(transactionId)
-            
-            if (
-                neeroTransaction.status === "SUCCESSFUL" &&
-                transaction?.type === 'DEPOSIT' &&
-                transaction.status === 'PENDING'
-            ) {
-                // On crédite le montant chez le user
-                await walletService.debitWallet(
-                    transaction?.user?.wallet?.matricule ?? '',
-                    transaction.totalAmount
-                )
-                transaction.status = 'COMPLETED'
-                transaction.save();
-
-                // On envoie la notification
-                const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `${transaction?.user?.firstname} votre recharge de carte virtuelle a été effectuée avec succès`,
-                    userId: transaction?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_DEPOSIT_CARD'
-                })
-                
-            } else {
-                const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre opération n'a pas été un succès`,
-                    userId: transaction?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'ERROR'
-                })
-            }
-        } else if (event.type === "CASHIN" && event.paymentType === "NEERO_CARD_CASHOUT") {
-            const transactionId = event.data.object.transactionIntentId
-            const neeroTransaction = await neeroService.getTransactionIntentById(transactionId)
-            const transaction = await transactionService.getTransactionByReference(transactionId)
-            
-            if (
-                neeroTransaction.status === "SUCCESSFUL" &&
-                transaction?.type === 'WITHDRAWAL' &&
-                transaction.status === 'PENDING'
-            ) {
-                // On crédite le montant chez le user
-                await walletService.creditWallet(
-                    transaction?.user?.wallet?.matricule ?? '',
-                    transaction.totalAmount
-                )
-                transaction.status = 'COMPLETED'
-                transaction.save();
-
-                // On envoie la notification
-                const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre retrait de ${transaction.totalAmount} XAF s'est effectué avec succès`,
-                    userId: transaction?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_CARD'
-                })
-                
-            } else {
-                const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre opération n'a pas été un succès`,
-                    userId: transaction?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'ERROR'
-                })
-            }
-        }*/
-
-        sendResponse(res, 200, 'Webhook reçu', true)
+        }
     }
+
+    async getEvents(req: Request, res: Response) {
+        const { page, limit, startIndex, startDate, endDate } = res.locals.pagination;
+        try {
+
+            const events = await neeroService.getWebhookEvents(limit, startIndex, startDate, endDate);
+
+            // Parser la propriété content de chaque enregistrement
+            const parsedItems = events.rows.map(event => {
+                const parsedContent = event.content ? JSON.parse(event.content) : null;
+                return {
+                    ...event.toJSON(),
+                    content: parsedContent
+                };
+            });
+
+            const totalPages = Math.ceil(events.count / limit);
+            const responseData: PaginatedData = {
+                page,
+                totalPages,
+                totalItems: events.count,
+                items: parsedItems
+            };
+
+            sendResponse(res, 200, 'Webhook events récupérés', responseData);
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message]);
+        }
+    }
+
+    async getEventById(req: Request, res: Response) {
+        const { id } = req.params;
+        try {
+            if (!id) {
+                sendError(res, 401, "Veuillez fournir l'ID du webhook", {});
+                return;
+            }
+
+            const event = await neeroService.getWebhookEventById(Number(id));
+            if (!event) {
+                sendError(res, 404, 'Webhook introuvable', {});
+                return;
+            }
+
+            // Parser la propriété content
+            const parsedContent = event.content ? JSON.parse(event.content) : null;
+            const eventWithParsedContent = {
+                ...event.toJSON(),
+                content: parsedContent
+            };
+
+            sendResponse(res, 200, 'Webhook event récupéré', eventWithParsedContent);
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message]);
+        }
+    }
+
 }
 
 export default new WebhookController()

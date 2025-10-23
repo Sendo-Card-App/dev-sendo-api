@@ -31,7 +31,7 @@ const router = Router()
  *         required: false
  *         schema:
  *           type: string
- *           enum: [DEPOSIT, WITHDRAWAL, TRANSFER]
+ *           enum: [DEPOSIT, WITHDRAWAL, TRANSFER, PAYMENT, WALLET_TO_WALLET, SHARED_PAYMENT, FUND_REQUEST_PAYMENT, TONTINE_PAYMENT, VIEW_CARD_DETAILS]
  *       - in: query
  *         name: status
  *         required: false
@@ -43,7 +43,7 @@ const router = Router()
  *         required: false
  *         schema:
  *           type: string
- *           enum: [MOBILE_MONEY, BANK_TRANSFER, CREDIT_CARD]
+ *           enum: [MOBILE_MONEY, BANK_TRANSFER, VIRTUAL_CARD, WALLET]
  *         description: Les différentes méthodes de dépôt
  *       - in: query
  *         name: startDate
@@ -135,7 +135,7 @@ router.get(
  *         required: false
  *         schema:
  *           type: string
- *           enum: [DEPOSIT, WITHDRAWAL, TRANSFER]
+ *           enum: [DEPOSIT, WITHDRAWAL, TRANSFER, PAYMENT, WALLET_TO_WALLET, SHARED_PAYMENT, FUND_REQUEST_PAYMENT, TONTINE_PAYMENT, VIEW_CARD_DETAILS]
  *       - in: query
  *         name: status
  *         required: false
@@ -147,7 +147,7 @@ router.get(
  *         required: false
  *         schema:
  *           type: string
- *           enum: [MOBILE_MONEY, BANK_TRANSFER, CREDIT_CARD]
+ *           enum: [MOBILE_MONEY, BANK_TRANSFER, VIRTUAL_CARD, WALLET]
  *         description: Les différentes méthodes de dépôt
  *       - in: query
  *         name: startDate

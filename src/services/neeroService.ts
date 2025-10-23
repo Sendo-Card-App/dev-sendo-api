@@ -6,6 +6,10 @@ import FormData from 'form-data';
 const { Readable } = require('node:stream');
 import 'dotenv-flow/config';
 import 'module-alias/register';
+import WebhookEventModel from '@models/event-webhook.model';
+import { Op } from 'sequelize';
+import { getUTCBoundaries } from '@utils/functions';
+import { Request } from 'express';
 
 interface PayPalDetails {
     email: string;
@@ -112,6 +116,13 @@ interface FlowTransaction {
 interface DisplayInfo {
   name: string;
   imageUrl: string;
+}
+
+export interface WebhookEventCreate {
+    statusCode?: number;
+    statusMessage?: string;
+    webhookId: string;
+    content: string;
 }
 
 export interface CashInPayload {
@@ -716,6 +727,65 @@ class NeeroGatewayService {
         } catch (error) {
             this.errorApi(error as AxiosError);
         }
+    }
+
+    public async saveWebhookEvent(req: Request) {
+        const webhookId = req.body.id;
+        const contentString = JSON.stringify(req.body);
+
+        // Recherche si un événement avec ce webhookId existe
+        const existingEvent = await WebhookEventModel.findOne({ where: { webhookId } });
+
+        if (existingEvent) {
+            // Mise à jour de l'enregistrement existant
+            existingEvent.statusCode = req.statusCode;
+            existingEvent.statusMessage = req.statusMessage;
+            existingEvent.content = contentString;
+            return await existingEvent.save();
+        } else {
+            // Création d'un nouveau enregistrement
+            const event: WebhookEventCreate = {
+                statusCode: req.statusCode,
+                statusMessage: req.statusMessage,
+                webhookId,
+                content: contentString
+            };
+            return await WebhookEventModel.create(event);
+        }
+    }
+
+    public async getWebhookEvents(
+        limit: number,
+        startIndex: number,
+        startDate?: string, 
+        endDate?: string
+    ) {
+        const where: Record<string, any> = {};
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) {
+                const { start } = getUTCBoundaries(startDate);
+                where.createdAt[Op.gte] = start;
+            }
+            if (endDate) {
+                const { end } = getUTCBoundaries(endDate);
+                where.createdAt[Op.lte] = end;
+            }
+            if (Object.keys(where.createdAt).length === 0) {
+                delete where.createdAt;
+            }
+        }
+
+        return await WebhookEventModel.findAndCountAll({
+            where,
+            limit,
+            offset: startIndex,
+            order: [['createdAt', 'DESC']],
+        })
+    }
+
+    public async getWebhookEventById(id: number) {
+        return await WebhookEventModel.findByPk(id)
     }
 
     private errorApi(error: AxiosError) {

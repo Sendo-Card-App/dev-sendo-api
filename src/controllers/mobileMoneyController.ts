@@ -1,6 +1,6 @@
 import { CashinCashout, CollectPayload } from "../types/SmobilPay";
 import { sendError, sendResponse } from "@utils/apiResponse";
-import { ajouterPrefixe237, detectMoneyTransferType, detectOperator, detectOtherMoneyTransferType, generateAlphaNumeriqueString, mapNeeroStatusToSendo, roundToNextMultipleOfFive } from "@utils/functions";
+import { ajouterPrefixe237, canInitiateTransaction, detectMoneyTransferType, detectOperator, detectOtherMoneyTransferType, generateAlphaNumeriqueString, mapNeeroStatusToSendo, roundToNextMultipleOfFive } from "@utils/functions";
 import { Request, Response } from "express";
 import mobileMoneyService from "@services/mobileMoneyService";
 import { TransactionCreate } from "../types/Transaction";
@@ -13,7 +13,6 @@ import neeroService, { CashInPayload, CashOutPayload, PaymentMethodCreate, Payme
 import PaymentMethodModel from "@models/payment-method.model";
 import configService from "@services/configService";
 import notificationService from "@services/notificationService";
-import cardService from "@services/cardService";
 import logger from "@config/logger";
 
 // Fonction d'attente générique
@@ -330,6 +329,7 @@ class MobileMoneyController {
 
     async creditWalletNeero(req: Request, res: Response) {
         const { amount, matriculeWallet, phone } = req.body
+        let lock;
         try {
             if (!amount || !matriculeWallet || !phone) {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
@@ -361,6 +361,34 @@ class MobileMoneyController {
                 return;
             }
 
+            const canProceed = await canInitiateTransaction(req.user.id, 'DEPOSIT', 'MOBILE_MONEY', amountNum);
+            if (!canProceed) {
+                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
+                return;
+            }
+
+            const configPourcentage = await configService.getConfigByName('SENDO_DEPOSIT_PERCENTAGE')
+            const configFees = await configService.getConfigByName('SENDO_DEPOSIT_FEES')
+            const percentage = Number(configPourcentage?.value ?? 0);
+            const fixedFee = Number(configFees?.value ?? 0);
+            const fees = Math.ceil(amountNum * (percentage / 100) + fixedFee);
+
+            const transactionToCreate: TransactionCreate = {
+                amount: amountNum,
+                type: typesTransaction['0'],
+                status: 'PENDING',
+                userId: req.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: amountNum + parseInt(`${fees}`),
+                method: typesMethodTransaction['0'],
+                provider: detectOtherMoneyTransferType(phone),
+                sendoFees: parseInt(`${fees}`),
+                description: "Dépôt sur le portefeuille",
+                receiverId: req.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
             const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
             if (!paymentMethodMerchant) {
                 throw new Error("Erreur lors de la récupération de la source")
@@ -375,12 +403,6 @@ class MobileMoneyController {
             
             let paymentMethod: PaymentMethodModel;
             let created: boolean;
-            
-            const configPourcentage = await configService.getConfigByName('SENDO_DEPOSIT_PERCENTAGE')
-            const configFees = await configService.getConfigByName('SENDO_DEPOSIT_FEES')
-            const percentage = Number(configPourcentage?.value ?? 0);
-            const fixedFee = Number(configFees?.value ?? 0);
-            const fees = Math.ceil(amountNum * (percentage / 100) + fixedFee);
             
             if (
                 paymentMethodsUser.paymentMethods && 
@@ -416,22 +438,6 @@ class MobileMoneyController {
             if (!payload) {
                 throw new Error("Le payload de cashout n'a pas pu être généré.");
             }
-
-            const transactionToCreate: TransactionCreate = {
-                amount: amountNum,
-                type: typesTransaction['0'],
-                status: 'PENDING',
-                userId: req.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: amountNum + parseInt(`${fees}`),
-                method: typesMethodTransaction['0'],
-                provider: detectOtherMoneyTransferType(phone),
-                sendoFees: parseInt(`${fees}`),
-                description: "Dépôt sur le portefeuille",
-                receiverId: req.user!.id,
-                receiverType: 'User'
-            }
-            const transaction = await transactionService.createTransaction(transactionToCreate)
             
             const cashin = await neeroService.createCashInPayment(payload)
 
@@ -483,12 +489,13 @@ class MobileMoneyController {
                 transaction
             })
         } catch (error: any) {
-            sendError(res, 500, 'Erreur serveur', error.message)
-        }
+            sendError(res, 500, 'Erreur serveur', [error.message]);
+        } 
     }
 
     async debitWalletNeero(req: Request, res: Response) {
         const { amount, matriculeWallet, phone } = req.body
+        
         try {
             if (
                 !amount || !matriculeWallet || !phone
@@ -515,18 +522,40 @@ class MobileMoneyController {
                 return;
             }
 
+            const canProceed = await canInitiateTransaction(req.user.id, 'WITHDRAWAL', 'MOBILE_MONEY', amountNum);
+            if (!canProceed) {
+                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
+                return;
+            }
+
             const configPourcentage = await configService.getConfigByName('SENDO_WITHDRAWAL_PERCENTAGE')
             const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_FEES')
             const percentage = Number(configPourcentage?.value ?? 0);
             const fixedFee = Number(configFees?.value ?? 0);
             const fees = Math.ceil(amountNum * (percentage / 100) + fixedFee);
+            const total = amountNum + fees;
+
+            const transactionToCreate: TransactionCreate = {
+                amount: amountNum,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: req.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: total,
+                method: typesMethodTransaction['0'],
+                provider: detectOtherMoneyTransferType(phone),
+                sendoFees: parseInt(`${fees}`),
+                description: "Retrait sur le portefeuille",
+                receiverId: req.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
 
             const wallet = await walletService.getBalanceWallet(req.user.id)
             if (!wallet) {
                 throw new Error("Portefeuille introuvable")
             }
             
-            const total = amountNum + fees;
             if (wallet.balance < total) {
                 throw new Error(`Solde insuffisant, veuillez avoir ${total} XAF votre compte pour effectuer ce retrait`)
             }
@@ -579,22 +608,6 @@ class MobileMoneyController {
             if (!payload) {
                 throw new Error("Le payload de cashout n'a pas pu être généré.");
             }
-
-            const transactionToCreate: TransactionCreate = {
-                amount: amountNum,
-                type: typesTransaction['1'],
-                status: 'PENDING',
-                userId: req.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: total,
-                method: typesMethodTransaction['0'],
-                provider: detectOtherMoneyTransferType(phone),
-                sendoFees: parseInt(`${fees}`),
-                description: "Retrait sur le portefeuille",
-                receiverId: req.user!.id,
-                receiverType: 'User'
-            }
-            const transaction = await transactionService.createTransaction(transactionToCreate)
             
             const cashout = await neeroService.createCashOutPayment(payload)
             transaction.transactionReference = cashout.id;
@@ -641,9 +654,8 @@ class MobileMoneyController {
                 transaction: newTransaction
             })
         } catch (error: any) {
-            console.log("error local : ", error.message)
-            sendError(res, 500, 'Erreur serveur', error.message)
-        }
+            sendError(res, 500, 'Erreur serveur', [error.message]);
+        } 
     }
 
     async createPaymentMethod(req: Request, res: Response) {

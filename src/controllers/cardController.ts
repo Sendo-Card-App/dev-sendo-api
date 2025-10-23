@@ -3,7 +3,7 @@ import cardService, { PartySessionUpdate } from "../services/cardService";
 import kycService from "../services/kycService";
 import { sendError, sendResponse } from "../utils/apiResponse";
 import { CardPayload, CreateCardModel, CreateCardPayload, FreezeCardPayload, UploadDocumentsPayload } from "../types/Neero";
-import { DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, validateAndTruncateCardName } from "@utils/functions";
+import { canInitiateTransaction, DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, validateAndTruncateCardName } from "@utils/functions";
 import configService from "@services/configService";
 import userService from "@services/userService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
@@ -16,7 +16,6 @@ import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/
 import notificationService from "@services/notificationService";
 import PaymentMethodModel from "@models/payment-method.model";
 import logger from "@config/logger";
-
 
 class CardController {
     async createCard(req: Request, res: Response) {
@@ -618,6 +617,7 @@ class CardController {
 
     async debiterCarte(req: Request, res: Response) {
         const { amount, matriculeWallet, idCard } = req.body
+        
         try {
             if (!amount || !matriculeWallet || !idCard) {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
@@ -649,13 +649,6 @@ class CardController {
                 return;
             }
 
-            const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
-            if (!paymentMethodMerchant) {
-                throw new Error("Erreur lors de la récupération de la source")
-            }
-
-            let payload: CashInPayload | undefined;
-            
             const virtualCard = await cardService.getPaymentMethodCard(Number(idCard))
             if (!virtualCard) {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
@@ -667,9 +660,37 @@ class CardController {
                 sendError(res, 400, 'Carte supprimée')
             }
 
+            const canProceed = await canInitiateTransaction(req.user.id, 'WITHDRAWAL', 'VIRTUAL_CARD', amountNum);
+            if (!canProceed) {
+                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
+                return;
+            }
+
             const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_CARD_FEES')
             const fees = configFees!.value
 
+            const transactionToCreate: TransactionCreate = {
+                amount: amountNum,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: req.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: amountNum + parseInt(`${fees}`),
+                method: typesMethodTransaction['2'],
+                sendoFees: parseInt(`${fees}`),
+                virtualCardId: virtualCard.id,
+                description: 'Retrait sur la carte',
+                receiverId: req.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+            const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
+            if (!paymentMethodMerchant) {
+                throw new Error("Erreur lors de la récupération de la source")
+            }
+
+            let payload: CashInPayload | undefined;
             if (virtualCard.paymentMethod) {
                 payload = {
                     amount: amountNum + parseInt(`${fees}`),
@@ -713,22 +734,10 @@ class CardController {
                 })
             }
             
-            const transactionToCreate: TransactionCreate = {
-                amount: amountNum,
-                type: typesTransaction['1'],
-                status: mapNeeroStatusToSendo(checkTransaction.status),
-                userId: req.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: amountNum + parseInt(`${fees}`),
-                method: typesMethodTransaction['2'],
-                transactionReference: cashin.id,
-                sendoFees: parseInt(`${fees}`),
-                virtualCardId: virtualCard.id,
-                description: 'Retrait sur la carte',
-                receiverId: req.user!.id,
-                receiverType: 'User'
-            }
-            const transaction = await transactionService.createTransaction(transactionToCreate)
+            // On met à jour les données de la transaction
+            transaction.status = mapNeeroStatusToSendo(checkTransaction.status)
+            transaction.transactionReference = cashin.id
+            await transaction.save()
 
             logger.info("Carte virtuelle débitée", {
                 amount: amountNum,
@@ -741,7 +750,7 @@ class CardController {
                 transaction
             })
         } catch (error: any) {
-            sendError(res, 500, 'Erreur serveur', [error.message])
+            sendError(res, 500, 'Erreur serveur', [error.message]);
         }
     }
 

@@ -5,14 +5,17 @@ import sequelize from "@config/db";
 
 class MerchantModel extends Model<
     InferAttributes<MerchantModel>,
-    InferCreationAttributes<MerchantModel, { omit: 'id' | 'createdAt' | 'updatedAt' }>
+    InferCreationAttributes<MerchantModel, { omit: 'id' | 'balance' | 'createdAt' | 'updatedAt' }>
 > {
     declare id: CreationOptional<number>;
     declare userId: ForeignKey<UserModel['id']>;
     declare typeAccount: 'Particulier' | 'Entreprise';
     declare status: 'ACTIVE' | 'PENDING' | 'REFUSED';
+    declare balance: number;
+    declare code: string;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
+    
     // Relations
     declare user?: NonAttribute<UserModel>;
 }
@@ -35,6 +38,16 @@ MerchantModel.init({
     typeAccount: {
         type: DataTypes.ENUM('Particulier', 'Entreprise'),
         allowNull: false,
+    },
+    balance: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    code: {
+        type: DataTypes.STRING(9),
+        allowNull: false,
+        unique: true
     },
     status: {
         type: DataTypes.ENUM('ACTIVE', 'PENDING', 'REFUSED'),

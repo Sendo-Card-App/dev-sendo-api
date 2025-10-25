@@ -22,6 +22,7 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
   const status = req.query.status as string | undefined;
   const method = req.query.method as string | undefined;
   const search = req.query.search as string | undefined;
+  const code = req.query.code as string | undefined;
 
   const country = req.query.country as string | undefined;
   const userId = req.query.userId ? parseInt(req.query.userId as string, 10) : undefined;
@@ -40,7 +41,8 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
     userId,
     idCard,
     country,
-    search
+    search,
+    code
   };
 
   next();

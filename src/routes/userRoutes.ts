@@ -96,7 +96,7 @@ router.get(
     '/', 
     paginationMiddleware, 
     authMiddleware, 
-    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER_ADVISER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CARD_MANAGER']),
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER_ADVISER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CARD_MANAGER', 'MERCHANT']),
     userController.getUsers
 );
 
@@ -136,6 +136,17 @@ router.get(
  *   get:
  *     summary: Liste de tous les marchants (agents)
  *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: false
+ *         type: string
+ *         default: "SDM563152"
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ACTIVE, REFUSED]
  *       - in: query
  *         name: page
  *         required: false

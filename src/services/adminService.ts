@@ -4,6 +4,7 @@ import RoleModel from "@models/role.model";
 import UserRoleModel from "@models/user-role.model";
 import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
+import { generateCodeMerchant } from "@utils/functions";
 import { UpdateOptions } from "sequelize";
 
 class AdminService {
@@ -113,6 +114,14 @@ class AdminService {
         })
     }
 
+    async findRoleById(id: number) {
+        const role = await RoleModel.findByPk(id)
+        if (!role) {
+            throw new Error("Role introuvable")
+        }
+        return role
+    }
+
     async attributeRoleUser(userId: number, roleId: number) {
         return UserRoleModel.create({
             userId: userId,
@@ -139,7 +148,8 @@ class AdminService {
         const merchant = await MerchantModel.create({
             userId,
             typeAccount,
-            status: 'PENDING'
+            status: 'PENDING',
+            code: generateCodeMerchant()
         });
         return merchant;
     }

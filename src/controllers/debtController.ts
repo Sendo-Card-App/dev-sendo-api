@@ -114,7 +114,7 @@ class DebtController {
                     const token = await notificationService.getTokenExpo(debts[index].user!.id)
                     await notificationService.save({
                         title: 'Sendo',
-                        content: `Paiement de la dette #${debts[index].intitule} d'un montant de ${checkTransaction.amount} XAF`,
+                        content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${checkTransaction.amount} XAF`,
                         userId: debts[index].user!.id,
                         status: 'SENDED',
                         token: token?.token ?? '',
@@ -133,7 +133,7 @@ class DebtController {
                     transactionReference: cashin.id,
                     sendoFees: debts[index].amount,
                     virtualCardId: virtualCard.id,
-                    description: `Paiement de la dette #${debts[index].intitule}`,
+                    description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
                     receiverId: debts[index].user!.id,
                     receiverType: 'User'
                 }
@@ -217,7 +217,7 @@ class DebtController {
                 const token = await notificationService.getTokenExpo(debt.user!.id)
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Paiement de la dette #${debt.intitule} d'un montant de ${checkTransaction.amount} XAF`,
+                    content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${checkTransaction.amount} XAF`,
                     userId: debt.user!.id,
                     status: 'SENDED',
                     token: token?.token ?? '',
@@ -236,7 +236,7 @@ class DebtController {
                 transactionReference: cashin.id,
                 sendoFees: debt.amount,
                 virtualCardId: virtualCard.id,
-                description: `Paiement de la dette #${debt.intitule}`,
+                description: `Paiement par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
                 receiverType: 'User'
             }
@@ -284,7 +284,7 @@ class DebtController {
                 const token = await notificationService.getTokenExpo(debts[index].user!.id)
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Paiement de la dette #${debts[index].intitule} d'un montant de ${debts[index].amount} XAF`,
+                    content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${debts[index].amount} XAF`,
                     userId: debts[index].user!.id,
                     status: 'SENDED',
                     token: token?.token ?? '',
@@ -302,7 +302,7 @@ class DebtController {
                     transactionReference: debts[index].intitule,
                     sendoFees: debts[index].amount,
                     virtualCardId: debts[index].card!.id,
-                    description: `Paiement de la dette #${debts[index].intitule}`,
+                    description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
                     receiverId: debts[index].user!.id,
                     receiverType: 'User'
                 }
@@ -353,7 +353,7 @@ class DebtController {
             const token = await notificationService.getTokenExpo(debt.user!.id)
             await notificationService.save({
                 title: 'Sendo',
-                content: `Paiement de la dette #${debt.intitule} d'un montant de ${debt.amount} XAF`,
+                content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${debt.amount} XAF`,
                 userId: debt.user!.id,
                 status: 'SENDED',
                 token: token?.token ?? '',
@@ -371,7 +371,7 @@ class DebtController {
                 transactionReference: debt.intitule,
                 sendoFees: debt.amount,
                 virtualCardId: debt.card!.id,
-                description: `Paiement de la dette #${debt.intitule}`,
+                description: `Paiement par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
                 receiverType: 'User'
             }
@@ -436,7 +436,7 @@ class DebtController {
                 transactionReference: result.intitule,
                 sendoFees: Number(partialAmount),
                 virtualCardId: result.card!.id,
-                description: `Paiement partiel de la dette #${result.intitule}`,
+                description: `Paiement partiel par Sendo de la dette #${result.intitule}`,
                 receiverId: result.user!.id,
                 receiverType: 'User'
             }
@@ -453,7 +453,7 @@ class DebtController {
             const token = await notificationService.getTokenExpo(req.user.id);
             await notificationService.save({
                 title: 'Sendo',
-                content: `Paiement partiel de ${Number(partialAmount)} XAF de la dette #${result.intitule} XAF effectué avec succès`,
+                content: `Paiement partiel par Sendo de ${Number(partialAmount)} XAF de la dette #${result.intitule} XAF effectué avec succès`,
                 userId: result.user!.id,
                 status: 'SENDED',
                 token: token?.token ?? '',
@@ -530,7 +530,7 @@ class DebtController {
                 const token = await notificationService.getTokenExpo(debt.user!.id)
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Paiement partiel de la dette #${debt.intitule} d'un montant de ${amountNum} XAF`,
+                    content: `Paiement partiel par Sendo de la dette #${debt.intitule} d'un montant de ${amountNum} XAF`,
                     userId: debt.user!.id,
                     status: 'SENDED',
                     token: token?.token ?? '',
@@ -549,7 +549,7 @@ class DebtController {
                 transactionReference: cashin.id,
                 sendoFees: amountNum,
                 virtualCardId: virtualCard.id,
-                description: `Paiement partiel de la dette #${debt.intitule}`,
+                description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
                 receiverType: 'User'
             }
@@ -587,12 +587,13 @@ class DebtController {
                 return;
             }
 
-            await debt.destroy();
-
             logger.info("Dette supprimée dette par Sendo", {
                 ID: debt.id,
+                amount: debt.amount,
                 user: `Admin ID : ${req.user!.id} - ${req.user!.firstname} ${req.user!.lastname}`
             });
+            
+            await debt.destroy();
 
             sendResponse(res, 204, 'Dette supprimée avec succès', {})
         } catch (error: any) {

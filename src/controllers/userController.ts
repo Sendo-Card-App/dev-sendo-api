@@ -81,10 +81,10 @@ class UserController {
     try {
       const user = await authService.register(newUser);
       if (user) {
-        const roleParsed = parseInt(roleId)
-        await adminService.attributeRoleUser(user.id, roleParsed)
+        const role = await adminService.findRoleById(parseInt(roleId))
+        await adminService.attributeRoleUser(user.id, role.id)
         
-        if (roleParsed === 9 && typeMerchantAccount) {
+        if (role.name === 'MERCHANT' && typeMerchantAccount) {
           await adminService.createMerchant(
             user.id, 
             typeMerchantAccount as 'Particulier' | 'Entreprise'
@@ -442,9 +442,9 @@ class UserController {
   }
 
   async getMerchants(req: Request, res: Response) {
-    const { status, page, limit, startIndex } = res.locals.pagination;
+    const { status, page, limit, startIndex, code } = res.locals.pagination;
     try {
-      const merchants = await userService.getAllMerchants(limit, startIndex, status);
+      const merchants = await userService.getAllMerchants(limit, startIndex, status, code);
       const totalItems = Number(merchants.count);
       const limitNum = Number(limit);
       const totalPages = Math.ceil(totalItems / limitNum);

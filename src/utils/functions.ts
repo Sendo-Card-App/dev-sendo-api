@@ -39,6 +39,10 @@ export const generateMatriculeWallet = () => {
     return 'SDO' + Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+export const generateCodeMerchant = () => {
+    return 'SDM' + Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 export function generateTransactionId(): string {
     const now = new Date();
 

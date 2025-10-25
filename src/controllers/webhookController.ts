@@ -143,6 +143,9 @@ class WebhookController {
                     if (virtualCard && virtualCard.status === 'PRE_ACTIVE') {
                         await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
                     }
+
+                    transaction.status = 'COMPLETED'
+                    await transaction.save()
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
@@ -178,7 +181,7 @@ class WebhookController {
 
                         await notificationService.save({
                             title: 'Sendo',
-                            content: `Votre retrait de ${transaction.amount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
+                            content: `Votre retrait de ${transaction.totalAmount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
                             userId: transaction.user!.id,
                             status: 'SENDED',
                             token: token?.token ?? '',
@@ -186,7 +189,16 @@ class WebhookController {
                         })
                     } else {
                         const debt = await debtService.getOneDebt(virtualCard!.id)
-                        debt!.destroy()
+                        if (debt) {
+                            debt.amount = debt.amount - Number(transaction.totalAmount);
+                            await debt.save();
+                        }
+
+                        const newDebt = await debt!.reload()
+                        if (newDebt && newDebt.amount === 0) {
+                            debt!.destroy()
+                        }
+                        
                         await notificationService.save({
                             title: 'Sendo',
                             content: `${transaction.description} d'un montant de ${transaction.totalAmount} XAF`,
@@ -196,6 +208,9 @@ class WebhookController {
                             type: 'SUCCESS_WITHDRAWAL_CARD'
                         })
                     }
+                    
+                    transaction.status = 'COMPLETED'
+                    await transaction.save()
                 } else if (
                     transaction?.type === 'VIEW_CARD_DETAILS' &&
                     transaction.status === 'PENDING' &&

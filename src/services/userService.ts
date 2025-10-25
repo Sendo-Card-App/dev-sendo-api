@@ -30,13 +30,34 @@ class UserService {
         if (country) {
             where.country = country;
         }
+        
         if (search) {
-            (where as any)[Op.or] = [
-                { firstname: { [Op.like]: `%${search}%` } },
-                { lastname: { [Op.like]: `%${search}%` } },
-                { email: { [Op.like]: `%${search}%` } },
-                { phone: { [Op.like]: `%${search}%` } }
-            ];
+            const searchWords = search.trim().split(/\s+/);
+            if (searchWords.length === 1) {
+                // Recherche simple dans plusieurs colonnes
+                (where as any)[Op.or] = [
+                    { firstname: { [Op.like]: `%${search}%` } },
+                    { lastname: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } },
+                    { phone: { [Op.like]: `%${search}%` } }
+                ];
+            } else {
+                // Recherche multiple - trouver firstname et lastname correspondant aux mots dans n'importe quel ordre
+                (where as any)[Op.or] = [
+                    {
+                        [Op.and]: [
+                            { firstname: { [Op.like]: `%${searchWords[0]}%` } },
+                            { lastname: { [Op.like]: `%${searchWords[1]}%` } }
+                        ]
+                    },
+                    {
+                        [Op.and]: [
+                            { firstname: { [Op.like]: `%${searchWords[1]}%` } },
+                            { lastname: { [Op.like]: `%${searchWords[0]}%` } }
+                        ]
+                    }
+                ];
+            }
         }
 
         const limitNum = Number(limit);
@@ -363,12 +384,17 @@ class UserService {
     async getAllMerchants(
         limit: number,
         startIndex: number,
-        status?: string
+        status?: string,
+        code?: string
     ) {
         const where: Record<string, any> = {};
         if (status) {
             where.status = status;
         }
+        if (code) {
+            where.code = code;
+        }
+
         const limitNum = Number(limit);
         const offsetNum = Number(startIndex);
         

@@ -293,7 +293,7 @@ router.get(
     '/:walletId',
     authMiddleware, 
     checkKYC, 
-    hasRole(['CUSTOMER']),
+    hasRole(['CUSTOMER', 'MERCHANT']),
     walletController.getUserByWallet
 );
 

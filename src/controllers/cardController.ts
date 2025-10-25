@@ -549,7 +549,23 @@ class CardController {
             if (wallet && wallet.balance < (amountNum + parseInt(`${fees}`))) {
                 throw new Error("Veuillez recharger votre portefeuille")
             }
-            
+
+            const transactionToCreate: TransactionCreate = {
+                amount: amountNum,
+                type: typesTransaction['0'],
+                status: 'PENDING',
+                userId: req.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: amountNum + parseInt(`${fees}`),
+                method: typesMethodTransaction['2'],
+                sendoFees: parseInt(`${fees}`),
+                virtualCardId: virtualCard.id,
+                description: 'Dépôt sur la carte',
+                receiverId: req.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
             const cashout = await neeroService.createCashOutPayment(payload)
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
@@ -582,23 +598,11 @@ class CardController {
                     type: 'SUCCESS_DEPOSIT_CARD'
                 })
             }
-            
-            const transactionToCreate: TransactionCreate = {
-                amount: amountNum,
-                type: typesTransaction['0'],
-                status: mapNeeroStatusToSendo(checkTransaction.status),
-                userId: req.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: amountNum + parseInt(`${fees}`),
-                method: typesMethodTransaction['2'],
-                transactionReference: cashout.id,
-                sendoFees: parseInt(`${fees}`),
-                virtualCardId: virtualCard.id,
-                description: 'Dépôt sur la carte',
-                receiverId: req.user!.id,
-                receiverType: 'User'
-            }
-            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+            // On met à jour les données de la transaction
+            transaction.status = mapNeeroStatusToSendo(checkTransaction.status)
+            transaction.transactionReference = cashout.id
+            await transaction.save()
 
             logger.info("Carte virtuelle rechargée", {
                 amount: amountNum,
@@ -987,12 +991,12 @@ class CardController {
                 }
 
                 const transactionToCreate: TransactionCreate = {
-                    amount: balance.balance,
+                    amount: Number(balance.balance),
                     type: typesTransaction['1'],
                     status: mapNeeroStatusToSendo(checkTransaction.status),
                     userId: virtualCard!.user!.id,
                     currency: typesCurrency['0'],
-                    totalAmount: balance.balance,
+                    totalAmount: Number(balance.balance),
                     method: typesMethodTransaction['2'],
                     transactionReference: cashin.id,
                     sendoFees: 0,

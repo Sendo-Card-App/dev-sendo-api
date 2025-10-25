@@ -398,7 +398,7 @@ class FundRequestService {
             if (tokenExpo) {
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Vous avez reçu ${fundRequest?.amount} XAF de ${user.firstname} ${user.lastname}. La demande est terminée.`,
+                    content: `Vous avez reçu ${data.amount} XAF de ${user.firstname} ${user.lastname}.`,
                     userId: fundRequest?.requesterFund?.id ?? 0,
                     status: 'SENDED',
                     token: tokenExpo.token,

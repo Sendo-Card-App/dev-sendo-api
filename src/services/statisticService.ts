@@ -645,32 +645,21 @@ class StatisticsService {
                     // Dernières cartes créées (exemple : 5 dernières)
                     VirtualCardModel.findAll({
                         order: [['createdAt', 'DESC']],
+                        where: whereClause,
                         limit: 5,
-                        transaction,
-                        where: whereClause
+                        transaction
                     }),
 
                     // Montant total des transactions sur les cartes
                     TransactionModel.sum('totalAmount', {
                         where: {
                             method: 'VIRTUAL_CARD',
-                            ...(startDate || endDate ? { createdAt: whereClause.createdAt } : {}),
+                            ...whereClause,
                             //status: { [Op.not]: 'CANCELLED' }
                         },
                         transaction
                     })
                 ]);
-
-                // Récupérer toutes les cartes actives (non terminées)
-                const activeCards = await VirtualCardModel.findAll({
-                    where: {
-                        status: {
-                            [Op.notIn]: ['TERMINATED', 'IN_TERMINATION']
-                        },
-                        ...(startDate || endDate ? { createdAt: whereClause.createdAt } : {})
-                    },
-                    transaction
-                });
 
                 /*let totalBalanceCards = 0;
 
@@ -709,9 +698,8 @@ class StatisticsService {
                         status: s.status,
                         count: Number(s.get('count'))
                     })),
-                    recentCards: activeCards,
-                    totalAmountTransactionsCard: totalTrasactionsCardRaw || 0,
-                    //totalBalanceCards
+                    recentCards,
+                    totalAmountTransactionsCard: totalTrasactionsCardRaw || 0
                 };
             });
         } catch (error) {

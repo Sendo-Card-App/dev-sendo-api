@@ -730,7 +730,7 @@ class NeeroGatewayService {
     }
 
     public async saveWebhookEvent(req: Request) {
-        const webhookId = req.body.id;
+        const webhookId = req.body.data.object.transactionIntentId;
         const contentString = JSON.stringify(req.body);
 
         // Recherche si un événement avec ce webhookId existe

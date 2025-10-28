@@ -1,6 +1,8 @@
 import { CreationOptional, DataTypes, ForeignKey, InferAttributes, InferCreationAttributes, Model, NonAttribute } from "sequelize";
 import UserModel from "./user.model";
 import sequelize from "@config/db";
+import TransactionPartnerFeesModel from "./transaction-partner-fees.model";
+import PartnerWithdrawalsModel from "./partner-withdrawals.model";
 
 
 class MerchantModel extends Model<
@@ -18,6 +20,8 @@ class MerchantModel extends Model<
     
     // Relations
     declare user?: NonAttribute<UserModel>;
+    declare transactions?: NonAttribute<TransactionPartnerFeesModel[]>;
+    declare withdrawals?: NonAttribute<PartnerWithdrawalsModel[]>;
 }
 
 MerchantModel.init({
@@ -67,15 +71,5 @@ MerchantModel.init({
     tableName: 'merchants',
     timestamps: true
 });
-
-UserModel.hasOne(MerchantModel, {
-    foreignKey: 'userId',
-    as: 'merchant'
-});
-
-MerchantModel.belongsTo(UserModel, {
-    foreignKey: 'userId',
-    as: 'user'
-})
 
 export default MerchantModel;

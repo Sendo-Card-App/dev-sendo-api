@@ -1,5 +1,7 @@
 import merchantController from "@controllers/merchantController";
 import { authMiddleware } from "@middlewares/auth";
+import { paginationMiddleware } from "@middlewares/pagination";
+import { verifyPasscode } from "@middlewares/passcode";
 import { hasRole } from "@middlewares/roleMiddleware";
 import { Router } from "express";
 
@@ -506,5 +508,174 @@ router.get(
     hasRole(['SUPER_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER']),
     merchantController.getAllPaliers
 )
+
+/**
+ * @swagger
+ * /merchant/credit-wallet:
+ *   post:
+ *     summary: Créditer la balance d'un marchant `Admin`
+ *     description: Créditer la balance d'un marchant `Admin`
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               merchantCode:
+ *                 type: string
+ *                 description: Code du marchant
+ *                 required: true
+ *               amount:
+ *                 type: integer
+ *                 description: Montant à créditer
+ *                 required: true
+ *     responses:
+ *       200:
+ *         description: Transaction effectuée avec succès
+ *       400:
+ *         description: Champs manquants
+ *       404:
+ *         description: Portefeuille introuvable
+ *       500:
+ *         description: Erreur lors du transfert
+ */
+router.post(
+    '/credit-wallet',
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER']),
+    merchantController.rechargerWalletMerchant
+)
+
+/**
+ * @swagger
+ * /merchant/transfer-funds:
+ *   post:
+ *     summary: Transférer des fonds d'un compte marchant à un portefeuille Sendo
+ *     description: Transférer des fonds d'un compte marchant à un portefeuille Sendo
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *       - PasscodeAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               toWallet:
+ *                 type: string
+ *                 description: Matricule du portefeuille du receveur
+ *                 required: true
+ *               amount:
+ *                 type: integer
+ *                 description: Montant à transférer
+ *                 required: true
+ *     responses:
+ *       200:
+ *         description: Transaction effectuée avec succès
+ *       400:
+ *         description: Solde insuffisant
+ *       404:
+ *         description: Portefeuille introuvable
+ *       500:
+ *         description: Erreur lors du transfert
+ */
+router.post(
+    '/transfer-funds',
+    authMiddleware, 
+    verifyPasscode, 
+    hasRole(['MERCHANT']),
+    merchantController.rechargerWalletCustomer
+)
+
+/**
+ * @swagger
+ * /merchant/transactions/{transactionId}:
+ *   get:
+ *     summary: Récupère les détails d'une transaction d'un marchant
+ *     parameters:
+ *       - in: path
+ *         name: transactionId
+ *         required: true
+ *         schema:
+ *           type: number
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Transaction récupérée avec succès
+ *       500:
+ *         description: Transaction introuvable
+ */
+router.get(
+    '/transactions/:transactionId',
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER', 'MERCHANT']),
+    merchantController.getMerchantTransactionById
+);
+
+/**
+ * @swagger
+ * /merchant/transactions/{idMerchant}/all:
+ *   get:
+ *     summary: Liste toutes les transactions d'un marchant
+ *     parameters:
+ *       - in: path
+ *         name: idMerchant
+ *         required: true
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, FAILED, BLOCKED] 
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de début pour filtrer les transactions (inclus)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de fin pour filtrer les transactions (inclus)
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste de toutes les transactions
+ */
+router.get(
+    '/transactions/:idMerchant/all',
+    authMiddleware, 
+    paginationMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER', 'MERCHANT']),
+    merchantController.getAllMerchantTransactions
+);
 
 export default router;

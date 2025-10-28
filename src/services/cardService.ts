@@ -237,7 +237,8 @@ class CardService {
         return VirtualCardModel.findAndCountAll({
             where,
             offset: startIndex,
-            limit
+            limit,
+            order: [['createdAt', 'DESC']]
         })
     }
 

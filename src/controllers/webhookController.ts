@@ -33,12 +33,10 @@ class WebhookController {
         const event = req.body;
         console.log('Événement webhook reçu : ', event)
 
-        await neeroService.saveWebhookEvent(req)
-
         sendResponse(res, 200, 'Webhook reçu', true)
 
         // Webhook pour les transactions intents
-        if (event.type === "transactionIntent.statusUpdated") {
+        if (event.type == "transactionIntent.statusUpdated") {
             const transactionReference =  event.data.object.transactionIntentId.trim();
             const transaction = await transactionService.getTransactionByReference(String(transactionReference))
 
@@ -132,7 +130,7 @@ class WebhookController {
                     const configFees = await configService.getConfigByName('SENDO_DEPOSIT_CARD_FEES')
                     const fees = configFees!.value
                     const amountNum = Number(transaction.amount)
-                    const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
+                    const virtualCard = await cardService.getVirtualCard(undefined, undefined, transaction.userId)
 
                     await walletService.debitWallet(
                         matricule,
@@ -169,7 +167,7 @@ class WebhookController {
                 ) {
                     const matricule = transaction.user!.wallet!.matricule;
                     const amountNum = Number(transaction.amount)
-                    const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
+                    const virtualCard = await cardService.getVirtualCard(undefined, undefined, transaction.userId)
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
@@ -189,14 +187,11 @@ class WebhookController {
                         })
                     } else {
                         const debt = await debtService.getOneDebt(virtualCard!.id)
-                        if (debt) {
+                        if (debt && debt.amount <= Number(transaction.totalAmount)) {
+                            await debt!.destroy()
+                        } else if (debt && debt.amount > Number(transaction.totalAmount)) {
                             debt.amount = debt.amount - Number(transaction.totalAmount);
                             await debt.save();
-                        }
-
-                        const newDebt = await debt!.reload()
-                        if (newDebt && newDebt.amount === 0) {
-                            debt!.destroy()
                         }
                         
                         await notificationService.save({
@@ -240,7 +235,7 @@ class WebhookController {
             }
 
             // Webhook pour les onboarding session
-        } else if (event.type === "partyOnboardingSession.statusUpdated") {
+        } else if (event.type == "partyOnboardingSession.statusUpdated") {
             const session = await cardService.getPartySession(
                 undefined, 
                 undefined, 
@@ -296,7 +291,7 @@ class WebhookController {
                 status: event.data.object.newStatus
             })
 
-        } else if (event.type === "cardManagement.onlineTransactions") {
+        } else if (event.type == "cardManagement.onlineTransactions") {
             // Webhook pour les cartes virtuelles
             const amountNum = Number(event.data.object.totalAmount)
             console.log("amount num : ", amountNum)
@@ -693,10 +688,13 @@ class WebhookController {
                 });
             }
         }
+
+        // On enregistre le webhook event
+        await neeroService.saveWebhookEvent(req)
     }
 
     async getEvents(req: Request, res: Response) {
-        const { page, limit, startIndex, startDate, endDate } = res.locals.pagination;
+        const { page, limit, startIndex, startDate, endDate, type } = res.locals.pagination;
         try {
 
             const events = await neeroService.getWebhookEvents(limit, startIndex, startDate, endDate);
@@ -710,12 +708,22 @@ class WebhookController {
                 };
             });
 
-            const totalPages = Math.ceil(events.count / limit);
+            // Filtrer par type si spécifié
+            const filteredItems = type ? parsedItems.filter(event =>
+                event.content && event.content.type === type
+            ) : parsedItems;
+
+            const totalItems = filteredItems.length;
+            const totalPages = Math.ceil(totalItems / limit);
+
+            // Pagination basique en mémoire après filtrage
+            const pagedItems = filteredItems.slice(startIndex, startIndex + limit);
+
             const responseData: PaginatedData = {
                 page,
                 totalPages,
                 totalItems: events.count,
-                items: parsedItems
+                items: pagedItems
             };
 
             sendResponse(res, 200, 'Webhook events récupérés', responseData);

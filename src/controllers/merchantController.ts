@@ -7,6 +7,15 @@ import walletService from "@services/walletService";
 import { PaginatedData } from "../types/BaseEntity";
 import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
+import { TransactionCreate } from "../types/Transaction";
+import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
+import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo } from "@utils/functions";
+import transactionService from "@services/transactionService";
+import configService from "@services/configService";
+import neeroService, { CashOutPayload } from "@services/neeroService";
+import mobileMoneyService from "@services/mobileMoneyService";
+import PaymentMethodModel from "@models/payment-method.model";
+import { wait } from "./mobileMoneyController";
 
 
 class MerchantController {
@@ -248,7 +257,11 @@ class MerchantController {
                 return
             }
 
-            const transactions = await merchantService.getAllMerchantTransactions(
+            const {
+                total, 
+                rows,
+                totalCommission
+            } = await merchantService.getAllMerchantTransactions(
                 Number(idMerchant),
                 limit,
                 startIndex,
@@ -257,15 +270,18 @@ class MerchantController {
                 endDate
             )
 
-            const totalPages = Math.ceil(transactions.count / limit);
+            const totalPages = Math.ceil(total / limit);
             const responseData: PaginatedData = {
                 page,
                 totalPages,
-                totalItems: transactions.count,
-                items: transactions.rows
+                totalItems: total,
+                items: rows
             };
 
-            sendResponse(res, 200, 'Transactions récupérées', responseData);
+            sendResponse(res, 200, 'Transactions récupérées', {
+                ...responseData,
+                totalCommission
+            });
         } catch (error: any) {
             sendError(res, 500, "Erreur serveur", [error.message]);
         }
@@ -287,6 +303,195 @@ class MerchantController {
             const transaction = await merchantService.getMerchantTransactionById(Number(transactionId))
 
             sendResponse(res, 200, 'Transaction récupérée', transaction);
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async requestWithdraw(req: Request, res: Response) {
+        const { amountToWithdraw, idMerchant, phone } = req.body
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!amountToWithdraw || !phone) {
+                sendError(res, 400, "Veuillez fournir tous les paramètres", {});
+                return
+            }
+
+            const amountNum = Number(amountToWithdraw)
+            if (amountNum < 500 || amountNum > 500000) {
+                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
+                return;
+            }
+            if (amountNum % 50 !== 0) {
+                sendError(res, 400, "Le montant doit être un multiple de 50");
+                return;
+            }
+
+            const result = await merchantService.saveRequestWithdraw(Number(idMerchant), Number(amountToWithdraw), phone)
+
+            logger.info("Requête de retrait d'argent AGENT créée", {
+                merchant: `Merchant ID : ${idMerchant}`,
+                amount: parseFloat(amountToWithdraw)
+            });
+
+            sendResponse(res, 200, 'Requête de retrait enregistrée', result);
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async initPaymentRequestWithdraw(req: Request, res: Response) {
+        const { idRequestWithdraw } = req.params
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!idRequestWithdraw) {
+                sendError(res, 400, "Veuillez fournir l'ID de la requête de retrait à initier", {});
+                return
+            }
+
+            const requestWithdraw = await merchantService.getRequestWithdraw(Number(idRequestWithdraw));
+            if (!requestWithdraw) {
+                sendError(res, 404, "Requête de retrait introuvable", {});
+                return
+            }
+
+            const result = await merchantService.retirerCommissionProche(
+                requestWithdraw.id, 
+                requestWithdraw.partnerId, 
+                requestWithdraw.amount
+            )
+
+            const amountNum = Number(result.amount)
+            const configPourcentage = await configService.getConfigByName('SENDO_WITHDRAWAL_PERCENTAGE')
+            const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_FEES')
+            const percentage = Number(configPourcentage?.value ?? 0);
+            const fixedFee = Number(configFees?.value ?? 0);
+            const fees = Math.ceil(amountNum * (percentage / 100) + fixedFee);
+            const total = amountNum - fees;
+
+            const transactionToCreate: TransactionCreate = {
+                amount: result.amount,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: requestWithdraw.partner!.userId,
+                currency: typesCurrency['0'],
+                totalAmount: total,
+                method: typesMethodTransaction['0'],
+                provider: detectOtherMoneyTransferType(result.phone),
+                description: "Retrait marchant",
+                receiverId: requestWithdraw.partner!.userId,
+                receiverType: 'User',
+                sendoFees: fees
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+            const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
+            if (!paymentMethodMerchant) {
+                throw new Error("Erreur lors de la récupération de la source")
+            }
+
+            let payload: CashOutPayload | undefined;
+            
+            const paymentMethodPhone = await mobileMoneyService.getPaymentMethodByPhone(ajouterPrefixe237(result.phone))
+            if (!paymentMethodPhone) {
+                throw new Error("Erreur de récupération des méthodes de paiement de l'utilisateur")
+            }
+
+            let paymentMethod: PaymentMethodModel;
+            let created: boolean;
+            
+            if (!paymentMethodPhone) {
+                [paymentMethod, created] = await mobileMoneyService.createPaymentMethod(
+                    ajouterPrefixe237(result.phone), 
+                    requestWithdraw.partner!.userId
+                )
+
+                payload = {
+                    amount: total,
+                    currencyCode: 'XAF',
+                    confirm: true,
+                    paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,
+                    sourcePaymentMethodId: paymentMethodMerchant.paymentMethodId,
+                    destinationPaymentMethodId: paymentMethod.paymentMethodId
+                }
+            } else {
+                payload = {
+                    amount: total,
+                    currencyCode: 'XAF',
+                    confirm: true,
+                    paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,
+                    sourcePaymentMethodId: paymentMethodMerchant.paymentMethodId,
+                    destinationPaymentMethodId: paymentMethodPhone.paymentMethodId
+                }
+            }
+
+            if (!payload) {
+                throw new Error("Le payload de cashout n'a pas pu être généré.");
+            }
+
+            const cashout = await neeroService.createCashOutPayment(payload)
+            transaction.transactionReference = cashout.id;
+            await transaction.save()
+
+            await wait(5000)
+
+            const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
+
+            transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
+            await transaction.save()
+            const newTransaction = await transaction.reload()
+
+            if (
+                newTransaction.type === 'WITHDRAWAL' && 
+                newTransaction.status === 'COMPLETED' &&
+                newTransaction.method === 'MOBILE_MONEY'
+            ) {
+                requestWithdraw.status = 'VALIDATED';
+                await requestWithdraw.save()
+
+                await sendGlobalEmail(
+                    requestWithdraw.partner!.user!.email,
+                    'Retrait marchand',
+                    `<p>${requestWithdraw.partner!.user!.firstname}, votre demande de retrait de ${requestWithdraw.amount} XAF a été validé et déposé sur votre compte mobile money</p>`,
+                    'SUCCESS_WITHDRAWAL_MERCHANT'
+                )
+            }
+
+            logger.info("Débit neero initié", {
+                admin: `${req.user?.firstname} ${req.user?.lastname}`,
+                amount: amountNum,
+                provider: detectOtherMoneyTransferType(result.phone)
+            });
+            
+            sendResponse(res, 200, 'La requête de débit a été initiée avec succès', {
+                mobileMoney: neeroTransaction,
+                transaction: newTransaction
+            })
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async getAllRequestWithdraw(req: Request, res: Response) {
+        const { page, limit, startIndex, status } = res.locals.pagination;
+        try {
+            const requests = await merchantService.getAllRequestWithdraw(status, limit, startIndex)
+
+            const totalPages = Math.ceil(requests.count / limit);
+            const responseData: PaginatedData = {
+                page,
+                totalPages,
+                totalItems: requests.count,
+                items: requests.rows
+            };
+
+            sendResponse(res, 200, "Demandes de retrait récupérées avec succès", responseData)
         } catch (error: any) {
             sendError(res, 500, "Erreur serveur", [error.message]);
         }

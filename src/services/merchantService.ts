@@ -10,6 +10,7 @@ import { Op } from "sequelize";
 import transactionService from "./transactionService";
 import { generateAlphaNumeriqueString, getUTCBoundaries } from "@utils/functions";
 import TransactionModel from "@models/transaction.model";
+import PartnerWithdrawalsModel from "@models/partner-withdrawals.model";
 
 export interface ICommission {
     typeCommission: 'POURCENTAGE' | 'FIXE';
@@ -167,7 +168,7 @@ class MerchantService {
 
         const merchant = await MerchantModel.findByPk(idMerchant);
         if (!merchant) {
-            throw new Error("Marchant introuvable")
+            throw new Error("Marchand introuvable");
         }
 
         if (startDate || endDate) {
@@ -180,7 +181,6 @@ class MerchantService {
                 const { end } = getUTCBoundaries(endDate);
                 where.createdAt[Op.lte] = end;
             }
-
             if (Object.keys(where.createdAt).length === 0) {
                 delete where.createdAt;
             }
@@ -193,16 +193,38 @@ class MerchantService {
 
         if (status) {
             includeOptions.where = { status };
-            includeOptions.required = true;
+            includeOptions.required = true; // INNER JOIN pour filtrage sur status
         }
 
-        return await TransactionPartnerFeesModel.findAndCountAll({
-            where,
-            limit,
-            offset: startIndex,
-            order: [['createdAt', 'DESC']],
-            include: [includeOptions]
+        // Exécuter les requêtes dans une transaction pour cohérence
+        const result = await sequelize.transaction(async (t) => {
+            // 1. Récupération paginée des commissions avec transactions
+            const transactionsPartenaires = await TransactionPartnerFeesModel.findAndCountAll({
+                where,
+                include: [includeOptions],
+                limit,
+                offset: startIndex,
+                order: [['createdAt', 'DESC']],
+                transaction: t
+            });
+
+            // 2. Calcul de la somme totale des commissions dans les mêmes conditions
+            const totalCommissionResult = await TransactionPartnerFeesModel.sum('amount', {
+                where: {
+                    ...where,
+                    isWithdrawn: false
+                },
+                transaction: t
+            });
+
+            return {
+                total: transactionsPartenaires.count,
+                rows: transactionsPartenaires.rows,
+                totalCommission: totalCommissionResult || 0
+            };
         });
+
+        return result;
     }
 
     async getMerchantTransactionById(transactionId: number) {
@@ -219,6 +241,92 @@ class MerchantService {
         }
 
         return transaction;
+    }
+
+    async saveRequestWithdraw(partnerId: number, amount: number, phone: string) {
+        return await PartnerWithdrawalsModel.create({
+            partnerId,
+            amount,
+            phone
+        }); 
+    }
+
+    async getRequestWithdraw(idWithdraw: number) {
+        return await PartnerWithdrawalsModel.findByPk(idWithdraw, {
+            include: [{
+                model: MerchantModel,
+                as: 'partner',
+                include: [{ model: UserModel, as: 'user' }]
+            }]
+        });
+    }
+
+    async retirerCommissionProche(
+        idWithdraw: number,
+        partnerId: number,
+        montantVoulu: number
+    ) {
+        const requestWithdraw = await PartnerWithdrawalsModel.findByPk(idWithdraw)
+        const commissions = await TransactionPartnerFeesModel.findAll({
+            where: { partnerId, isWithdrawn: false },
+            order: [['createdAt', 'ASC']],
+        });
+
+        let sommeCumulee: number = 0;
+        let commissionsSelectionnees = [];
+
+        for (const commission of commissions) {
+            commissionsSelectionnees.push(commission);
+            sommeCumulee += commission.amount;
+
+            if (sommeCumulee >= montantVoulu) {
+                break;
+            }
+        }
+
+        if (commissionsSelectionnees.length === 0) {
+            throw new Error('Aucune commission disponible pour ce retrait');
+        }
+
+        // Mise à jour de isWithdrawn en transaction
+        await sequelize.transaction(async (t) => {
+            for (const c of commissionsSelectionnees) {
+                await c.update({ isWithdrawn: true }, { transaction: t });
+            }
+
+            if (requestWithdraw && sommeCumulee != montantVoulu) {
+                requestWithdraw.amount = sommeCumulee
+                await requestWithdraw.save()
+            }
+        });
+
+        return requestWithdraw!.reload();
+    }
+
+    async getAllRequestWithdraw(
+        status: 'VALIDATED' | 'REJECTED' | 'PENDING',
+        limit: number, 
+        startIndex: number
+    ) {
+        const where: Record<string, any> = {};
+        if (status) {
+            where.status = status;
+        }
+
+        return await PartnerWithdrawalsModel.findAndCountAll({
+            where,
+            limit,
+            offset: startIndex,
+            include: [{
+                model: MerchantModel,
+                as: 'partner',
+                include: [{
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                }]
+            }]
+        })
     }
 }
 

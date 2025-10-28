@@ -678,4 +678,119 @@ router.get(
     merchantController.getAllMerchantTransactions
 );
 
+/**
+ * @swagger
+ * /merchant/withdrawal-request:
+ *   post:
+ *     summary: Enregistrer une demande de retrait mobile money d'un marchand
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *       - PasscodeAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phone:
+ *                 type: string
+ *               amountToWithdraw:
+ *                 type: number
+ *               idMerchant:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Demande de retrait enregistrée avec succès
+ *         $ref: '#/components/responses/TransactionMobileMoney'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+    '/withdrawal-request',
+    authMiddleware, 
+    verifyPasscode,
+    hasRole(['MERCHANT']),
+    merchantController.requestWithdraw
+);
+
+/**
+ * @swagger
+ * /merchant/init/withdrawal-request/{idRequestWithdraw}:
+ *   post:
+ *     summary: Initier le paiement d'une demande de retrait mobile money d'un marchand
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idRequestWithdraw
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la demande de retrait
+ *     responses:
+ *       200:
+ *         description: Transaction mobile initiée avec succès
+ *         $ref: '#/components/responses/TransactionMobileMoney'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+    '/init/withdrawal-request/:idRequestWithdraw',
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    merchantController.initPaymentRequestWithdraw
+)
+
+/**
+ * @swagger
+ * /merchant/withdrawal-request/all:
+ *   get:
+ *     summary: Liste toutes les demandes de retrait des marchands
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [VALIDATED, REJECTED, PENDING, FAILED] 
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Demandes de retrait récupérées
+ */
+router.get(
+    '/withdrawal-request/all',
+    authMiddleware, 
+    paginationMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    merchantController.getAllRequestWithdraw
+);
+
 export default router;

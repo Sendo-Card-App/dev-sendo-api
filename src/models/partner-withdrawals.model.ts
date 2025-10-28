@@ -5,11 +5,13 @@ import sequelize from "@config/db";
 
 class PartnerWithdrawalsModel extends Model<
   InferAttributes<PartnerWithdrawalsModel>,
-  InferCreationAttributes<PartnerWithdrawalsModel, { omit: 'id' | 'createdAt' | 'updatedAt' }>
+  InferCreationAttributes<PartnerWithdrawalsModel, { omit: 'id' | 'status' | 'createdAt' | 'updatedAt' }>
 > {
     declare id: CreationOptional<number>;
     declare partnerId: ForeignKey<MerchantModel['id']>;
     declare amount: number;
+    declare phone: string;
+    declare status: 'VALIDATED' | 'REJECTED' | 'PENDING' | 'FAILED';
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
     // Relations
@@ -32,6 +34,15 @@ PartnerWithdrawalsModel.init({
     },
     amount: {
         type: DataTypes.FLOAT,
+        allowNull: false
+    },
+    phone: {
+        type: DataTypes.STRING(30),
+        allowNull: false
+    },
+    status: {
+        type: DataTypes.ENUM('VALIDATED', 'REJECTED', 'PENDING'),
+        defaultValue: 'PENDING',
         allowNull: false
     },
     createdAt: {

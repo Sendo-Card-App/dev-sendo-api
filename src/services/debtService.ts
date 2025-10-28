@@ -22,7 +22,8 @@ class DebtService {
                     model: VirtualCardModel,
                     as: 'card'
                 }
-            ]
+            ],
+            order: [['createdAt', 'DESC']]
         })
     }
 
@@ -43,7 +44,8 @@ class DebtService {
                     model: VirtualCardModel,
                     as: 'card'
                 }
-            ]
+            ],
+            order: [['createdAt', 'DESC']]
         })
     }
 

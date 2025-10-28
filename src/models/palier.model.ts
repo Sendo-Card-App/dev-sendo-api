@@ -1,5 +1,5 @@
 import sequelize from "@config/db";
-import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
+import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model, NonAttribute } from "sequelize";
 import { CommissionModel } from "./commission.model";
 
 
@@ -14,6 +14,9 @@ export class PalierModel extends Model<
     declare description: string | null | undefined;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
+
+    // Relations
+    declare commission?: NonAttribute<CommissionModel>; 
 }
 
 PalierModel.init({

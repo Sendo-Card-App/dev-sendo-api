@@ -6,6 +6,9 @@ import transactionService from "./transactionService";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import sequelize from '@config/db';
 import cardService from "./cardService";
+import MerchantModel from "@models/merchant.model";
+import configService from "./configService";
+import merchantService from "./merchantService";
 
 class WalletService {
     constructor() {
@@ -106,7 +109,76 @@ class WalletService {
             await transaction.rollback();
             throw error;
         }
-    }       
+    }  
+    
+    async transferFromAgentToCustomer(idMerchant: number, toWalletId: string, amount: number) {
+        const transaction = await sequelize.transaction();
+        try {
+            const merchant = await MerchantModel.findByPk(idMerchant, {
+                include: [{ model: UserModel, as: 'user' }]
+            });
+
+            const toWallet = await WalletModel.findOne({
+                where: { matricule: toWalletId },
+                transaction,
+                include: [{ model: UserModel, as: 'user' }],
+                //lock: true
+            });
+
+            // 2. Validations initiales
+            if (!merchant) throw new Error('Agent introuvable');
+            if (!toWallet) throw new Error('Portefeuille du client introuvable');
+            if (merchant.balance < amount) throw new Error('Solde insuffisant');
+
+            const palier = await merchantService.findPalierByMontant(amount)
+            let commission: number | null = null;
+            if (palier.commission && palier.commission.typeCommission === 'POURCENTAGE') {
+                commission = (palier.commission.montantCommission * amount) / 100
+            } else if (palier.commission && palier.commission.typeCommission === 'FIXE') {
+                commission = palier.commission.montantCommission
+            }
+    
+            // 3. Mise à jour atomique
+            await merchant.decrement('balance', { by: amount, transaction });
+            await toWallet.increment('balance', { by: amount, transaction });
+
+            // 4. Enregistrement de la transaction côté initiateur
+            const transactionCreate: TransactionCreate = {
+                userId: merchant.userId,
+                type: typesTransaction['4'],
+                amount: Number(amount),
+                receiverId: toWallet?.user?.id || 0,
+                receiverType: 'User',
+                status: typesStatusTransaction['1'],
+                currency: typesCurrency['0'],
+                totalAmount: Number(amount),
+                description: "Recharge Agent-Sendo",
+                provider: typesMethodTransaction['3'],
+                method: typesMethodTransaction['4'],
+                partnerFees: commission!
+            }
+            const transactionCreated = await transactionService.createTransaction(transactionCreate)
+            
+            await transaction.commit();
+
+            // On enregistrer la transaction du partenaire
+            await merchantService.createTransactionPartnerFees({
+                transactionId: transactionCreated.id,
+                partnerId: merchant.id,
+                amount: commission!,
+                isWithdrawn: false
+            })
+
+            return {
+                transaction: transactionCreated,
+                receiver: toWallet.user
+            };
+
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
 
     async getBalanceWallet(userId: number) {
         return await WalletModel.findOne({

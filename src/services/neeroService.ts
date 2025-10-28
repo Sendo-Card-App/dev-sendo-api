@@ -730,27 +730,38 @@ class NeeroGatewayService {
     }
 
     public async saveWebhookEvent(req: Request) {
-        const webhookId = req.body.data.object.transactionIntentId;
         const contentString = JSON.stringify(req.body);
+        if (req.body.type === "transactionIntent.statusUpdated") {
+            const webhookId = req.body.data.object.transactionIntentId;
 
-        // Recherche si un événement avec ce webhookId existe
-        const existingEvent = await WebhookEventModel.findOne({ where: { webhookId } });
+            // Recherche si un événement avec ce webhookId existe
+            const existingEvent = await WebhookEventModel.findOne({ where: { webhookId } });
 
-        if (existingEvent) {
-            // Mise à jour de l'enregistrement existant
-            existingEvent.statusCode = req.statusCode;
-            existingEvent.statusMessage = req.statusMessage;
-            existingEvent.content = contentString;
-            return await existingEvent.save();
+            if (existingEvent) {
+                // Mise à jour de l'enregistrement existant
+                existingEvent.statusCode = req.statusCode;
+                existingEvent.statusMessage = req.statusMessage;
+                existingEvent.content = contentString;
+                return await existingEvent.save();
+            } else {
+                // Création d'un nouveau enregistrement
+                const event: WebhookEventCreate = {
+                    statusCode: req.statusCode,
+                    statusMessage: req.statusMessage,
+                    webhookId,
+                    content: contentString
+                };
+                return WebhookEventModel.create(event);
+            }
         } else {
             // Création d'un nouveau enregistrement
             const event: WebhookEventCreate = {
                 statusCode: req.statusCode,
                 statusMessage: req.statusMessage,
-                webhookId,
+                webhookId: req.body.id,
                 content: contentString
             };
-            return await WebhookEventModel.create(event);
+            return WebhookEventModel.create(event);
         }
     }
 

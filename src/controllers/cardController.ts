@@ -461,34 +461,41 @@ class CardController {
             if (!amount || !matriculeWallet || !idCard) {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
             }
-
-            // 1. Conversion du montant en nombre entier
-            const amountNum = Number(amount);
-
-            // 2. Vérification que le montant est un nombre valide
-            if (isNaN(amountNum) || !Number.isInteger(amountNum)) {
-                sendError(res, 400, "Le montant doit être un nombre entier valide");
-                return;
-            }
-
-            // 3. Vérifier les limites
-            if (amountNum < 500 || amountNum > 500000) {
-                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
-                return;
-            }
-
-            // 4. Vérification que le montant est un multiple de 50
-            if (amountNum % 50 !== 0) {
-                sendError(res, 400, "Le montant doit être un multiple de 50");
-                return;
-            }
-
+            
             if (!req.user || !req.user.id) {
                 sendError(res, 401, 'Veuillez vous connecter');
                 return;
             }
 
-            // On check si la carte possede des dettes
+            // 1. Conversion du montant en nombre entier
+            const amountNum = Number(amount);
+
+            // 2. On verifie que l'utilisateur attende d'abord 3min avant de lancer une memee transaction d'un meme montant
+            const canProceed = await canInitiateTransaction(req.user.id, 'DEPOSIT', 'VIRTUAL_CARD', amountNum);
+            if (!canProceed) {
+                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
+                return;
+            }
+
+            // 3. Vérification que le montant est un nombre valide
+            if (isNaN(amountNum) || !Number.isInteger(amountNum)) {
+                sendError(res, 400, "Le montant doit être un nombre entier valide");
+                return;
+            }
+
+            // 4. Vérifier les limites
+            if (amountNum < 500 || amountNum > 500000) {
+                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
+                return;
+            }
+
+            // 5. Vérification que le montant est un multiple de 50
+            if (amountNum % 50 !== 0) {
+                sendError(res, 400, "Le montant doit être un multiple de 50");
+                return;
+            }
+
+            // 6. On check si la carte possede des dettes
             console.log('On check si la carte possede des dettes')
             await settleCardDebtsIfAny(req.user.wallet!.matricule, req.user.wallet!.userId)
 
@@ -570,7 +577,7 @@ class CardController {
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
 
-            await wait(10000)
+            await wait(5000)
 
             const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
 
@@ -627,29 +634,36 @@ class CardController {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
             }
 
+            if (!req.user || !req.user.id) {
+                sendError(res, 401, 'Veuillez vous connecter');
+                return;
+            }
+            
             // 1. Conversion du montant en nombre entier
             const amountNum = Number(amount);
+            
+            // 2. On verifie que l'utilisateur attende d'abord 3min avant de lancer une memee transaction d'un meme montant
+            const canProceed = await canInitiateTransaction(req.user.id, 'WITHDRAWAL', 'VIRTUAL_CARD', amountNum);
+            if (!canProceed) {
+                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
+                return;
+            }
 
-            // 2. Vérification que le montant est un nombre valide
+            // 3. Vérification que le montant est un nombre valide
             if (isNaN(amountNum) || !Number.isInteger(amountNum)) {
                 sendError(res, 400, "Le montant doit être un nombre entier valide");
                 return;
             }
 
-            // 3. Vérifier les limites
+            // 4. Vérifier les limites
             if (amountNum < 500 || amountNum > 500000) {
                 sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
                 return;
             }
 
-            // 4. Vérification que le montant est un multiple de 50
+            // 5. Vérification que le montant est un multiple de 50
             if (amountNum % 50 !== 0) {
                 sendError(res, 400, "Le montant doit être un multiple de 50");
-                return;
-            }
-
-            if (!req.user || !req.user.id) {
-                sendError(res, 401, 'Veuillez vous connecter');
                 return;
             }
 
@@ -662,12 +676,6 @@ class CardController {
             }
             if (virtualCard?.status === 'TERMINATED') {
                 sendError(res, 400, 'Carte supprimée')
-            }
-
-            const canProceed = await canInitiateTransaction(req.user.id, 'WITHDRAWAL', 'VIRTUAL_CARD', amountNum);
-            if (!canProceed) {
-                sendError(res, 429, 'Patientez au moins 3 minutes entre deux transactions de même montant');
-                return;
             }
 
             const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_CARD_FEES')

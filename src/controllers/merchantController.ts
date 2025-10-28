@@ -1,5 +1,10 @@
 import logger from "@config/logger";
+import { sendGlobalEmail, successTransferFunds } from "@services/emailService";
 import merchantService from "@services/merchantService";
+import notificationService from "@services/notificationService";
+import userService from "@services/userService";
+import walletService from "@services/walletService";
+import { PaginatedData } from "../types/BaseEntity";
 import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
 
@@ -135,6 +140,153 @@ class MerchantController {
         try {
             const paliers = await merchantService.getAllPaliers()
             sendResponse(res, 200, 'Paliers retournes', paliers)
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async rechargerWalletMerchant(req: Request, res: Response) {
+        const { merchantCode, amount } = req.body
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!merchantCode || !amount) {
+                sendError(res, 400, "Veuillez remplir tous les champs", {});
+                return
+            }
+
+            const transaction = await merchantService.depositWalletMerchant(merchantCode, Number(amount))
+
+            await sendGlobalEmail(
+                transaction.merchant.user!.email,
+                'Recharge',
+                `<p>Sendo vient d'effectuer une recharge de ${amount} XAF sur votre compte</p>`
+            )
+
+            logger.info("Recharge portefeuille AGENT-SENDO", {
+                admin: `${req.user?.firstname} ${req.user?.lastname}`,
+                merchant: `MerchantCode : ${merchantCode}`,
+                amount: parseFloat(amount)
+            });
+
+            sendResponse(res, 200, 'Recharge réussi !', transaction)
+        } catch (error: any) {
+            sendError(res, 500, "Erreur lors de la recharge", [error.message]);
+        }
+    }
+
+    async rechargerWalletCustomer(req: Request, res: Response) {
+        const { toWallet, amount } = req.body
+        
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!toWallet || !amount) {
+                sendError(res, 400, "Veuillez remplir tous les champs", {});
+                return
+            }
+
+            const merchant = await userService.getMerchantByUserId(Number(req.user.id))
+            if (!merchant) {
+                sendError(res, 404, "Agent introuvable", {});
+                return
+            }
+            if (Number(merchant?.balance) < Number(amount)) {
+                sendError(res, 500, "Veuillez recharger votre portefeuille", {});
+                return
+            }
+
+            const transfert = await walletService.transferFromAgentToCustomer(merchant.id, toWallet, Number(amount))
+
+            // On notifie tout le monde
+            const tokenReceiver = await notificationService.getTokenExpo(transfert.receiver!.id)
+            await notificationService.save({
+                type: 'SUCCESS_TRANSFER_FUNDS',
+                userId: transfert.receiver!.id,
+                content: `Vous avez reçu de ${req.user?.firstname} une somme de ${amount} XAF sur votre portefeuille Sendo`,
+                title: 'Sendo',
+                status: 'SENDED',
+                token: tokenReceiver?.token ?? ''
+            })
+
+            await successTransferFunds(
+                req.user, 
+                transfert.receiver!.email, 
+                parseFloat(amount)
+            )
+
+            logger.info("Transfert d'argent AGENT-SENDO", {
+                sender: `${req.user?.firstname} ${req.user?.lastname}`,
+                receiver: `${transfert.receiver!.firstname} ${transfert.receiver?.lastname}`,
+                amount: parseFloat(amount)
+            });
+
+            sendResponse(res, 200, 'Transfert réussi !', {
+                receiver: transfert.receiver,
+                transaction: transfert.transaction
+            })
+        } catch (error: any) {
+            sendError(res, 500, "Erreur lors du transfert", [error.message]);
+        }
+    }
+
+    async getAllMerchantTransactions(req: Request, res: Response) {
+        const { idMerchant } = req.params;
+        const { page, limit, startIndex, status, startDate, endDate } = res.locals.pagination;
+
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!idMerchant) {
+                sendError(res, 400, "Veuillez fournir l'ID du marchant", {});
+                return
+            }
+
+            const transactions = await merchantService.getAllMerchantTransactions(
+                Number(idMerchant),
+                limit,
+                startIndex,
+                status,
+                startDate,
+                endDate
+            )
+
+            const totalPages = Math.ceil(transactions.count / limit);
+            const responseData: PaginatedData = {
+                page,
+                totalPages,
+                totalItems: transactions.count,
+                items: transactions.rows
+            };
+
+            sendResponse(res, 200, 'Transactions récupérées', responseData);
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async getMerchantTransactionById(req: Request, res: Response) {
+        const { transactionId } = req.params;
+
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!transactionId) {
+                sendError(res, 400, "Veuillez fournir l'ID de la transaction", {});
+                return
+            }
+
+            const transaction = await merchantService.getMerchantTransactionById(Number(transactionId))
+
+            sendResponse(res, 200, 'Transaction récupérée', transaction);
         } catch (error: any) {
             sendError(res, 500, "Erreur serveur", [error.message]);
         }

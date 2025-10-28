@@ -83,29 +83,36 @@ class WebhookController {
                     transaction.status === 'PENDING' &&
                     transaction.method === 'MOBILE_MONEY'
                 ) {
-                    
-                    // On débite le montant chez le user
-                    await walletService.debitWallet(
-                        transaction.user?.wallet?.matricule ?? '',
-                        transaction.totalAmount
-                    )
-                    
-                    transaction.status = 'COMPLETED'
-                    await transaction.save()
-                    
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
-                        userId: transaction?.user?.id ?? 0,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_WALLET'
-                    })
-                    await sendEmailWithHTML(
-                        transaction?.user?.email ?? '',
-                        'Retrait SENDO réussi',
-                        `<p>Votre retrait de ${transaction.amount} XAF du portefeuille s'est effectué avec succès</p>`
-                    )
+                    if (transaction.description !== "Retrait marchant") {
+                        // On débite le montant chez le user
+                        await walletService.debitWallet(
+                            transaction.user?.wallet?.matricule ?? '',
+                            transaction.totalAmount
+                        )
+                        
+                        transaction.status = 'COMPLETED'
+                        await transaction.save()
+                        
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
+                            userId: transaction?.user?.id ?? 0,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'SUCCESS_WITHDRAWAL_WALLET'
+                        })
+                        await sendEmailWithHTML(
+                            transaction?.user?.email ?? '',
+                            'Retrait SENDO réussi',
+                            `<p>Votre retrait de ${transaction.amount} XAF du portefeuille s'est effectué avec succès</p>`
+                        )
+                    } else {
+                        await sendEmailWithHTML(
+                            transaction.user!.email,
+                            'Retrait marchand',
+                            `<p>Votre demande de retrait de ${transaction.amount} XAF a été validé et déposé sur votre compte mobile money</p>`,
+                        )
+                    }
                 } else if (
                     transaction?.type === 'TRANSFER' && 
                     transaction.status === 'PENDING'

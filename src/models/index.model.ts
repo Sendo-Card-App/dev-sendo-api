@@ -31,7 +31,9 @@ import PartyCard from './party-card.model';
 import CardTransactionDebtsModel from './card-transaction-debts.model';
 import { PalierModel } from './palier.model';
 import { CommissionModel } from './commission.model';
+import TransactionPartnerFeesModel from './transaction-partner-fees.model';
 import MerchantModel from './merchant.model';
+import PartnerWithdrawalsModel from './partner-withdrawals.model';
 
   UserModel.belongsTo(UserModel, {
     as: 'referrer',
@@ -235,10 +237,29 @@ import MerchantModel from './merchant.model';
   VirtualCardModel.hasMany(CardTransactionDebtsModel, { foreignKey: 'cardId', as: 'debts' });
 
   /** -------------------------------
+   * User ↔ Merchant
+   * ------------------------------- */
+  UserModel.hasOne(MerchantModel, { foreignKey: 'userId', as: 'merchant' });
+  MerchantModel.belongsTo(UserModel, { foreignKey: 'userId', as: 'user' })
+
+  /** -------------------------------
    * Palier ↔ Commission
    * ------------------------------- */
   CommissionModel.hasMany(PalierModel, { foreignKey: 'commissionId', as: 'palier' });
   PalierModel.belongsTo(CommissionModel, { foreignKey: 'commissionId', as: 'commission' });
+
+  /** -------------------------------
+   * TransactionPartnerFees ↔ Transaction / Partner
+   * ------------------------------- */
+  TransactionPartnerFeesModel.belongsTo(MerchantModel, { foreignKey: 'partnerId', as: 'partner' })
+  TransactionPartnerFeesModel.belongsTo(TransactionModel, { foreignKey: 'transactionId', as: 'transaction' })
+  MerchantModel.hasMany(TransactionPartnerFeesModel, { foreignKey: 'partnerId', as: 'transactions' })
+
+  /** -------------------------------
+   * PartnerWithdrawals ↔ Partner
+   * ------------------------------- */
+  PartnerWithdrawalsModel.belongsTo(MerchantModel, { foreignKey: 'partnerId', as: 'partner' })
+  MerchantModel.hasMany(PartnerWithdrawalsModel, { foreignKey: 'partnerId', as: 'withdrawals' })
 
 export {
   RoleModel,

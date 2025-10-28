@@ -26,7 +26,8 @@ export const typesMethodTransaction = [
     'MOBILE_MONEY',
     'BANK_TRANSFER',
     'VIRTUAL_CARD',
-    'WALLET'
+    'WALLET',
+    'AGENT'
 ]as const;
 export type TypesMethodTransaction = typeof typesMethodTransaction[number];
 
@@ -239,11 +240,6 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_VIEW_DETAILS_CARD_FEES',
         value: 1000,
         description: "Frais SENDO appliqués pour voir les détails cachés d'une carte (XAF)"
-    },
-    {
-        name: 'COMMISSION_AGENT_TRANSACTION',
-        value: 0.5,
-        description: "Commission a appliquer sur chaque transaction d'un agent (%)"
     }
 ]
 
@@ -289,8 +285,7 @@ export const typesConfig = [
     'NEERO_TRANSACTION_CARD_PERCENTAGE',
     'SENDO_TRANSACTION_CARD_REJECT_FEES',
     'SENDO_UNLOCK_CARD_FEES',
-    'SENDO_VIEW_DETAILS_CARD_FEES',
-    'COMMISSION_AGENT_TRANSACTION'
+    'SENDO_VIEW_DETAILS_CARD_FEES'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

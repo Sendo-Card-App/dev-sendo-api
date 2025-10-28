@@ -2,6 +2,7 @@ import webhookController from "@controllers/webhookController";
 import { Router } from "express";
 import bodyParser from 'body-parser';
 import { paginationMiddleware } from "@middlewares/pagination";
+import { authMiddleware } from "@middlewares/auth";
 
 const router = Router()
 
@@ -28,6 +29,14 @@ router.post(
  *     summary: Récupérer le contenu de tous les webhooks envoyé par Neero
  *     tags: [Webhook]
  *     parameters:
+ *       - in: query
+ *         name: type
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [transactionIntent.statusUpdated, partyOnboardingSession.statusUpdated, cardManagement.onlineTransactions]
+ *           default: "transactionIntent.statusUpdated"
+ *         description: Type d'event reçu
  *       - in: query
  *         name: page
  *         required: false
@@ -62,6 +71,7 @@ router.post(
  */
 router.get(
     '/neero/events',
+    authMiddleware,
     paginationMiddleware,
     webhookController.getEvents
 )
@@ -90,6 +100,7 @@ router.get(
  */
 router.get(
     '/neero/events/:id',
+    authMiddleware,
     webhookController.getEventById
 )
 

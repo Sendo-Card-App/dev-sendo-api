@@ -186,7 +186,7 @@ class DebtController {
 
             
             const balanceObject = await cardService.getBalance(virtualCard.paymentMethod!.paymentMethodId);
-            if (Number(balanceObject.balance) < Number(debt.amount)) {
+            if (Number(balanceObject.balance) < roundToNextMultipleOfFive(debt.amount)) {
                 sendError(res, 400, `Solde insuffisant pour payer la dette #${debt.intitule}`);
                 return;
             }
@@ -498,7 +498,7 @@ class DebtController {
 
             const amountNum = Number(partialAmount)
             const balanceObject = await cardService.getBalance(virtualCard.paymentMethod!.paymentMethodId);
-            if (Number(balanceObject.balance) < amountNum) {
+            if (Number(balanceObject.balance) < roundToNextMultipleOfFive(amountNum)) {
                 sendError(res, 400, `Solde insuffisant pour payer le montant partiel de ${amountNum} XAF`);
                 return;
             }

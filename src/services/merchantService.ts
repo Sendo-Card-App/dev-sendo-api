@@ -11,6 +11,9 @@ import transactionService from "./transactionService";
 import { generateAlphaNumeriqueString, getUTCBoundaries } from "@utils/functions";
 import TransactionModel from "@models/transaction.model";
 import PartnerWithdrawalsModel from "@models/partner-withdrawals.model";
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface ICommission {
     typeCommission: 'POURCENTAGE' | 'FIXE';
@@ -46,15 +49,25 @@ class MerchantService {
     }
 
     async findCommissionById(commissionId: number) {
-        const commission = await CommissionModel.findByPk(commissionId)
-        if (!commission) {
-            throw new Error('Commission not found');
-        }
-        return commission
+        const cacheKey = `commission:${commissionId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const commission = await CommissionModel.findByPk(commissionId);
+        if (!commission) throw new Error('Commission not found');
+
+        await redisClient.set(cacheKey, JSON.stringify(commission), { EX: REDIS_TTL });
+        return commission;
     }
 
     async getAllCommissions() {
-        return CommissionModel.findAll();
+        const cacheKey = 'allCommissions';
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const commissions = await CommissionModel.findAll();
+        await redisClient.set(cacheKey, JSON.stringify(commissions), { EX: REDIS_TTL });
+        return commissions;
     }
 
     async createPalier(palierData: IPalier) {
@@ -74,38 +87,44 @@ class MerchantService {
     }
 
     async findPalierById(palierId: number) {
+        const cacheKey = `palier:${palierId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const palier = await PalierModel.findByPk(palierId, {
-            include: [{
-                model: CommissionModel,
-                as: 'commission'
-            }]
+            include: [{ model: CommissionModel, as: 'commission' }]
         });
-        if (!palier) {
-            throw new Error("Palier not found")
-        }
-        return palier
+        if (!palier) throw new Error("Palier not found");
+
+        await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
+        return palier;
     }
 
     async getAllPaliers() {
-        return PalierModel.findAll();
+        const cacheKey = 'allPaliers';
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const paliers = await PalierModel.findAll();
+        await redisClient.set(cacheKey, JSON.stringify(paliers), { EX: REDIS_TTL });
+        return paliers;
     }
 
     async findPalierByMontant(montant: number) {
+        const cacheKey = `palierByMontant:${montant}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const palier = await PalierModel.findOne({
             where: {
                 montantMin: { [Op.lte]: montant },
-                montantMax: { [Op.gte]: montant },
+                montantMax: { [Op.gte]: montant }
             },
-            include: [{
-                model: CommissionModel,
-                as: 'commission',
-            }],
+            include: [{ model: CommissionModel, as: 'commission' }]
         });
+        if (!palier) throw new Error(`Aucun palier trouvé pour le montant ${montant}`);
 
-        if (!palier) {
-            throw new Error(`Aucun palier trouvé pour le montant ${montant}`);
-        }
-
+        await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
         return palier;
     }
 
@@ -163,13 +182,11 @@ class MerchantService {
         startDate?: string,
         endDate?: string
     ) {
-        const where: Record<string, any> = {};
-        where.partnerId = idMerchant;
+        const cacheKey = `merchantTransactions:${idMerchant}:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-        const merchant = await MerchantModel.findByPk(idMerchant);
-        if (!merchant) {
-            throw new Error("Marchand introuvable");
-        }
+        const where: Record<string, any> = { partnerId: idMerchant };
 
         if (startDate || endDate) {
             where.createdAt = {};
@@ -193,12 +210,10 @@ class MerchantService {
 
         if (status) {
             includeOptions.where = { status };
-            includeOptions.required = true; // INNER JOIN pour filtrage sur status
+            includeOptions.required = true;
         }
 
-        // Exécuter les requêtes dans une transaction pour cohérence
         const result = await sequelize.transaction(async (t) => {
-            // 1. Récupération paginée des commissions avec transactions
             const transactionsPartenaires = await TransactionPartnerFeesModel.findAndCountAll({
                 where,
                 include: [includeOptions],
@@ -208,12 +223,8 @@ class MerchantService {
                 transaction: t
             });
 
-            // 2. Calcul de la somme totale des commissions dans les mêmes conditions
             const totalCommissionResult = await TransactionPartnerFeesModel.sum('amount', {
-                where: {
-                    ...where,
-                    isWithdrawn: false
-                },
+                where: { ...where, isWithdrawn: false },
                 transaction: t
             });
 
@@ -224,22 +235,21 @@ class MerchantService {
             };
         });
 
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getMerchantTransactionById(transactionId: number) {
-        const transaction = await TransactionPartnerFeesModel.findByPk(transactionId, {
-            include: [
-                {
-                    model: TransactionModel,
-                    as: 'transaction'
-                }
-            ]
-        })
-        if (!transaction) {
-            throw new Error("Transaction introuvable")
-        }
+        const cacheKey = `merchantTransaction:${transactionId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
+        const transaction = await TransactionPartnerFeesModel.findByPk(transactionId, {
+            include: [{ model: TransactionModel, as: 'transaction' }]
+        });
+        if (!transaction) throw new Error("Transaction introuvable");
+
+        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
         return transaction;
     }
 
@@ -308,13 +318,12 @@ class MerchantService {
         limit: number, 
         startIndex: number
     ) {
-        const where: Record<string, any> = {};
-        if (status) {
-            where.status = status;
-        }
+        const cacheKey = `allRequestWithdraw:${status}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-        return await PartnerWithdrawalsModel.findAndCountAll({
-            where,
+        const result = await PartnerWithdrawalsModel.findAndCountAll({
+            where: status ? { status } : undefined,
             limit,
             offset: startIndex,
             include: [{
@@ -326,7 +335,10 @@ class MerchantService {
                     attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
                 }]
             }]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 }
 

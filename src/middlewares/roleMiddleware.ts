@@ -3,6 +3,9 @@ import { sendError } from '@utils/apiResponse';
 import UserModel from '@models/user.model';
 import { RoleType } from '../types/express';
 import axios from 'axios';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export const hasRole = (requiredRoles: RoleType[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -11,25 +14,30 @@ export const hasRole = (requiredRoles: RoleType[]) => {
         return sendError(res, 401, 'Utilisateur non authentifié');
       }
 
-      const user = await UserModel.findByPk(req.user.id, {
-        include: [{
-          association: 'roles',
-          attributes: ['name'],
-          through: { attributes: [] }
-        }]
-      });
+      const cacheKey = `userRoles:${req.user.id}`;
+      let userRoles: RoleType[] = [];
 
-      if (!user?.roles?.length) {
-        return sendError(res, 403, 'Aucun rôle attribué');
+      const cachedRoles = await redisClient.get(cacheKey);
+      if (cachedRoles) {
+        userRoles = JSON.parse(cachedRoles);
+      } else {
+        const user = await UserModel.findByPk(req.user.id, {
+          include: [{
+            association: 'roles',
+            attributes: ['name'],
+            through: { attributes: [] }
+          }]
+        });
+
+        if (!user?.roles?.length) {
+          return sendError(res, 403, 'Aucun rôle attribué');
+        }
+
+        userRoles = user.roles.map(role => role.name.toUpperCase() as RoleType);
+        await redisClient.set(cacheKey, JSON.stringify(userRoles), { EX: REDIS_TTL });
       }
 
-      const userRoles = user.roles.map(role => 
-        role.name.toUpperCase() as RoleType
-      );
-
-      const hasPermission = requiredRoles.some(role => 
-        userRoles.includes(role)
-      );
+      const hasPermission = requiredRoles.some(role => userRoles.includes(role));
 
       if (!hasPermission) {
         return sendError(res, 403, 'Permissions insuffisantes', {

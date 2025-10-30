@@ -2,6 +2,9 @@ import NotificationModel from "@models/notification.model";
 import TokenModel from "@models/token.model";
 import { TypesNotification } from "@utils/constants";
 import axios from 'axios';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface NotificationCreate {
     title: string;
@@ -69,11 +72,18 @@ class NotificationService {
     }
 
     async list(limit: number, startIndex:number) {
-        return NotificationModel.findAndCountAll({
+        const cacheKey = `notifications:list:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const result = await NotificationModel.findAndCountAll({
             offset: startIndex,
             limit,
             order: [['createdAt', 'DESC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async listByType(
@@ -82,45 +92,50 @@ class NotificationService {
         limit: number, 
         startIndex: number
     ) {
-        const where: Record<string, any> = {};
-        if (type) {
-            where.type = type;
-        }
-        if (status) {
-            where.status = status;
-        }
+        const cacheKey = `notifications:listByType:${type}:${status}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-        return NotificationModel.findAndCountAll({
+        const where: Record<string, any> = {};
+        if (type) where.type = type;
+        if (status) where.status = status;
+
+        const result = await NotificationModel.findAndCountAll({
             where,
             offset: startIndex,
             limit,
             order: [['createdAt', 'DESC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async getNotificationsUser(
         userId: number, 
         type: TypesNotification, 
         status: 'SENDED' | 'NOT_SENDED', 
-        limit: number, startIndex: number
+        limit: number, 
+        startIndex: number
     ) {
+        const cacheKey = `notifications:user:${userId}:${type}:${status}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
-        if (userId) {
-            where.userId = userId;
-        }
-        if (type) {
-            where.type = type;
-        }
-        if (status) {
-            where.status = status;
-        }
-        
-        return NotificationModel.findAndCountAll({
+        if (userId) where.userId = userId;
+        if (type) where.type = type;
+        if (status) where.status = status;
+
+        const result = await NotificationModel.findAndCountAll({
             where,
             offset: startIndex,
             limit,
             order: [['createdAt', 'DESC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async markedAsRead(notificationId: number) {

@@ -11,6 +11,9 @@ import transactionService from "./transactionService";
 import WalletModel from "@models/wallet.model";
 import notificationService from "./notificationService";
 import sequelize from '@config/db';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class SharedExpenseService {
     async createExpense(expenseCreate: SharedExpenseCreate) {
@@ -167,6 +170,10 @@ class SharedExpenseService {
 
     // Récupérer une dépense par ID
     async getExpenseById(id: number) {
+        const cacheKey = `sharedExpenseById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const sharedExpense = await SharedExpenseModel.findByPk(id, {
             include: [
                 {
@@ -178,15 +185,20 @@ class SharedExpenseService {
                     model: ParticipantSharedExpenseModel,
                     as: 'participants',
                     attributes: ['userId', 'sharedExpenseId', 'part', 'paymentStatus'],
-                    include: [{ 
-                        model: UserModel, 
-                        as: 'user', 
+                    include: [{
+                        model: UserModel,
+                        as: 'user',
                         attributes: ['firstname', 'lastname', 'phone', 'email']
                     }]
                 }
             ]
-        })
-        return sharedExpense
+        });
+
+        if (sharedExpense) {
+            await redisClient.set(cacheKey, JSON.stringify(sharedExpense), { EX: REDIS_TTL });
+        }
+
+        return sharedExpense;
     }
 
     // Lister toutes les dépenses
@@ -197,12 +209,14 @@ class SharedExpenseService {
         startDate?: string,
         endDate?: string
     ) {
-        const where: Record<string, any> = {};
+        const cacheKey = `sharedExpenses:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
+        const where: Record<string, any> = {};
         if (status) {
             where.status = status;
         }
-
         if (startDate || endDate) {
             where.createdAt = {};
             if (startDate) {
@@ -218,7 +232,7 @@ class SharedExpenseService {
             }
         }
 
-        return await SharedExpenseModel.findAndCountAll({
+        const result = await SharedExpenseModel.findAndCountAll({
             where,
             limit,
             offset: startIndex,
@@ -233,14 +247,22 @@ class SharedExpenseService {
                     model: ParticipantSharedExpenseModel,
                     as: 'participants',
                     attributes: ['userId', 'sharedExpenseId', 'part', 'paymentStatus'],
-                    include: [{ 
-                        model: UserModel, 
-                        as: 'user', 
-                        attributes: ['firstname', 'lastname', 'phone', 'email']
+                    include: [{
+                        model: UserModel,
+                        as: 'user',
+                        attributes: ['firstname', 'lastname', 'phone', 'email', 'id'],
+                        include: [{
+                            model: WalletModel,
+                            as: 'wallet',
+                            attributes: ['matricule', 'balance']
+                        }]
                     }]
                 }
             ]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async payExpense(
@@ -507,6 +529,10 @@ class SharedExpenseService {
     }
 
     async listUserSharedExpense(userId: number) {
+        const cacheKey = `listUserSharedExpense:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const sharedExpenses = await SharedExpenseModel.findAll({
             where: { userId },
             include: [
@@ -533,10 +559,16 @@ class SharedExpenseService {
             ],
             order: [['createdAt', 'DESC']]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
         return sharedExpenses;
     }
 
     async listSharedExpenseIncludeMe(userId: number) {
+        const cacheKey = `listSharedExpenseIncludeMe:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const sharedExpenses = await ParticipantSharedExpenseModel.findAll({
             where: { userId },
             include: [{
@@ -545,8 +577,10 @@ class SharedExpenseService {
                 foreignKey: 'userId'
             }],
             order: [['createdAt', 'DESC']]
-        })
-        return sharedExpenses
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
+        return sharedExpenses;
     }
 
     async updateExpenseWithRecalculation(

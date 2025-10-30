@@ -2,7 +2,9 @@ import ContactModel from "@models/contact.model";
 import UserContactModel from "@models/user-contact.model";
 import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
+import redisClient from '@config/cache';
 
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class ContactService {
     async synchronizeContacts(
@@ -50,27 +52,28 @@ class ContactService {
     }   
 
     async getContacts(userId: number) {
-        try {
-            return await ContactModel.findAll({
-                where: { userId },
-                order: [['name', 'ASC']],
-                attributes: ['id', 'name', 'phone'],
-                include: [
-                    {
-                        model: UserModel,
-                        as: 'ownerUser',
-                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email'],
-                        include: [{ 
-                            model: WalletModel, 
-                            as: 'wallet', 
-                            attributes: ['id', 'matricule'] 
-                        }]
-                    }
-                ]
-            });
-        } catch (error: any) {
-            throw new Error(`Échec récupération des contacts: ${error.message}`);
-        }
+        const cacheKey = `contacts:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const result = await ContactModel.findAll({
+            where: { userId },
+            order: [['name', 'ASC']],
+            attributes: ['id', 'name', 'phone'],
+            include: [{
+                model: UserModel,
+                as: 'ownerUser',
+                attributes: ['id', 'firstname', 'lastname', 'phone', 'email'],
+                include: [{ 
+                    model: WalletModel, 
+                    as: 'wallet', 
+                    attributes: ['id', 'matricule'] 
+                }]
+            }]
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async addContactToFavorites(contactNumber: number, userId: number, contactId: number) {
@@ -135,65 +138,60 @@ class ContactService {
     }
 
     async getContactByPhone(phone: string) {
-        try {
-            const contact = await ContactModel.findOne({
-                where: { 
-                    phone 
-                },
-                attributes: ['id', 'name', 'phone'],
-                include: [
-                    {
-                        model: UserModel,
-                        as: 'ownerUser',
-                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address'],
-                        include: [{ 
-                            model: WalletModel, 
-                            as: 'wallet', 
-                            attributes: ['id', 'matricule', 'balance']
-                        }]
-                    }
-                ]
-            });
+        const cacheKey = `contactByPhone:${phone}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-            if (!contact) {
-                throw new Error('Contact non trouvé');
-            }
+        const contact = await ContactModel.findOne({
+            where: { phone },
+            attributes: ['id', 'name', 'phone'],
+            include: [{
+                model: UserModel,
+                as: 'ownerUser',
+                attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address'],
+                include: [{ 
+                    model: WalletModel, 
+                    as: 'wallet', 
+                    attributes: ['id', 'matricule', 'balance']
+                }]
+            }]
+        });
 
-            return contact;
-        } catch (error: any) {
-            throw new Error(`Échec récupération du contact: ${error.message}`);
+        if (contact) {
+            await redisClient.set(cacheKey, JSON.stringify(contact), { EX: REDIS_TTL });
         }
+
+        return contact;
     }
 
     async getFavorites(userId: number) {
-        try {
-            const userWithFavorites = await UserModel.findByPk(userId, {
+        const cacheKey = `favorites:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const userWithFavorites = await UserModel.findByPk(userId, {
+            include: [{
+                model: ContactModel,
+                as: 'favoriteContacts',
+                attributes: ['id', 'name', 'phone'],
                 include: [{
-                    model: ContactModel,
-                    as: 'favoriteContacts',
-                    attributes: ['id', 'name', 'phone'],
-                    include: [{
-                        model: UserModel,
-                        as: 'ownerUser',
-                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address']
-                    }],
-                    through: { attributes: [] }
+                    model: UserModel,
+                    as: 'ownerUser',
+                    attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address']
                 }],
-                attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address'],
-                order: [['firstname', 'ASC']]
-            });
+                through: { attributes: [] }
+            }],
+            attributes: ['id', 'firstname', 'lastname', 'phone', 'email', 'address'],
+            order: [['firstname', 'ASC']]
+        });
 
-            if (!userWithFavorites) {
-                throw new Error('Utilisateur non trouvé');
-            }
-
-            // Optionnel : ne renvoyer que les contacts favoris
-            return userWithFavorites.favoriteContacts;
-        } catch (error: any) {
-            throw new Error(`Échec récupération des favoris: ${error.message}`);
+        if (!userWithFavorites) {
+            throw new Error('Utilisateur non trouvé');
         }
-    }
 
+        await redisClient.set(cacheKey, JSON.stringify(userWithFavorites.favoriteContacts), { EX: REDIS_TTL });
+        return userWithFavorites.favoriteContacts;
+    }
 }
 
 export default new ContactService();

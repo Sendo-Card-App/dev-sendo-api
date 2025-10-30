@@ -16,6 +16,9 @@ import notificationService from './notificationService';
 import { sendEmailWithHTML } from './emailService';
 import { typesMethodTransaction, typesTransaction } from '@utils/constants';
 import sequelize from '@config/db';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class TontineService {
     async createTontine(data: {
@@ -782,7 +785,11 @@ class TontineService {
     }
 
     async getTontineById(tontineId: number) {
-        return TontineModel.findByPk(tontineId, {
+        const cacheKey = `tontineById:${tontineId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const tontine = await TontineModel.findByPk(tontineId, {
             include: [
                 {
                     model: MembreTontineModel, 
@@ -813,6 +820,11 @@ class TontineService {
                 }
             ]
         })
+
+        if (tontine) {
+            await redisClient.set(cacheKey, JSON.stringify(tontine), { EX: REDIS_TTL });
+        }
+        return tontine;
     }
 
     static async initialiserOrdreAleatoire(tontine: TontineModel) {
@@ -857,7 +869,11 @@ class TontineService {
     }
 
     async getTourDistributionsTontine(tontineId: number) {
-        return TourDeDistributionModel.findAll({
+        const cacheKey = `tourDistributionsTontine:${tontineId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const tours = await TourDeDistributionModel.findAll({
             where: {
                 tontineId
             },
@@ -871,9 +887,16 @@ class TontineService {
                 }]
             }]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
+        return tours;
     }
 
     async getTontinesUser(userId: number, limit: number, startIndex: number) {
+        const cacheKey = `tontinesUser:${userId}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         // 1. Récupérer les IDs des tontines où l'utilisateur est membre
         const tontineIdsResult = await MembreTontineModel.findAll({
             attributes: ['tontineId'],
@@ -926,11 +949,16 @@ class TontineService {
             order: [['createdAt', 'DESC']]
         });
 
+        await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
         return tontines;
     }
 
     async getTourDistributionsTontineUser(tontineId: number, memberId: number) {
-        return TourDeDistributionModel.findAll({
+        const cacheKey = `tourDistributionsTontineUser:tontineId=${tontineId}&memberId=${memberId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const tours = await TourDeDistributionModel.findAll({
             where: {
                 tontineId,
                 beneficiaireId: memberId
@@ -945,10 +973,17 @@ class TontineService {
                 }]
             }]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
+        return tours;
     }
 
     async getAllTontines(limit: number, startIndex: number) {
-        return TontineModel.findAndCountAll({
+        const cacheKey = `allTontines:limit=${limit}&startIndex=${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const tontines = await TontineModel.findAndCountAll({
             limit,
             offset: startIndex,
             include: [
@@ -982,6 +1017,9 @@ class TontineService {
             ],
             order: [['createdAt', 'DESC']]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
+        return tontines;
     }
 
     async appliquerPenalite(data: {
@@ -1015,7 +1053,11 @@ class TontineService {
     }
 
     async getPenalitesTontineMembre(membreId: number, tontineId: number) {
-        return PenaliteModel.findAll({
+        const cacheKey = `penalitesTontineMembre:${tontineId}:${membreId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const penalites = await PenaliteModel.findAll({
             where: { membreId, tontineId },
             include: [
                 {
@@ -1037,6 +1079,9 @@ class TontineService {
                 }
             ]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
+        return penalites;
     }
 
     async payerPenalite(penaliteId: number) {
@@ -1174,6 +1219,10 @@ class TontineService {
         membreId?: number, 
         statutPaiement?: 'VALIDATED' | 'PENDING' | 'REJECTED'
     ) {
+        const cacheKey = `cotisationsTontine:${tontineId}:${membreId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         where.tontineId = tontineId
         if (membreId) {
@@ -1183,7 +1232,7 @@ class TontineService {
             where.statutPaiement = statutPaiement
         }
 
-        return CotisationModel.findAll({
+        const cotisations = await CotisationModel.findAll({
             where,
             include: [{
                 model: MembreTontineModel,
@@ -1195,6 +1244,9 @@ class TontineService {
                 }]
             }]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(cotisations), { EX: REDIS_TTL });
+        return cotisations;
     }
 
     async getPenalitesTontine(
@@ -1203,13 +1255,17 @@ class TontineService {
         statut?: 'PAID' | 'UNPAID',
         type?: 'ABSENCE' | 'RETARD' | 'AUTRE'
     ) {
+        const cacheKey = `penalitesTontine:${tontineId}:${membreId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         if (tontineId) where.tontineId = tontineId
         if (membreId) where.membreId = membreId
         if (statut) where.statut = statut
         if (type) where.type = type
 
-        return PenaliteModel.findAll({
+        const penalites = await PenaliteModel.findAll({
             where,
             include: [{
                 model: MembreTontineModel,
@@ -1221,6 +1277,9 @@ class TontineService {
                 }]
             }]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
+        return penalites;
     }
 
     async checkUnpaidPenalite() {
@@ -1307,20 +1366,20 @@ class TontineService {
         }
 
         if (action === 'DEPOSIT') account.soldeActuel = account.soldeActuel + amount;
-        else account.soldeActuel = account.soldeActuel - amount;
+        else if (action === 'WITHDRAWAL') account.soldeActuel = account.soldeActuel - amount;
         await account.save();
 
         const transaction: TransactionCreate = {
             amount: amount,
-            userId: adminId,
-            type: 'TONTINE_PAYMENT',
+            userId: 1,
+            type: 'ADMIN_SENDO',
             status: 'COMPLETED',
             totalAmount: amount,
             currency: 'XAF',
             description: action === 'DEPOSIT' ? `Dépôt par Sendo dans compte séquestre tontine #${account.tontineId}` : `Retrait par Sendo du compte séquestre tontine #${account.tontineId}`,
             provider: 'SYSTEM',
             receiverType: 'User',
-            receiverId: adminId,
+            receiverId: 1,
             method: 'WALLET'
         };
         await transactionService.createTransaction(transaction);

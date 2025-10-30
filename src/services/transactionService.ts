@@ -11,6 +11,9 @@ import mobileMoneyController from "@controllers/mobileMoneyController";
 import notificationService from "./notificationService";
 import VirtualCardModel from "@models/virtualCard.model";
 import neeroService from "./neeroService";
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class TransactionService {
     async getAllTransactions(
@@ -22,32 +25,19 @@ class TransactionService {
         startDate?: string,
         endDate?: string
     ) {
+        const cacheKey = `allTransactions:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
-
-        if (type) {
-            where.type = type;
-        }
-        if (status) {
-            where.status = status;
-        }
-        if (method) {
-            where.method = method;
-        }
-
+        if (type) where.type = type;
+        if (status) where.status = status;
+        if (method) where.method = method;
         if (startDate || endDate) {
             where.createdAt = {};
-            if (startDate) {
-                const { start } = getUTCBoundaries(startDate);
-                where.createdAt[Op.gte] = start;
-            }
-            if (endDate) {
-                const { end } = getUTCBoundaries(endDate);
-                where.createdAt[Op.lte] = end;
-            }
-
-            if (Object.keys(where.createdAt).length === 0) {
-                delete where.createdAt;
-            }
+            if (startDate) where.createdAt[Op.gte] = getUTCBoundaries(startDate).start;
+            if (endDate) where.createdAt[Op.lte] = getUTCBoundaries(endDate).end;
+            if (Object.keys(where.createdAt).length === 0) delete where.createdAt;
         }
 
         const result = await TransactionModel.findAndCountAll({
@@ -65,25 +55,26 @@ class TransactionService {
                     model: VirtualCardModel,
                     as: 'card'
                 }
-                // On retire ici l'inclusion de DestinataireModel
             ]
         });
 
-        // Chargement manuel des destinataires polymorphes
         const transactionsWithReceivers = await Promise.all(
             result.rows.map(async (transaction) => {
                 const receiver = await transaction.getReceiver();
                 return {
-                    ...transaction.toJSON(),
-                    receiver
+                ...transaction.toJSON(),
+                receiver
                 };
             })
         );
 
-        return {
+        const cachedResult = {
             count: result.count,
             rows: transactionsWithReceivers
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
+        return cachedResult;
     }
 
     async createTransaction(transaction: TransactionCreate) {
@@ -91,11 +82,15 @@ class TransactionService {
     }
 
     async getTransaction(transactionId: string) {
+        const cacheKey = `transaction:${transactionId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const transaction = await TransactionModel.findOne({
             where: { transactionId },
             include: [
                 {
-                    model: UserModel,
+                model: UserModel,
                     as: 'user',
                     attributes: ['id', 'firstname', 'lastname', 'email', 'phone'],
                     include: [
@@ -112,13 +107,17 @@ class TransactionService {
                 }
             ]
         });
+        if (!transaction) throw new Error("Transaction introuvable");
 
-        if (!transaction) throw new Error("Transaction introuvable");;
-
-        return transaction
+        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
+        return transaction;
     }
 
     async getTransactionWithReceiver(transactionId: string) {
+        const cacheKey = `transactionWithReceiver:${transactionId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const transaction = await TransactionModel.findOne({
             where: { transactionId },
             include: [
@@ -126,13 +125,11 @@ class TransactionService {
                     model: UserModel,
                     as: 'user',
                     attributes: ['id', 'firstname', 'lastname', 'email', 'phone'],
-                    include: [
-                        {
-                            model: WalletModel,
-                            as: 'wallet',
-                            attributes: ['matricule', 'balance', 'userId', 'status']
-                        }
-                    ]
+                    include: [{
+                        model: WalletModel,
+                        as: 'wallet',
+                        attributes: ['matricule', 'balance', 'userId', 'status']
+                    }]
                 },
                 {
                     model: VirtualCardModel,
@@ -140,32 +137,37 @@ class TransactionService {
                 }
             ]
         });
-
         if (!transaction) throw new Error("Transaction introuvable");
 
         const receiver = await transaction.getReceiver();
 
-        return {
+        const result = {
             ...transaction.toJSON(),
             receiver
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async getTransactionByReference(transactionReference: string) {
+        const keyRef = transactionReference.trim();
+        const cacheKey = `transactionByReference:${keyRef}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const transaction = await TransactionModel.findOne({
-            where: { transactionReference: transactionReference.trim() },
+            where: { transactionReference: keyRef },
             include: [
                 {
                     model: UserModel,
                     as: 'user',
                     attributes: ['id', 'firstname', 'lastname', 'email', 'phone'],
-                    include: [
-                        {
-                            model: WalletModel,
-                            as: 'wallet',
-                            attributes: ['matricule', 'balance', 'userId', 'status']
-                        }
-                    ]
+                    include: [{
+                        model: WalletModel,
+                        as: 'wallet',
+                        attributes: ['matricule', 'balance', 'userId', 'status']
+                    }]
                 },
                 {
                     model: VirtualCardModel,
@@ -174,13 +176,8 @@ class TransactionService {
             ]
         });
 
-        /*const receiver = await transaction.getReceiver();
-
-        return {
-            ...transaction.toJSON(),
-            receiver
-        };*/
-        return transaction
+        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
+        return transaction;
     }
 
     async getTransactionsUser(
@@ -193,36 +190,25 @@ class TransactionService {
         startDate?: string,
         endDate?: string
     ) {
+        const cacheKey = `transactionsUser:${userId}:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {
             [Op.or]: [
                 { userId },
                 { receiverId: userId }
             ]
         };
-
-        if (type) {
-            where.type = type;
-        }
-        if (status) {
-            where.status = status;
-        }
-        if (method) {
-            where.method = method;
-        }
-
+        if (type) where.type = type;
+        if (status) where.status = status;
+        if (method) where.method = method;
         if (startDate || endDate) {
             where.createdAt = {};
-            if (startDate) {
-                const { start } = getUTCBoundaries(startDate);
-                where.createdAt[Op.gte] = start;
-            }
-            if (endDate) {
-                const { end } = getUTCBoundaries(endDate);
-                where.createdAt[Op.lte] = end;
-            }
-            if (Object.keys(where.createdAt).length === 0) {
-                delete where.createdAt;
-            }
+            if (startDate) where.createdAt[Op.gte] = getUTCBoundaries(startDate).start;
+            if (endDate) where.createdAt[Op.lte] = getUTCBoundaries(endDate).end;
+            if (Object.keys(where.createdAt).length === 0) delete where.createdAt;
         }
 
         const result = await TransactionModel.findAndCountAll({
@@ -231,10 +217,7 @@ class TransactionService {
             offset: startIndex,
             order: [['createdAt', 'DESC']],
             include: [
-                {
-                    model: VirtualCardModel,
-                    as: 'card'
-                }
+                { model: VirtualCardModel, as: 'card' }
             ]
         });
 
@@ -242,9 +225,10 @@ class TransactionService {
             result.rows.map(async (transaction) => {
                 const receiver = await transaction.getReceiver();
                 const wallet = await WalletModel.findOne({
-                    where: { userId: transaction.userId },
+                where: { userId: transaction.userId },
                     attributes: ['id', 'balance', 'currency', 'matricule']
                 });
+
                 return {
                     ...transaction.toJSON(),
                     wallet,
@@ -257,10 +241,13 @@ class TransactionService {
             attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
         });
 
-        return {
+        const cachedResult = {
             transactions: { count: result.count, rows: transactionsWithReceivers },
             user
         };
+
+        await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
+        return cachedResult;
     }
 
     async checkPendingTransactionsSmobilpay() {

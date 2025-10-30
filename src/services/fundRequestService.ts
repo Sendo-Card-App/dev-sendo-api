@@ -11,6 +11,9 @@ import userService from "./userService";
 import { generateUniqueReference, getUTCBoundaries } from "@utils/functions";
 import notificationService from "./notificationService";
 import sequelize from '@config/db';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class FundRequestService {
     /**
@@ -122,47 +125,44 @@ class FundRequestService {
      * @returns 
      */
     async getFundRequestsByUser(userId: number) {
+        const cacheKey = `fundRequestsUser:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const fundRequests = await FundRequestModel.findAll({
             where: { userId },
-            include: [
-                {
-                    model: RequestRecipientModel,
-                    as: 'recipients',
-                    include: [
-                        {
-                            model: UserModel,
-                            as: 'recipient',
-                            attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
-                        }
-                    ],
-                    order: [['createdAt', 'DESC']]
-                }   
-            ]
+            include: [{
+                model: RequestRecipientModel,
+                as: 'recipients',
+                include: [
+                    {
+                        model: UserModel,
+                        as: 'recipient',
+                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+                    }
+                ],
+                order: [['createdAt', 'DESC']]
+            }]
         });
 
-        // Récupérer tous les recipientIds de toutes les demandes
         const recipientIds = fundRequests.flatMap(fr => fr.recipients?.map(r => r.recipientId) || []);
 
-        if (recipientIds.length === 0) {
-            return fundRequests;
+        if (recipientIds.length > 0) {
+            const payments = await TransactionModel.findAll({
+                where: {
+                    userId: recipientIds,
+                    type: 'FUND_REQUEST_PAYMENT'
+                }
+            });
+
+            fundRequests.forEach(fr => {
+                fr.recipients?.forEach(r => {
+                    (r as any).setDataValue('payments', payments.filter(p => p.userId === r.recipientId));
+                });
+            });
         }
 
-        // Récupérer tous les paiements liés aux recipients
-        const payments = await TransactionModel.findAll({
-            where: {
-                userId: recipientIds,
-                type: 'FUND_REQUEST_PAYMENT'
-            },
-            attributes: ['id', 'transactionId', 'amount', 'totalAmount', 'description', 'userId', 'currency', 'type', 'status']
-        });
-
-        // Injecter les paiements dans chaque recipient
-        fundRequests.forEach(fr => {
-            fr.recipients?.forEach(r => {
-                (r as any).setDataValue('payments', payments.filter(p => p.userId === r.recipientId));
-            });
-        });
-
+        await redisClient.set(cacheKey, JSON.stringify(fundRequests), { EX: REDIS_TTL });
         return fundRequests;
     }
 
@@ -423,72 +423,57 @@ class FundRequestService {
      * @returns 
      */
     async fundRequestAllList(
-        limit: number,
-        startIndex: number,
-        status?: 'PARTIALLY_FUNDED'|'FULLY_FUNDED'|'CANCELLED'|'PENDING',
-        startDate?: string,
+        limit: number, 
+        startIndex: number, 
+        status?: string, 
+        startDate?: string, 
         endDate?: string
     ) {
-        const where: Record<string, any> = {};
-        
-        if (status) {
-            where.status = status;
-        }
+        const cacheKey = `fundRequestList:${limit}:${startIndex}:${status ?? ''}:${startDate ?? ''}:${endDate ?? ''}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
+        const where: Record<string, any> = {};
+        if (status) where.status = status;
         if (startDate || endDate) {
             where.createdAt = {};
-            if (startDate) {
-                const { start } = getUTCBoundaries(startDate);
-                where.createdAt[Op.gte] = start;
-            }
-            if (endDate) {
-                const { end } = getUTCBoundaries(endDate);
-                where.createdAt[Op.lte] = end;
-            }
-            if (Object.keys(where.createdAt).length === 0) {
-                delete where.createdAt;
-            }
+            if (startDate) where.createdAt[Op.gte] = getUTCBoundaries(startDate).start;
+            if (endDate) where.createdAt[Op.lte] = getUTCBoundaries(endDate).end;
         }
-                
+
         const fundRequests = await FundRequestModel.findAndCountAll({
             where,
             limit,
             offset: startIndex,
             order: [['createdAt', 'DESC']],
-            include: [
-                {
-                    model: RequestRecipientModel,
-                    as: 'recipients',
-                    include: [
-                        { 
-                            model: UserModel, 
-                            as: 'recipient',
-                            attributes: ['id', 'firstname', 'lastname', 'email', 'phone'] 
-                        }
-                    ]
-                }
-            ]
+            include: [{
+                model: RequestRecipientModel,
+                as: 'recipients',
+                include: [{
+                    model: UserModel,
+                    as: 'recipient',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                }]
+            }]
         });
 
-        // Récupérer tous les recipientIds
         const recipientIds = fundRequests.rows.flatMap(fr => fr.recipients?.map(r => r.recipientId) || []);
 
-        // Récupérer les transactions des recipients
         const payments = await TransactionModel.findAll({
             where: {
                 userId: recipientIds,
                 type: 'FUND_REQUEST_PAYMENT'
-            }   
+            }
         });
 
-        // Mapper les paiements dans les recipients manuellement
         fundRequests.rows.forEach(fr => {
             fr.recipients?.forEach(r => {
                 (r as any).setDataValue('payments', payments.filter(p => p.userId === r.recipientId));
             });
         });
 
-        return fundRequests
+        await redisClient.set(cacheKey, JSON.stringify(fundRequests), { EX: REDIS_TTL });
+        return fundRequests;
     }
 
     /**
@@ -497,43 +482,41 @@ class FundRequestService {
      * @returns 
      */
     async fundRequestById(fundRequestId: number) {
+        const cacheKey = `fundRequestById:${fundRequestId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const fundRequest = await FundRequestModel.findByPk(fundRequestId, {
-            include: [
-                {
-                    model: RequestRecipientModel,
-                    as: 'recipients',
-                    include: [
-                        {
-                            model: UserModel,
-                            as: 'recipient',
-                            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
-                        }
-                    ]
-                }
-            ]
+            include: [{
+                model: RequestRecipientModel,
+                as: 'recipients',
+                include: [{
+                    model: UserModel,
+                    as: 'recipient',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                }]
+            }]
         });
 
         if (!fundRequest || !fundRequest.recipients) {
             return fundRequest;
         }
 
-        // Récupérer tous les recipientIds
         const recipientIds = fundRequest.recipients.map(r => r.recipientId);
 
-        // Récupérer les paiements liés aux recipients
         const payments = await TransactionModel.findAll({
             where: {
-            userId: recipientIds,
-            type: 'FUND_REQUEST_PAYMENT'
+                userId: recipientIds,
+                type: 'FUND_REQUEST_PAYMENT'
             },
             attributes: ['id', 'transactionId', 'amount', 'totalAmount', 'description', 'userId', 'currency', 'type', 'status']
         });
 
-        // Associer les paiements à chaque recipient manuellement
         fundRequest.recipients.forEach(fr => {
             (fr as any).setDataValue('payments', payments.filter(p => p.userId === fr.recipientId));
         });
 
+        await redisClient.set(cacheKey, JSON.stringify(fundRequest), { EX: REDIS_TTL });
         return fundRequest;
     }
 
@@ -552,6 +535,10 @@ class FundRequestService {
         startIndex: number,
         status?: 'PARTIALLY_FUNDED' | 'FULLY_FUNDED' | 'CANCELLED' | 'PENDING',
     ) {
+        const cacheKey = `allFundRequestsForUser:${userId}:${limit}:${startIndex}:${status ?? 'all'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         // 1. Récupérer les demandes créées par l'utilisateur (demandeur)
         const asRequester = await FundRequestModel.findAll({
             where: status ? { userId, status } : { userId },
@@ -589,8 +576,7 @@ class FundRequestService {
             limit,
             offset: startIndex,
             order: [['createdAt', 'DESC']],
-            include: [
-            {
+            include: [{
                 model: FundRequestModel,
                 as: "requestFund",
                 include: [
@@ -603,16 +589,15 @@ class FundRequestService {
                         model: RequestRecipientModel,
                         as: 'recipients',
                         include: [
-                            {
-                                model: UserModel,
-                                as: 'recipient',
-                                attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
-                            }
+                        {
+                            model: UserModel,
+                            as: 'recipient',
+                            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                        }
                         ]
                     }
                 ]
-            }
-            ]
+            }]
         });
 
         // Extraire les demandes de fonds où l'utilisateur est bénéficiaire
@@ -650,10 +635,15 @@ class FundRequestService {
             });
         });
 
-        return {
+        const response = {
             count: allRequests.length,
             rows: allRequests
         };
+
+        // Mise en cache avec TTL d'une heure
+        await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
+
+        return response;
     }
 
     /**

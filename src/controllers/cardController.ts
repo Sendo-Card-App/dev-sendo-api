@@ -291,16 +291,25 @@ class CardController {
     }
 
     async getRequestsCreatingCard(req: Request, res: Response) {
-        const { status } = res.locals.pagination;
+        const { status, limit, startIndex, page } = res.locals.pagination;
         try {
-            const sessionParty = await cardService.getAllOnboardingSessionUser();
-            let filteredSessionParties: any[] = status
-                ? sessionParty.filter((s: any) => s.onboardingSessionStatus === status)
-                : sessionParty;
+            // Récupération de toutes les sessions
+            const sessionParties = await cardService.getAllOnboardingSessionUser(Number(limit));
 
-            // Enrichir chaque session avec l'objet user récupéré par la clé
+            // Filtrer par status si spécifié
+            let filteredSessionParties: any[] = status
+                ? sessionParties.filter((s: any) => s.onboardingSessionStatus === status)
+                : sessionParties;
+
+            // Pagination manuelle (puisque cardService ne fait pas la pagination)
+            const totalItems = filteredSessionParties.length;
+            const totalPages = Math.ceil(totalItems / limit);
+
+            const paginatedSessions = filteredSessionParties.slice(startIndex, startIndex + limit);
+
+            // Enrichir chaque session avec l'objet user
             const enrichedSessions = await Promise.all(
-                filteredSessionParties.map(async (session) => {
+                paginatedSessions.map(async (session) => {
                     try {
                         const partySession = await cardService.getPartySession(undefined, session.key);
                         return { sessionParty: session, user: partySession?.user };
@@ -310,7 +319,14 @@ class CardController {
                 })
             );
 
-            sendResponse(res, 200, 'Session party user retournée', enrichedSessions);
+            const responseData = {
+                page,
+                totalPages,
+                totalItems,
+                items: enrichedSessions
+            };
+
+            sendResponse(res, 200, 'Session party user retournée avec succès', responseData);
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', error.message);
         }

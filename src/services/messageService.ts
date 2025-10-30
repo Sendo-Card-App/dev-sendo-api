@@ -3,6 +3,9 @@ import { IMessage, IMessageCreate } from '../types/Conversation';
 import UserModel from '@models/user.model';
 import ConversationModel from '@models/conversation.model';
 import conversationService from './conversationService';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class MessageService {
     async sendMessage(message: IMessageCreate) {
@@ -54,65 +57,60 @@ class MessageService {
     }
 
     async getMessagesByConversation(conversationId: string): Promise<MessageModel[]> {
-        try {
-            const conversation = await conversationService.getConversationById(conversationId)
-            if (!conversation) {
-                throw new Error("Conversation introuvable")
-            }
-            if (conversation.status === 'CLOSED') {
-                throw new Error("Conversation archivée")
-            }
+        const cacheKey = `messagesByConversation:${conversationId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-            const messages = await MessageModel.findAll({
-                where: { conversationId },
-                order: [['createdAt', 'DESC']],
-                include: [
-                    {
-                        model: UserModel,
-                        as: 'user',
-                        attributes: ['id', 'firstname', 'lastname', 'email', 'phone'],
-                    },
-                ],
-                limit: 30
-            });
+        const conversation = await conversationService.getConversationById(conversationId);
+        if (!conversation) throw new Error("Conversation introuvable");
+        if (conversation.status === 'CLOSED') throw new Error("Conversation archivée");
 
-            // Parse des attachments
-            return messages.map(message => ({
-                ...message.get({ plain: true }),
-                attachments: message.attachments ? JSON.parse(message.attachments) : []
-            })) as MessageModel[];
-        } catch (error: any) {
-            throw new Error(`Erreur lors de la récupération des messages: ${error.message}`);
-        }
+        const messages = await MessageModel.findAll({
+            where: { conversationId },
+            order: [['createdAt', 'DESC']],
+            include: [{
+                model: UserModel,
+                as: 'user',
+                attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+            }],
+            limit: 30
+        });
+
+        const response = messages.map(message => ({
+            ...message.get({ plain: true }),
+            attachments: message.attachments ? JSON.parse(message.attachments) : []
+        })) as MessageModel[];
+
+        await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
+        return response;
     }
 
     async getMessageById(id: string): Promise<MessageModel | null> {
-        try {
-            const message = await MessageModel.findByPk(id, {
-                include: [
-                    {
-                        model: UserModel,
-                        as: 'user',
-                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email'],
-                    },
-                ]
-            });
+        const cacheKey = `messageById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-            if (message) {
-                // Parse des attachments
-                const formattedMessage = {
-                    ...message.get({ plain: true }),
-                    attachments: message.attachments ? JSON.parse(message.attachments) : []
-                };
+        const message = await MessageModel.findByPk(id, {
+            include: [{
+                model: UserModel,
+                as: 'user',
+                attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+            }]
+        });
 
-                message.read = true;
-                await message.save();
-                return formattedMessage as MessageModel;
-            }
-            return null;
-        } catch (error: any) {
-            throw new Error(`Erreur lors de la récupération du message: ${error.message}`);
-        }
+        if (!message) return null;
+
+        const formattedMessage = {
+            ...message.get({ plain: true }),
+            attachments: message.attachments ? JSON.parse(message.attachments) : []
+        };
+
+        // Marquer comme lu
+        message.read = true;
+        await message.save();
+
+        await redisClient.set(cacheKey, JSON.stringify(formattedMessage), { EX: REDIS_TTL });
+        return formattedMessage as MessageModel;
     }
 
     async updateMessage(id: string, updates: Partial<IMessage>) {

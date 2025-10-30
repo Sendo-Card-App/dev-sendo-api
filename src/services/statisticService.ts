@@ -13,8 +13,9 @@ import MembreTontineModel from '@models/membre-tontine.model';
 import CotisationModel from '@models/cotisation.model';
 import sequelize from '@config/db';
 import { TypesTransaction } from '@utils/constants';
-import cardService from './cardService';
-import PaymentMethodModel from '@models/payment-method.model';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 // Interface pour le typage fort
 export interface UserStatistics {
@@ -35,7 +36,11 @@ class StatisticsService {
      */
     static async getUserStatistics(): Promise<UserStatistics> {
         try {
-            return await sequelize.transaction(async transaction => {
+            const cacheKey = 'userStatistics';
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
+            const result = await sequelize.transaction(async transaction => {
                 const queries = [
                     UserModel.count({ transaction }),
                     
@@ -120,6 +125,9 @@ class StatisticsService {
                     : []
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques utilisateurs: ${(error as Error).message}`);
         }
@@ -130,7 +138,11 @@ class StatisticsService {
      */
     static async getWalletStatistics() {
         try {
-            return await sequelize.transaction(async transaction => {
+            const cacheKey = 'walletStatistics';
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+            
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalWallets,
                     totalBalanceRaw,
@@ -190,6 +202,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques wallets: ${(error as Error).message}`);
         }
@@ -200,6 +215,10 @@ class StatisticsService {
      */
     static async getTransactionStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `transactionStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -207,7 +226,8 @@ class StatisticsService {
             if (endDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
-            return await sequelize.transaction(async transaction => {
+            
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalTransactions,
                     totalAmountRaw,
@@ -287,6 +307,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques transactions : ${(error as Error).message}`);
         }
@@ -297,6 +320,10 @@ class StatisticsService {
      */
     static async getSharedExpenseStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `sharedExpenseStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -304,7 +331,8 @@ class StatisticsService {
             if (endDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
-            return await sequelize.transaction(async transaction => {
+
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalSharedExpenses,
                     statusDistribution,
@@ -396,6 +424,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des dépenses partagées : ${(error as Error).message}`);
         }
@@ -406,6 +437,10 @@ class StatisticsService {
      */
     static async getRequestFundsStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `requestFundsStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -413,7 +448,8 @@ class StatisticsService {
             if (endDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
-            return await sequelize.transaction(async transaction => {
+
+            const result = await sequelize.transaction(async transaction => {
                 // 1. Nombre total de demandes de fonds
                 const totalFundRequests = await FundRequestModel.count({ where: whereClause, transaction });
 
@@ -484,6 +520,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des demandes de fonds : ${(error as Error).message}`);
         }
@@ -494,6 +533,10 @@ class StatisticsService {
      */
     static async getTontineStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `tontineStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -501,7 +544,8 @@ class StatisticsService {
             if (endDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
-            return await sequelize.transaction(async transaction => {
+
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalTontines,
                     totalAmountRaw,
@@ -606,6 +650,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques tontines : ${(error as Error).message}`);
         }
@@ -616,6 +663,10 @@ class StatisticsService {
      */
     static async getVirtualCardStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `virtualCardStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -624,7 +675,7 @@ class StatisticsService {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
 
-            return await sequelize.transaction(async transaction => {
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalCards,
                     statusDistribution,
@@ -661,37 +712,6 @@ class StatisticsService {
                     })
                 ]);
 
-                /*let totalBalanceCards = 0;
-
-                // Calculer le solde total cumulé via l'API cardService pour chaque carte active
-                for (const card of activeCards) {
-                    const paymentMethod = await cardService.getPaymentMethod(undefined, undefined, Number(card.id), 'NEERO_CARD');
-                    if (!paymentMethod) {
-                        throw new Error("Carte ou portefeuille Sendo introuvable");
-                    }
-                    const balance = await cardService.getBalance(paymentMethod.paymentMethodId);
-                    totalBalanceCards += balance;
-                }
-
-                // Ajouter le solde à chaque carte récente
-                const recentCardsWithBalance = [];
-                for (const card of recentCards) {
-                    const paymentMethod = await cardService.getPaymentMethod(undefined, undefined, Number(card.id), undefined);
-                    if (!paymentMethod) {
-                        throw new Error("Carte ou portefeuille Sendo introuvable");
-                    }
-
-                    const balance = await cardService.getBalance(paymentMethod.paymentMethodId);
-                    recentCardsWithBalance.push({
-                        id: card.id,
-                        cardId: card.cardId,
-                        cardName: card.cardName,
-                        status: card.status,
-                        createdAt: card.createdAt,
-                        balance
-                    });
-                }*/
-
                 return {
                     totalCards,
                     statusDistribution: statusDistribution.map(s => ({
@@ -702,6 +722,9 @@ class StatisticsService {
                     totalAmountTransactionsCard: totalTrasactionsCardRaw || 0
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques cartes virtuelles : ${(error as Error).message}`);
         }
@@ -712,6 +735,11 @@ class StatisticsService {
      */
     static async getRequestStatistics(startDate: string, endDate: string) {
         try {
+            const cacheKey = `requestStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
+
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -719,7 +747,8 @@ class StatisticsService {
             if (endDate) {
                 whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
             }
-            return await sequelize.transaction(async transaction => {
+
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalRequests,
                     typeDistribution,
@@ -775,6 +804,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques demandes : ${(error as Error).message}`);
         }
@@ -784,7 +816,11 @@ class StatisticsService {
      * Statistiques avancées des rôles utilisateurs
      */
     static async getRoleStatistics() {
-        return RoleModel.findAll({
+        const cacheKey = 'roleStatistics';
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const result = await RoleModel.findAll({
             attributes: [
                 'name',
                 [sequelize.fn('COUNT', sequelize.col('users.id')), 'userCount']
@@ -798,6 +834,9 @@ class StatisticsService {
             group: ['RoleModel.id'],
             raw: true
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     /**
@@ -805,6 +844,10 @@ class StatisticsService {
      */
     static async getSendoFeesStatistics(startDate: string, endDate: string, type?: TypesTransaction) {
         try {
+            const cacheKey = `sendoFeesStats:${startDate ?? 'none'}:${endDate ?? 'none'}:${type ?? 'all'}`;
+            const cached = await redisClient.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+
             const whereClause: { [key: string]: any } = {
                 //sendoFees: { [Op.gt]: 0 }
             };
@@ -818,7 +861,7 @@ class StatisticsService {
                 whereClause.type = type;
             }
 
-            return await sequelize.transaction(async transaction => {
+            const result = await sequelize.transaction(async transaction => {
                 const [
                     totalFeesRaw,
                     averageFeesRaw,
@@ -892,6 +935,9 @@ class StatisticsService {
                     }))
                 };
             });
+
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des commissions : ${(error as Error).message}`);
         }

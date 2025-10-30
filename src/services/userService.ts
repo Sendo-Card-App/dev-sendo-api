@@ -13,6 +13,9 @@ import ConfigModel from '@models/config.model';
 import { TokenModel } from '@models/index.model';
 import notificationService from './notificationService';
 import MerchantModel from '@models/merchant.model';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 interface UpdatePassword {
     oldPassword: string;
@@ -24,17 +27,18 @@ class UserService {
         country: string,
         search: string, 
         limit: number, 
-        startIndex:number
+        startIndex: number
     ) {
+        const cacheKey = `allUsers:${country ?? 'all'}:${search ?? 'none'}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
-        if (country) {
-            where.country = country;
-        }
-        
+        if (country) where.country = country;
+
         if (search) {
             const searchWords = search.trim().split(/\s+/);
             if (searchWords.length === 1) {
-                // Recherche simple dans plusieurs colonnes
                 (where as any)[Op.or] = [
                     { firstname: { [Op.like]: `%${search}%` } },
                     { lastname: { [Op.like]: `%${search}%` } },
@@ -42,18 +46,17 @@ class UserService {
                     { phone: { [Op.like]: `%${search}%` } }
                 ];
             } else {
-                // Recherche multiple - trouver firstname et lastname correspondant aux mots dans n'importe quel ordre
                 (where as any)[Op.or] = [
                     {
                         [Op.and]: [
-                            { firstname: { [Op.like]: `%${searchWords[0]}%` } },
-                            { lastname: { [Op.like]: `%${searchWords[1]}%` } }
+                        { firstname: { [Op.like]: `%${searchWords[0]}%` } },
+                        { lastname: { [Op.like]: `%${searchWords[1]}%` } }
                         ]
                     },
                     {
                         [Op.and]: [
-                            { firstname: { [Op.like]: `%${searchWords[1]}%` } },
-                            { lastname: { [Op.like]: `%${searchWords[0]}%` } }
+                        { firstname: { [Op.like]: `%${searchWords[1]}%` } },
+                        { lastname: { [Op.like]: `%${searchWords[0]}%` } }
                         ]
                     }
                 ];
@@ -63,7 +66,7 @@ class UserService {
         const limitNum = Number(limit);
         const offsetNum = Number(startIndex);
 
-        return UserModel.findAndCountAll({
+        const result = await UserModel.findAndCountAll({
             limit: limitNum,
             offset: offsetNum,
             where,
@@ -74,10 +77,21 @@ class UserService {
                 through: { attributes: [] }
             }]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async getUser(id: number) {
-        return await UserModel.findByPk(id);
+        const cacheKey = `userById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const user = await UserModel.findByPk(id);
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        }
+        return user;
     }
 
     async createUser(user: UserCreate) {
@@ -85,15 +99,33 @@ class UserService {
     }
 
     async getUserById(id: number) {
-        return UserModel.findByPk(id, {
+        const cacheKey = `userByIdWithWallet:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const user = await UserModel.findByPk(id, {
             include: [{ model: WalletModel, as: 'wallet' }]
         });
+
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        }
+        return user;
     }
 
     async getUserByEmail(email: string) {
-        return UserModel.findOne({
+        const cacheKey = `userByEmail:${email}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const user = await UserModel.findOne({
             where: {email: email}
         });
+
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        }
+        return user;
     }
 
     async deleteUserById(userId: number) {
@@ -177,6 +209,10 @@ class UserService {
     }    
 
     async getMe(id: number): Promise<UserModel> {
+        const cacheKey = `userConnected:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
@@ -213,7 +249,9 @@ class UserService {
             ]
         });
 
-        if (!user) {
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        } else {
             throw new Error('Utilisateur non trouvé');
         }
 
@@ -225,9 +263,16 @@ class UserService {
     }
 
     async getKYCDocumentsUser(userId: number) {
-        return await KycDocumentModel.findAll({
+        const cacheKey = `kycDocumentsUser:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const kyc = await KycDocumentModel.findAll({
             where: {userId: userId}
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(kyc), { EX: REDIS_TTL });
+        return kyc;
     }
 
     async addPasscodeUser(userId: number, passcode: string) {
@@ -271,6 +316,10 @@ class UserService {
     }
 
     async getTokenExpoUser(userId: number) {
+        const cacheKey = `tokenExpoUser:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const token = await TokenModel.findOne({
             where: {
                 userId,
@@ -281,6 +330,8 @@ class UserService {
         if (!token) {
             throw new Error("Token Expo introuvable")
         }
+
+        await redisClient.set(cacheKey, JSON.stringify(token), { EX: REDIS_TTL });
         return token
     }
 
@@ -349,35 +400,23 @@ class UserService {
     }
 
     async getMerchant(id: number) {
+        const cacheKey = `merchantById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
-                {
-                    model: KycDocumentModel,
-                    as: 'kycDocuments'
-                },
-                {
-                    model: MerchantModel,
-                    as: 'merchant'
-                },
-                {
-                    model: WalletModel,
-                    as: 'wallet',
-                    attributes: ['id', 'balance', 'currency', 'status', 'matricule']
-                },
-                {
-                    model: TransactionModel,
-                    as: 'transactions',
-                    attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'],
-                    order: [['createdAt', 'DESC']]
-                }
+                { model: KycDocumentModel, as: 'kycDocuments' },
+                { model: MerchantModel, as: 'merchant' },
+                { model: WalletModel, as: 'wallet', attributes: ['id', 'balance', 'currency', 'status', 'matricule'] },
+                { model: TransactionModel, as: 'transactions', attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'], order: [['createdAt', 'DESC']] }
             ]
         });
 
-        if (!user) {
-            throw new Error('Utilisateur non trouvé');
-        }
+        if (!user) throw new Error('Utilisateur non trouvé');
 
+        await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
         return user;
     }
 
@@ -387,6 +426,10 @@ class UserService {
         status?: string,
         code?: string
     ) {
+        const cacheKey = `allMerchants`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         if (status) {
             where.status = status;
@@ -398,7 +441,7 @@ class UserService {
         const limitNum = Number(limit);
         const offsetNum = Number(startIndex);
         
-        return MerchantModel.findAndCountAll({
+        const merchants = await MerchantModel.findAndCountAll({
             limit: limitNum,
             offset: offsetNum,
             where,
@@ -421,10 +464,17 @@ class UserService {
                 ]
             }]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(merchants), { EX: REDIS_TTL });
+        return merchants;
     }
 
     async getMerchantByUserId(userId: number) {
-        return MerchantModel.findByPk(userId, {
+        const cacheKey = `merchantByUserId:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const merchant = await MerchantModel.findByPk(userId, {
             include: [{ 
                 model: UserModel,
                 as: 'user',
@@ -444,6 +494,9 @@ class UserService {
                 ]
             }]
         })
+
+        await redisClient.set(cacheKey, JSON.stringify(merchant), { EX: REDIS_TTL });
+        return merchant;
     }
 
     async updateStatusMerchant(id: number, status: 'ACTIVE' | 'REFUSED') {

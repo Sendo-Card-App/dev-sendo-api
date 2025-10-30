@@ -1,6 +1,9 @@
 import DestinataireModel from "@models/destinataire.model";
 import TransactionModel from "@models/transaction.model";
 import { ajouterPrefixe237 } from "@utils/functions";
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface DestinataireCreate {
     country: string;
@@ -23,28 +26,47 @@ class DestinataireService {
     }
 
     async getAllDestinataires(limit: number, startIndex: number) {
-        return DestinataireModel.findAll({
+        const cacheKey = `destinataires:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const result = await DestinataireModel.findAll({
             limit,
             offset: startIndex,
             order: [['firstname', 'ASC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async getDestinataire(id: number) {
-        return DestinataireModel.findByPk(id)
+        const cacheKey = `destinataire:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const result = await DestinataireModel.findByPk(id);
+        if (result) {
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        }
+
+        return result;
     }
 
     async getTransactionsUser(userId: number) {
+        const cacheKey = `transactionsCaCamUser:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const transactions = await TransactionModel.findAll({
             where: {
-            userId,
-            type: 'TRANSFER',
-            method: 'MOBILE_MONEY'
+                userId,
+                type: 'TRANSFER',
+                method: 'MOBILE_MONEY'
             },
             order: [['createdAt', 'DESC']]
         });
 
-        // Parcours les transactions pour ajouter la cible dynamique (User ou Destinataire)
         const transactionsWithReceivers = await Promise.all(
             transactions.map(async (transaction) => {
                 const receiver = await transaction.getReceiver();
@@ -55,6 +77,7 @@ class DestinataireService {
             })
         );
 
+        await redisClient.set(cacheKey, JSON.stringify(transactionsWithReceivers), { EX: REDIS_TTL });
         return transactionsWithReceivers;
     }
 }

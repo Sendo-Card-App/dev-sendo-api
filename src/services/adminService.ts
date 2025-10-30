@@ -6,6 +6,9 @@ import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
 import { generateCodeMerchant } from "@utils/functions";
 import { UpdateOptions } from "sequelize";
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class AdminService {
     private static instance: AdminService;
@@ -20,80 +23,126 @@ class AdminService {
     }
 
     async getAllDocuments(typeAccount: 'MERCHANT' | 'CUSTOMER', status: string, limit: number, startIndex: number) {
+        const cacheKey = `documents:${typeAccount}:${status}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         if (status) where.status = status;
         if (typeAccount) where.typeAccount = typeAccount;
-        
-        return await KycDocumentModel.findAndCountAll({
+
+        const result = await KycDocumentModel.findAndCountAll({
             where,
-            include: [
-                { 
-                    association: 'user', 
-                    attributes: ['id', 'email', 'firstname', 'lastname'] 
-                }
-            ],
+            include: [{ 
+                model: UserModel, 
+                as: 'user', 
+                attributes: ['id', 'email', 'firstname', 'lastname'] 
+            }],
             limit: limit,
             offset: startIndex,
             order: [['createdAt', 'DESC']]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
-    
+
     async getDocumentsPending(typeAccount: 'MERCHANT' | 'CUSTOMER', limit: number, startIndex:number) {
+        const cacheKey = `documents_pending:${typeAccount}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         if (typeAccount) where.typeAccount = typeAccount;
 
-        return await KycDocumentModel.findAndCountAll({
+        const result = await KycDocumentModel.findAndCountAll({
             where: { 
-                status: 'PENDING',
-                ...where
+                status: 'PENDING', 
+                ...where 
             },
-            include: [
-                { 
-                    association: 'user', 
-                    attributes: ['id', 'email', 'firstname', 'lastname'] 
-                }
-            ],
-            limit: limit,
+            include: [{ 
+                model: UserModel, 
+                as: 'user', 
+                attributes: ['id', 'email', 'firstname', 'lastname'] 
+            }],
+            limit,
             offset: startIndex,
             order: [['createdAt', 'DESC']]
         });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 
     async getUser(userId: number) {
+        const cacheKey = `user:${userId}`;
+        const cachedUser = await redisClient.get(cacheKey);
+
+        if (cachedUser) {
+            return JSON.parse(cachedUser);
+        }
+
         const user = await UserModel.findByPk(userId, {
             attributes: { exclude: ['password'] },
-            include: [
-                {
-                    model: KycDocumentModel,
-                    as: 'kycDocuments',
-                    attributes: ['id', 'type', 'status', 'url']
-                }
-            ]
+            include: [{
+                model: KycDocumentModel,
+                as: 'kycDocuments',
+                attributes: ['id', 'type', 'status', 'url']
+            }]
         });
+
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL }); // Cache 1h
+        }
+
         return user;
-    } 
+    }
 
     async getSingleUser(userId: number) {
+        const cacheKey = `singleUser:${userId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const user = await UserModel.findByPk(userId, {
             attributes: { exclude: ['password'] }
         });
+
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        }
+
         return user;
-    } 
+    }
     
     async createRole(name: string) {
         return await RoleModel.create({ name })
     }
 
     async getRole(name: string) {
-        return RoleModel.findOne({
-            where: {
-                name: name
-            }
-        })
+        const cacheKey = `role:name:${name}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const role = await RoleModel.findOne({ where: { name } });
+
+        if (role) {
+            await redisClient.set(cacheKey, JSON.stringify(role), { EX: REDIS_TTL });
+        }
+
+        return role;
     }
 
     async getRoleById(id: number) {
-        return RoleModel.findByPk(id)
+        const cacheKey = `role:id:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const role = await RoleModel.findByPk(id);
+
+        if (role) {
+            await redisClient.set(cacheKey, JSON.stringify(role), { EX: REDIS_TTL });
+        }
+        return role;
     }
 
     async updateRole(roleId: number, updates: {name: string}) {
@@ -105,21 +154,39 @@ class AdminService {
     }
 
     async getRoles() {
-        return RoleModel.findAll();
+        const cacheKey = 'roles:all';
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const roles = await RoleModel.findAll();
+
+        await redisClient.set(cacheKey, JSON.stringify(roles), { EX: REDIS_TTL });
+        return roles;
     }
 
     async findWallet(matricule: string) {
-        return WalletModel.findOne({
-            where: {matricule: matricule}
-        })
+        const cacheKey = `wallet:${matricule}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const wallet = await WalletModel.findOne({ where: { matricule } });
+
+        if (wallet) {
+            await redisClient.set(cacheKey, JSON.stringify(wallet), { EX: REDIS_TTL });
+        }
+        return wallet;
     }
 
     async findRoleById(id: number) {
-        const role = await RoleModel.findByPk(id)
-        if (!role) {
-            throw new Error("Role introuvable")
-        }
-        return role
+        const cacheKey = `roleById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const role = await RoleModel.findByPk(id);
+        if (!role) throw new Error("Role introuvable");
+
+        await redisClient.set(cacheKey, JSON.stringify(role), { EX: REDIS_TTL });
+        return role;
     }
 
     async attributeRoleUser(userId: number, roleId: number) {
@@ -139,9 +206,16 @@ class AdminService {
     }
 
     async findUserByEmail(email: string) {
-        return UserModel.findOne({
-            where: {email: email}
-        })
+        const cacheKey = `userByEmail:${email}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const user = await UserModel.findOne({ where: { email } });
+
+        if (user) {
+            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
+        }
+        return user;
     }
 
     async createMerchant(userId: number, typeAccount: 'Particulier' | 'Entreprise') {

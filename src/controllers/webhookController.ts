@@ -33,6 +33,9 @@ class WebhookController {
         const event = req.body;
         console.log('Événement webhook reçu : ', event)
 
+        // On enregistre le webhook event
+        await neeroService.saveWebhookEvent(req)
+
         sendResponse(res, 200, 'Webhook reçu', true)
 
         // Webhook pour les transactions intents
@@ -178,7 +181,7 @@ class WebhookController {
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
-                    if (transaction.amount > 0) {
+                    if (transaction.amount > 0 && transaction.description == 'Retrait sur la carte') {
                         await walletService.creditWallet(
                             matricule,
                             amountNum
@@ -192,7 +195,10 @@ class WebhookController {
                             token: token?.token ?? '',
                             type: 'SUCCESS_WITHDRAWAL_CARD'
                         })
-                    } else {
+                    } else if (
+                        transaction.description.includes("Paiement par Sendo de la dette") &&
+                        transaction.amount == 0
+                    ) {
                         const debt = await debtService.getOneDebt(virtualCard!.id)
                         if (debt && debt.amount <= Number(transaction.totalAmount)) {
                             await debt!.destroy()
@@ -695,9 +701,6 @@ class WebhookController {
                 });
             }
         }
-
-        // On enregistre le webhook event
-        await neeroService.saveWebhookEvent(req)
     }
 
     async getEvents(req: Request, res: Response) {

@@ -7,8 +7,10 @@ import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTra
 import sequelize from '@config/db';
 import cardService from "./cardService";
 import MerchantModel from "@models/merchant.model";
-import configService from "./configService";
 import merchantService from "./merchantService";
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class WalletService {
     constructor() {
@@ -24,30 +26,39 @@ class WalletService {
     }
 
     async getWalletByMatricule(matricule: string) {
+        const cacheKey = `walletByMatricule:${matricule}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const wallet = await WalletModel.findOne({
-            where: {matricule},
+            where: { matricule },
             include: [{ 
                 model: UserModel, 
                 as: 'user', 
                 attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'picture']
             }]
-        })
+        });
         if (!wallet) {
-            throw new Error('Portefeuille introuvable')
+            throw new Error('Portefeuille introuvable');
         }
-        return wallet
+
+        await redisClient.set(cacheKey, JSON.stringify(wallet), { EX: REDIS_TTL });
+        return wallet;
     }
     
     async getWalletBalance(walletId: string | number): Promise<number> {
-        return await WalletModel.findOne({
+        const cacheKey = `walletBalance:${walletId}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return Number(cached);
+
+        const wallet = await WalletModel.findOne({
             where: { id: walletId }
-        }).then(wallet => {
-            if (wallet) {
-                return wallet.balance;
-            } else {
-                throw new Error('Portefeuille introuvable');
-            }
         });
+
+        if (!wallet) throw new Error('Portefeuille introuvable');
+
+        await redisClient.set(cacheKey, wallet.balance.toString(), { EX: REDIS_TTL });
+        return wallet.balance;
     }
 
     async transferFunds(fromWalletId: string, toWalletId: string, amount: number, description: string) {
@@ -251,7 +262,6 @@ export async function settleCardDebtsIfAny(matriculeWallet: string, userId: numb
     // Récupérer la carte virtuelle et ses dettes
     const card = await cardService.getVirtualCard(undefined, undefined, userId);
     if (!card || !card.debts || card.debts.length === 0) return;
-    console.log('la carte possede des dettes')
     const walletClass = new WalletService()
 
     // Traiter chaque dette une par une (séquentiel par précaution sur les montants)

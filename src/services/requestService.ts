@@ -4,6 +4,9 @@ import { typesConfig, typesDemande, TypesDemande, typesStatusDemande, TypesStatu
 import configService from "./configService";
 import UserModel from "@models/user.model";
 import sequelize from '@config/db';
+import redisClient from '@config/cache';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface RequestCreate {
     type: TypesDemande;
@@ -60,32 +63,48 @@ class DemandeService {
         status: TypesStatusDemande,
         type: TypesDemande
     ) {
+        const cacheKey = `listRequest:${status}:${type}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         const where: Record<string, any> = {};
         if (status) where.status = status;
-        if (type) where.type = type
-        return RequestModel.findAndCountAll({
+        if (type) where.type = type;
+
+        const result = await RequestModel.findAndCountAll({
             limit,
             offset: startIndex,
             where,
             include: [
                 {
-                    model: UserModel,
-                    as: 'user',
-                    attributes: ['id', 'firstname', 'lastname']
+                model: UserModel,
+                as: 'user',
+                attributes: ['id', 'firstname', 'lastname']
                 },
                 {
-                    model: UserModel,
-                    as: 'reviewedBy',
-                    foreignKey: 'reviewedById',
-                    attributes: ['id', 'firstname', 'lastname']
+                model: UserModel,
+                as: 'reviewedBy',
+                foreignKey: 'reviewedById',
+                attributes: ['id', 'firstname', 'lastname']
                 }
             ],
             order: [['createdAt', 'DESC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
     
     async getRequestById(id: number) {
-        return RequestModel.findByPk(id)
+        const cacheKey = `requestById:${id}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
+        const request = await RequestModel.findByPk(id);
+        if (request) {
+            await redisClient.set(cacheKey, JSON.stringify(request), { EX: REDIS_TTL });
+        }
+        return request;
     }
 
     async updateStatusRequest(
@@ -126,25 +145,31 @@ class DemandeService {
         type: TypesDemande,
         userId: number
     ) {
-        const where: Record<string, any> = {};
-        where.userId = userId
-        if (status) where.status = status;
-        if (type) where.type = type
+        const cacheKey = `listRequestUser:${userId}:${status}:${type}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
 
-        return RequestModel.findAndCountAll({
+        const where: Record<string, any> = { userId };
+        if (status) where.status = status;
+        if (type) where.type = type;
+
+        const result = await RequestModel.findAndCountAll({
             limit,
             offset: startIndex,
             where,
             include: [
                 {
-                    model: UserModel,
-                    as: 'reviewedBy',
-                    foreignKey: 'reviewedById',
-                    attributes: ['id', 'firstname', 'lastname']
+                model: UserModel,
+                as: 'reviewedBy',
+                foreignKey: 'reviewedById',
+                attributes: ['id', 'firstname', 'lastname']
                 }
             ],
             order: [['createdAt', 'DESC']]
-        })
+        });
+
+        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
     }
 }
 

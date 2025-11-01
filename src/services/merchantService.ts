@@ -254,6 +254,21 @@ class MerchantService {
     }
 
     async saveRequestWithdraw(partnerId: number, amount: number, phone: string) {
+        const commissions = await TransactionPartnerFeesModel.findAll({
+            where: { partnerId, isWithdrawn: false },
+            order: [['createdAt', 'ASC']],
+        });
+
+        let sommeCumulee: number = 0;
+
+        for (const commission of commissions) {
+            sommeCumulee += commission.amount;
+        }
+
+        if (sommeCumulee < amount) {
+            throw new Error("Vous ne possédez pas cette somme en commissions générées")
+        }
+
         return await PartnerWithdrawalsModel.create({
             partnerId,
             amount,

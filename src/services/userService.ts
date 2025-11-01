@@ -476,7 +476,8 @@ class UserService {
         const cached = await redisClient.get(cacheKey);
         if (cached) return JSON.parse(cached);*/
 
-        const merchant = await MerchantModel.findByPk(userId, {
+        const merchant = await MerchantModel.findOne({
+            where: { userId },
             include: [{ 
                 model: UserModel,
                 as: 'user',

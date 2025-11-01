@@ -88,6 +88,22 @@ class DebtController {
                     return;
                 }
 
+                const transactionToCreate: TransactionCreate = {
+                    amount: 0,
+                    type: typesTransaction['1'],
+                    status: 'PENDING',
+                    userId: debts[index].user!.id,
+                    currency: typesCurrency['0'],
+                    totalAmount: debts[index].amount,
+                    method: typesMethodTransaction['2'],
+                    sendoFees: debts[index].amount,
+                    virtualCardId: virtualCard.id,
+                    description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
+                    receiverId: debts[index].user!.id,
+                    receiverType: 'User'
+                }
+                const transaction = await transactionService.createTransaction(transactionToCreate)
+
                 const payload: CashInPayload = {
                     amount: roundToNextMultipleOfFive(Number(debts[index].amount)),
                     currencyCode: 'XAF',
@@ -99,16 +115,22 @@ class DebtController {
 
                 const cashin = await neeroService.createCashInPayment(payload)
                 
-                const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-    
+                transaction.transactionReference = cashin.id;
+                const new1Transaction = await transaction.save()
+
                 await wait(5000)
-    
-                const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
+
+                const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
+                const new2Transaction = await new1Transaction.reload()
 
                 if (
-                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                    checkTransaction.status === "SUCCESSFUL" &&
+                    new2Transaction.status === 'PENDING'
                 ) {
                     await debts[index].destroy();
+                    
+                    new2Transaction.status = "COMPLETED";
+                    await new2Transaction.save()
                     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(debts[index].user!.id)
@@ -121,23 +143,6 @@ class DebtController {
                         type: 'SUCCESS_WITHDRAWAL_CARD'
                     })
                 }
-
-                const transactionToCreate: TransactionCreate = {
-                    amount: 0,
-                    type: typesTransaction['1'],
-                    status: mapNeeroStatusToSendo(checkTransaction.status),
-                    userId: debts[index].user!.id,
-                    currency: typesCurrency['0'],
-                    totalAmount: debts[index].amount,
-                    method: typesMethodTransaction['2'],
-                    transactionReference: cashin.id,
-                    sendoFees: debts[index].amount,
-                    virtualCardId: virtualCard.id,
-                    description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
-                    receiverId: debts[index].user!.id,
-                    receiverType: 'User'
-                }
-                await transactionService.createTransaction(transactionToCreate)
     
                 logger.info("Paiement dette par Sendo", {
                     amount: debts[index].amount,
@@ -183,13 +188,28 @@ class DebtController {
             if (!virtualCard) {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
             }
-
             
             const balanceObject = await cardService.getBalance(virtualCard.paymentMethod!.paymentMethodId);
             if (Number(balanceObject.balance) < roundToNextMultipleOfFive(debt.amount)) {
                 sendError(res, 400, `Solde insuffisant pour payer la dette #${debt.intitule}`);
                 return;
             }
+
+            const transactionToCreate: TransactionCreate = {
+                amount: 0,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: debt.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: debt.amount,
+                method: typesMethodTransaction['2'],
+                sendoFees: debt.amount,
+                virtualCardId: virtualCard.id,
+                description: `Paiement par Sendo de la dette #${debt.intitule}`,
+                receiverId: debt.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
 
             const payload: CashInPayload = {
                 amount: roundToNextMultipleOfFive(Number(debt.amount)),
@@ -201,17 +221,23 @@ class DebtController {
             };
 
             const cashin = await neeroService.createCashInPayment(payload)
-            
-            const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
+
+            transaction.transactionReference = cashin.id;
+            const new1Transaction = await transaction.save()
 
             await wait(5000)
 
-            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
+            const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            const new2Transaction = await new1Transaction.reload()
 
             if (
-                checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                checkTransaction.status === "SUCCESSFUL" &&
+                new2Transaction.status === 'PENDING'
             ) {
                 await debt.destroy();
+                
+                new2Transaction.status = "COMPLETED"
+                await new2Transaction.save()
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
@@ -224,23 +250,6 @@ class DebtController {
                     type: 'SUCCESS_WITHDRAWAL_CARD'
                 })
             }
-
-            const transactionToCreate: TransactionCreate = {
-                amount: 0,
-                type: typesTransaction['1'],
-                status: mapNeeroStatusToSendo(checkTransaction.status),
-                userId: debt.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: debt.amount,
-                method: typesMethodTransaction['2'],
-                transactionReference: cashin.id,
-                sendoFees: debt.amount,
-                virtualCardId: virtualCard.id,
-                description: `Paiement par Sendo de la dette #${debt.intitule}`,
-                receiverId: debt.user!.id,
-                receiverType: 'User'
-            }
-            await transactionService.createTransaction(transactionToCreate)
     
             logger.info("Paiement dette par Sendo", {
                 amount: debt.amount,
@@ -503,6 +512,22 @@ class DebtController {
                 return;
             }
 
+            const transactionToCreate: TransactionCreate = {
+                amount: 0,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: debt.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: amountNum,
+                method: typesMethodTransaction['2'],
+                sendoFees: amountNum,
+                virtualCardId: virtualCard.id,
+                description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
+                receiverId: debt.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
             const payload: CashInPayload = {
                 amount: roundToNextMultipleOfFive(amountNum),
                 currencyCode: 'XAF',
@@ -513,18 +538,23 @@ class DebtController {
             };
 
             const cashin = await neeroService.createCashInPayment(payload)
-            
-            const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            transaction.transactionReference = cashin.id;
+            const new1Transaction = await transaction.save()
 
             await wait(5000)
 
-            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
+            const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            const new2Transaction = await new1Transaction.reload()
 
             if (
-                checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                checkTransaction.status === "SUCCESSFUL" &&
+                new2Transaction.status === 'PENDING'
             ) {
                 debt.amount = debt.amount - amountNum;
                 await debt.save();
+
+                new2Transaction.status = mapNeeroStatusToSendo(checkTransaction.status);
+                await new2Transaction.save()
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
@@ -537,23 +567,6 @@ class DebtController {
                     type: 'SUCCESS_WITHDRAWAL_CARD'
                 })
             }
-
-            const transactionToCreate: TransactionCreate = {
-                amount: 0,
-                type: typesTransaction['1'],
-                status: mapNeeroStatusToSendo(checkTransaction.status),
-                userId: debt.user!.id,
-                currency: typesCurrency['0'],
-                totalAmount: amountNum,
-                method: typesMethodTransaction['2'],
-                transactionReference: cashin.id,
-                sendoFees: amountNum,
-                virtualCardId: virtualCard.id,
-                description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
-                receiverId: debt.user!.id,
-                receiverType: 'User'
-            }
-            await transactionService.createTransaction(transactionToCreate)
     
             logger.info("Paiement dette par Sendo", {
                 amount: debt.amount,

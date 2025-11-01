@@ -170,9 +170,9 @@ class SharedExpenseService {
 
     // Récupérer une dépense par ID
     async getExpenseById(id: number) {
-        const cacheKey = `sharedExpenseById:${id}`;
+        /*const cacheKey = `sharedExpenseById:${id}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const sharedExpense = await SharedExpenseModel.findByPk(id, {
             include: [
@@ -194,9 +194,9 @@ class SharedExpenseService {
             ]
         });
 
-        if (sharedExpense) {
+        /*if (sharedExpense) {
             await redisClient.set(cacheKey, JSON.stringify(sharedExpense), { EX: REDIS_TTL });
-        }
+        }*/
 
         return sharedExpense;
     }
@@ -209,9 +209,9 @@ class SharedExpenseService {
         startDate?: string,
         endDate?: string
     ) {
-        const cacheKey = `sharedExpenses:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        /*const cacheKey = `sharedExpenses:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (status) {
@@ -261,7 +261,7 @@ class SharedExpenseService {
             ]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
@@ -529,9 +529,9 @@ class SharedExpenseService {
     }
 
     async listUserSharedExpense(userId: number) {
-        const cacheKey = `listUserSharedExpense:${userId}`;
+        /*const cacheKey = `listUserSharedExpense:${userId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const sharedExpenses = await SharedExpenseModel.findAll({
             where: { userId },
@@ -560,14 +560,14 @@ class SharedExpenseService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
         return sharedExpenses;
     }
 
     async listSharedExpenseIncludeMe(userId: number) {
-        const cacheKey = `listSharedExpenseIncludeMe:${userId}`;
+        /*const cacheKey = `listSharedExpenseIncludeMe:${userId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const sharedExpenses = await ParticipantSharedExpenseModel.findAll({
             where: { userId },
@@ -579,7 +579,7 @@ class SharedExpenseService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(sharedExpenses), { EX: REDIS_TTL });
         return sharedExpenses;
     }
 

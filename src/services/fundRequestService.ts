@@ -125,10 +125,6 @@ class FundRequestService {
      * @returns 
      */
     async getFundRequestsByUser(userId: number) {
-        const cacheKey = `fundRequestsUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const fundRequests = await FundRequestModel.findAll({
             where: { userId },
             include: [{
@@ -162,7 +158,6 @@ class FundRequestService {
             });
         }
 
-        await redisClient.set(cacheKey, JSON.stringify(fundRequests), { EX: REDIS_TTL });
         return fundRequests;
     }
 
@@ -429,10 +424,6 @@ class FundRequestService {
         startDate?: string, 
         endDate?: string
     ) {
-        const cacheKey = `fundRequestList:${limit}:${startIndex}:${status ?? ''}:${startDate ?? ''}:${endDate ?? ''}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (status) where.status = status;
         if (startDate || endDate) {
@@ -472,7 +463,6 @@ class FundRequestService {
             });
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(fundRequests), { EX: REDIS_TTL });
         return fundRequests;
     }
 
@@ -482,9 +472,9 @@ class FundRequestService {
      * @returns 
      */
     async fundRequestById(fundRequestId: number) {
-        const cacheKey = `fundRequestById:${fundRequestId}`;
+        /*const cacheKey = `fundRequestById:${fundRequestId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const fundRequest = await FundRequestModel.findByPk(fundRequestId, {
             include: [{
@@ -516,7 +506,7 @@ class FundRequestService {
             (fr as any).setDataValue('payments', payments.filter(p => p.userId === fr.recipientId));
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(fundRequest), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(fundRequest), { EX: REDIS_TTL });
         return fundRequest;
     }
 
@@ -535,9 +525,9 @@ class FundRequestService {
         startIndex: number,
         status?: 'PARTIALLY_FUNDED' | 'FULLY_FUNDED' | 'CANCELLED' | 'PENDING',
     ) {
-        const cacheKey = `allFundRequestsForUser:${userId}:${limit}:${startIndex}:${status ?? 'all'}`;
+        /*const cacheKey = `allFundRequestsForUser:${userId}:${limit}:${startIndex}:${status ?? 'all'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         // 1. Récupérer les demandes créées par l'utilisateur (demandeur)
         const asRequester = await FundRequestModel.findAll({
@@ -641,7 +631,7 @@ class FundRequestService {
         };
 
         // Mise en cache avec TTL d'une heure
-        await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
 
         return response;
     }

@@ -63,9 +63,9 @@ class DemandeService {
         status: TypesStatusDemande,
         type: TypesDemande
     ) {
-        const cacheKey = `listRequest:${status}:${type}:${limit}:${startIndex}`;
+        /*const cacheKey = `listRequest:${status}:${type}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (status) where.status = status;
@@ -91,19 +91,19 @@ class DemandeService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
     
     async getRequestById(id: number) {
-        const cacheKey = `requestById:${id}`;
+        /*const cacheKey = `requestById:${id}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const request = await RequestModel.findByPk(id);
-        if (request) {
+        /*if (request) {
             await redisClient.set(cacheKey, JSON.stringify(request), { EX: REDIS_TTL });
-        }
+        }*/
         return request;
     }
 
@@ -145,9 +145,9 @@ class DemandeService {
         type: TypesDemande,
         userId: number
     ) {
-        const cacheKey = `listRequestUser:${userId}:${status}:${type}:${limit}:${startIndex}`;
+        /*const cacheKey = `listRequestUser:${userId}:${status}:${type}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = { userId };
         if (status) where.status = status;
@@ -168,7 +168,7 @@ class DemandeService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 }

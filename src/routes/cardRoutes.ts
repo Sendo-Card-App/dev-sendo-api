@@ -76,6 +76,20 @@ router.post(
  *       - BearerAuth: []
  *     parameters:
  *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
  *         name: status
  *         required: false
  *         schema:

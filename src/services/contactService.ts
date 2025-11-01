@@ -52,10 +52,6 @@ class ContactService {
     }   
 
     async getContacts(userId: number) {
-        const cacheKey = `contacts:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await ContactModel.findAll({
             where: { userId },
             order: [['name', 'ASC']],
@@ -72,7 +68,6 @@ class ContactService {
             }]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
@@ -138,10 +133,6 @@ class ContactService {
     }
 
     async getContactByPhone(phone: string) {
-        const cacheKey = `contactByPhone:${phone}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const contact = await ContactModel.findOne({
             where: { phone },
             attributes: ['id', 'name', 'phone'],
@@ -157,18 +148,10 @@ class ContactService {
             }]
         });
 
-        if (contact) {
-            await redisClient.set(cacheKey, JSON.stringify(contact), { EX: REDIS_TTL });
-        }
-
         return contact;
     }
 
     async getFavorites(userId: number) {
-        const cacheKey = `favorites:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const userWithFavorites = await UserModel.findByPk(userId, {
             include: [{
                 model: ContactModel,
@@ -189,7 +172,6 @@ class ContactService {
             throw new Error('Utilisateur non trouvé');
         }
 
-        await redisClient.set(cacheKey, JSON.stringify(userWithFavorites.favoriteContacts), { EX: REDIS_TTL });
         return userWithFavorites.favoriteContacts;
     }
 }

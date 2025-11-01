@@ -12,10 +12,6 @@ class ConversationService {
     }
 
     async getUserConversations(userId: number) {
-        const cacheKey = `userConversations:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const conversations = await ConversationModel.findAll({
             where: { userId },
             include: [
@@ -33,7 +29,6 @@ class ConversationService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(conversations), { EX: REDIS_TTL });
         return conversations;
     }
 
@@ -52,10 +47,6 @@ class ConversationService {
     }
 
     async getAllConversations(limit: number, startIndex: number, status: string) {
-        const cacheKey = `allConversations:${limit}:${startIndex}:${status}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (status) where.status = status;
 
@@ -78,15 +69,10 @@ class ConversationService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
     
     async getConversationById(id: string) {
-        const cacheKey = `conversationById:${id}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const conversation = await ConversationModel.findByPk(id, {
             include: [
                 {
@@ -102,10 +88,6 @@ class ConversationService {
             ],
             order: [['createdAt', 'DESC']]
         });
-
-        if (conversation) {
-            await redisClient.set(cacheKey, JSON.stringify(conversation), { EX: REDIS_TTL });
-        }
 
         return conversation;
     }

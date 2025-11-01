@@ -8,9 +8,6 @@ import sequelize from '@config/db';
 import cardService from "./cardService";
 import MerchantModel from "@models/merchant.model";
 import merchantService from "./merchantService";
-import redisClient from '@config/cache';
-
-const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class WalletService {
     constructor() {
@@ -26,10 +23,6 @@ class WalletService {
     }
 
     async getWalletByMatricule(matricule: string) {
-        const cacheKey = `walletByMatricule:${matricule}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const wallet = await WalletModel.findOne({
             where: { matricule },
             include: [{ 
@@ -42,22 +35,16 @@ class WalletService {
             throw new Error('Portefeuille introuvable');
         }
 
-        await redisClient.set(cacheKey, JSON.stringify(wallet), { EX: REDIS_TTL });
         return wallet;
     }
     
     async getWalletBalance(walletId: string | number): Promise<number> {
-        const cacheKey = `walletBalance:${walletId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return Number(cached);
-
         const wallet = await WalletModel.findOne({
             where: { id: walletId }
         });
 
         if (!wallet) throw new Error('Portefeuille introuvable');
 
-        await redisClient.set(cacheKey, wallet.balance.toString(), { EX: REDIS_TTL });
         return wallet.balance;
     }
 

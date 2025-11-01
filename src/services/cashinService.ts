@@ -32,9 +32,7 @@ class CashinService {
             const total = troisChiffresApresVirgule(Number(object.totalAmount) + arrondiSuperieur(sendoFees))
 
             if (!isFailed) {
-                if (
-                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
-                ) {
+                if (checkTransaction.status === "SUCCESSFUL") {
                     // On enregistre la transaction du paiement des frais
                     const transactionToCreateFees: TransactionCreate = {
                         type: 'PAYMENT',
@@ -70,7 +68,7 @@ class CashinService {
                         'Paiement sur la carte',
                         `<p>${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
-                } else if (checkTransaction.statusUpdates.some((update: any) => update.status === "FAILED")) {
+                } else if (checkTransaction.status === "FAILED") {
                     // On enregistre la transaction des frais échouée
                     const transactionToCreateDebt: TransactionCreate = {
                         type: 'PAYMENT',
@@ -138,9 +136,7 @@ class CashinService {
                     await transactionService.createTransaction(transactionToCreateDebt)
                 }
             } else {
-                if (
-                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
-                ) {
+                if (checkTransaction.status === "SUCCESSFUL") {
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',

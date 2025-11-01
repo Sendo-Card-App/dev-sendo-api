@@ -294,7 +294,7 @@ class CardController {
         const { status, limit, startIndex, page } = res.locals.pagination;
         try {
             // Récupération de toutes les sessions
-            const sessionParties = await cardService.getAllOnboardingSessionUser(Number(limit));
+            const sessionParties = await cardService.getAllOnboardingSessionUser();
 
             // Filtrer par status si spécifié
             let filteredSessionParties: any[] = status
@@ -302,7 +302,7 @@ class CardController {
                 : sessionParties;
 
             // Pagination manuelle (puisque cardService ne fait pas la pagination)
-            const totalItems = filteredSessionParties.length;
+            const totalItems = sessionParties.length;
             const totalPages = Math.ceil(totalItems / limit);
 
             const paginatedSessions = filteredSessionParties.slice(startIndex, startIndex + limit);
@@ -590,20 +590,27 @@ class CardController {
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             const cashout = await neeroService.createCashOutPayment(payload)
-
-            const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
+         
+            // On met à jour les données de la transaction
+            transaction.transactionReference = cashout.id
+            await transaction.save()
 
             await wait(5000)
 
-            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
+            const checkTransaction = await neeroService.getTransactionIntentById(cashout.id)
+            const newTransaction = await transaction.reload()
 
             if (
-                checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                checkTransaction.status === "SUCCESSFUL" &&
+                newTransaction.status === 'PENDING'
             ) {
                 await walletService.debitWallet(
                     matriculeWallet,
                     amountNum + parseInt(`${fees}`)
                 )
+
+                newTransaction.status = 'COMPLETED'
+                await newTransaction.reload()
 
                 // On met à jour le status de la carte
                 if (virtualCard.status === 'PRE_ACTIVE') {
@@ -622,11 +629,6 @@ class CardController {
                 })
             }
 
-            // On met à jour les données de la transaction
-            transaction.status = mapNeeroStatusToSendo(checkTransaction.status)
-            transaction.transactionReference = cashout.id
-            await transaction.save()
-
             logger.info("Carte virtuelle rechargée", {
                 amount: amountNum,
                 card: `${virtualCard.cardName} - ${virtualCard.cardId}`,
@@ -635,7 +637,7 @@ class CardController {
             
             sendResponse(res, 200, 'La requête a été initiée avec succès', {
                 deposit: checkTransaction,
-                transaction
+                transaction: newTransaction
             })
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
@@ -735,20 +737,25 @@ class CardController {
             }
             
             const cashin = await neeroService.createCashInPayment(payload)
-
-            const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            transaction.transactionReference = cashin.id
+            await transaction.save()
 
             await wait(10000)
 
-            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
+            const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
+            const newTransaction = await transaction.reload()
 
             if (
-                checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                checkTransaction.status === "SUCCESSFUL" &&
+                newTransaction.status === 'PENDING'
             ) {
                 await walletService.creditWallet(
                     matriculeWallet,
                     amountNum
                 )
+                
+                newTransaction.status = 'COMPLETED'
+                await newTransaction.save()
 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(req.user.id)
@@ -761,11 +768,6 @@ class CardController {
                     type: 'SUCCESS_WITHDRAWAL_CARD'
                 })
             }
-            
-            // On met à jour les données de la transaction
-            transaction.status = mapNeeroStatusToSendo(checkTransaction.status)
-            transaction.transactionReference = cashin.id
-            await transaction.save()
 
             logger.info("Carte virtuelle débitée", {
                 amount: amountNum,
@@ -775,7 +777,7 @@ class CardController {
             
             sendResponse(res, 200, 'La requête a été initiée avec succès', {
                 deposit: checkTransaction,
-                transaction
+                transaction: newTransaction
             })
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message]);

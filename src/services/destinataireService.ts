@@ -26,38 +26,21 @@ class DestinataireService {
     }
 
     async getAllDestinataires(limit: number, startIndex: number) {
-        const cacheKey = `destinataires:${limit}:${startIndex}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await DestinataireModel.findAll({
             limit,
             offset: startIndex,
             order: [['firstname', 'ASC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getDestinataire(id: number) {
-        const cacheKey = `destinataire:${id}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await DestinataireModel.findByPk(id);
-        if (result) {
-            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
-
         return result;
     }
 
     async getTransactionsUser(userId: number) {
-        const cacheKey = `transactionsCaCamUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const transactions = await TransactionModel.findAll({
             where: {
                 userId,
@@ -77,7 +60,6 @@ class DestinataireService {
             })
         );
 
-        await redisClient.set(cacheKey, JSON.stringify(transactionsWithReceivers), { EX: REDIS_TTL });
         return transactionsWithReceivers;
     }
 }

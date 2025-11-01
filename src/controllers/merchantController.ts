@@ -322,15 +322,19 @@ class MerchantController {
 
             const amountNum = Number(amountToWithdraw)
             if (amountNum < 500 || amountNum > 500000) {
-                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
+                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF", {});
                 return;
             }
             if (amountNum % 50 !== 0) {
-                sendError(res, 400, "Le montant doit être un multiple de 50");
+                sendError(res, 400, "Le montant doit être un multiple de 50", {});
                 return;
             }
 
-            const result = await merchantService.saveRequestWithdraw(Number(idMerchant), Number(amountToWithdraw), phone)
+            const result = await merchantService.saveRequestWithdraw(
+                Number(idMerchant), 
+                Number(amountToWithdraw), 
+                phone
+            )
 
             logger.info("Requête de retrait d'argent AGENT créée", {
                 merchant: `Merchant ID : ${idMerchant}`,

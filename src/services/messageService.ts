@@ -57,9 +57,9 @@ class MessageService {
     }
 
     async getMessagesByConversation(conversationId: string): Promise<MessageModel[]> {
-        const cacheKey = `messagesByConversation:${conversationId}`;
+        /*const cacheKey = `messagesByConversation:${conversationId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const conversation = await conversationService.getConversationById(conversationId);
         if (!conversation) throw new Error("Conversation introuvable");
@@ -81,14 +81,14 @@ class MessageService {
             attachments: message.attachments ? JSON.parse(message.attachments) : []
         })) as MessageModel[];
 
-        await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(response), { EX: REDIS_TTL });
         return response;
     }
 
     async getMessageById(id: string): Promise<MessageModel | null> {
-        const cacheKey = `messageById:${id}`;
+        /*const cacheKey = `messageById:${id}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const message = await MessageModel.findByPk(id, {
             include: [{
@@ -109,7 +109,7 @@ class MessageService {
         message.read = true;
         await message.save();
 
-        await redisClient.set(cacheKey, JSON.stringify(formattedMessage), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(formattedMessage), { EX: REDIS_TTL });
         return formattedMessage as MessageModel;
     }
 

@@ -5,9 +5,9 @@ const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class PubService {
     async getPubs(limit: number, startIndex: number) {
-        const cacheKey = `pubs:${limit}:${startIndex}`;
+        /*const cacheKey = `pubs:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const result = await PubModel.findAndCountAll({
             limit,
@@ -15,19 +15,19 @@ class PubService {
             order: [["createdAt", "DESC"]],
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getPubById(id: number) {
-        const cacheKey = `pub:${id}`;
+        /*const cacheKey = `pub:${id}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const pub = await PubModel.findByPk(id);
-        if (pub) {
+        /*if (pub) {
             await redisClient.set(cacheKey, JSON.stringify(pub), { EX: REDIS_TTL });
-        }
+        }*/
         return pub;
     }
 

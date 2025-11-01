@@ -72,9 +72,9 @@ class NotificationService {
     }
 
     async list(limit: number, startIndex:number) {
-        const cacheKey = `notifications:list:${limit}:${startIndex}`;
+        /*const cacheKey = `notifications:list:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const result = await NotificationModel.findAndCountAll({
             offset: startIndex,
@@ -82,7 +82,7 @@ class NotificationService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
@@ -92,9 +92,9 @@ class NotificationService {
         limit: number, 
         startIndex: number
     ) {
-        const cacheKey = `notifications:listByType:${type}:${status}:${limit}:${startIndex}`;
+        /*const cacheKey = `notifications:listByType:${type}:${status}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (type) where.type = type;
@@ -107,7 +107,7 @@ class NotificationService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
@@ -118,9 +118,9 @@ class NotificationService {
         limit: number, 
         startIndex: number
     ) {
-        const cacheKey = `notifications:user:${userId}:${type}:${status}:${limit}:${startIndex}`;
+        /*const cacheKey = `notifications:user:${userId}:${type}:${status}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (userId) where.userId = userId;
@@ -134,7 +134,7 @@ class NotificationService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 

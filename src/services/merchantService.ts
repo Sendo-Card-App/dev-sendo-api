@@ -49,24 +49,24 @@ class MerchantService {
     }
 
     async findCommissionById(commissionId: number) {
-        const cacheKey = `commission:${commissionId}`;
+        /*const cacheKey = `commission:${commissionId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const commission = await CommissionModel.findByPk(commissionId);
         if (!commission) throw new Error('Commission not found');
 
-        await redisClient.set(cacheKey, JSON.stringify(commission), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(commission), { EX: REDIS_TTL });
         return commission;
     }
 
     async getAllCommissions() {
-        const cacheKey = 'allCommissions';
+        /*const cacheKey = 'allCommissions';
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const commissions = await CommissionModel.findAll();
-        await redisClient.set(cacheKey, JSON.stringify(commissions), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(commissions), { EX: REDIS_TTL });
         return commissions;
     }
 
@@ -87,33 +87,33 @@ class MerchantService {
     }
 
     async findPalierById(palierId: number) {
-        const cacheKey = `palier:${palierId}`;
+        /*const cacheKey = `palier:${palierId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const palier = await PalierModel.findByPk(palierId, {
             include: [{ model: CommissionModel, as: 'commission' }]
         });
         if (!palier) throw new Error("Palier not found");
 
-        await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
         return palier;
     }
 
     async getAllPaliers() {
-        const cacheKey = 'allPaliers';
+        /*const cacheKey = 'allPaliers';
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const paliers = await PalierModel.findAll();
-        await redisClient.set(cacheKey, JSON.stringify(paliers), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(paliers), { EX: REDIS_TTL });
         return paliers;
     }
 
     async findPalierByMontant(montant: number) {
-        const cacheKey = `palierByMontant:${montant}`;
+        /*const cacheKey = `palierByMontant:${montant}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const palier = await PalierModel.findOne({
             where: {
@@ -124,7 +124,7 @@ class MerchantService {
         });
         if (!palier) throw new Error(`Aucun palier trouvé pour le montant ${montant}`);
 
-        await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(palier), { EX: REDIS_TTL });
         return palier;
     }
 
@@ -182,9 +182,9 @@ class MerchantService {
         startDate?: string,
         endDate?: string
     ) {
-        const cacheKey = `merchantTransactions:${idMerchant}:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        /*const cacheKey = `merchantTransactions:${idMerchant}:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = { partnerId: idMerchant };
 
@@ -235,21 +235,21 @@ class MerchantService {
             };
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getMerchantTransactionById(transactionId: number) {
-        const cacheKey = `merchantTransaction:${transactionId}`;
+        /*const cacheKey = `merchantTransaction:${transactionId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const transaction = await TransactionPartnerFeesModel.findByPk(transactionId, {
             include: [{ model: TransactionModel, as: 'transaction' }]
         });
         if (!transaction) throw new Error("Transaction introuvable");
 
-        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
         return transaction;
     }
 
@@ -318,9 +318,9 @@ class MerchantService {
         limit: number, 
         startIndex: number
     ) {
-        const cacheKey = `allRequestWithdraw:${status}:${limit}:${startIndex}`;
+        /*const cacheKey = `allRequestWithdraw:${status}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const result = await PartnerWithdrawalsModel.findAndCountAll({
             where: status ? { status } : undefined,
@@ -337,7 +337,7 @@ class MerchantService {
             }]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 }

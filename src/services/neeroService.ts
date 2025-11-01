@@ -533,8 +533,8 @@ class NeeroGatewayService {
         }
     }
 
-    public async getAllOnboardingSession(limit: number = 10): Promise<any> {
-        const endpoint = `party/search?limit=${limit}`;
+    public async getAllOnboardingSession(): Promise<any> {
+        const endpoint = `party/search`;
         const url = new URL(endpoint, this.baseBaasUrl).toString();
         
         try {

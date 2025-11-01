@@ -785,9 +785,9 @@ class TontineService {
     }
 
     async getTontineById(tontineId: number) {
-        const cacheKey = `tontineById:${tontineId}`;
+        /*const cacheKey = `tontineById:${tontineId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const tontine = await TontineModel.findByPk(tontineId, {
             include: [
@@ -821,9 +821,9 @@ class TontineService {
             ]
         })
 
-        if (tontine) {
+        /*if (tontine) {
             await redisClient.set(cacheKey, JSON.stringify(tontine), { EX: REDIS_TTL });
-        }
+        }*/
         return tontine;
     }
 
@@ -869,9 +869,9 @@ class TontineService {
     }
 
     async getTourDistributionsTontine(tontineId: number) {
-        const cacheKey = `tourDistributionsTontine:${tontineId}`;
+        /*const cacheKey = `tourDistributionsTontine:${tontineId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const tours = await TourDeDistributionModel.findAll({
             where: {
@@ -888,14 +888,14 @@ class TontineService {
             }]
         })
 
-        await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
         return tours;
     }
 
     async getTontinesUser(userId: number, limit: number, startIndex: number) {
-        const cacheKey = `tontinesUser:${userId}:${limit}:${startIndex}`;
+        /*const cacheKey = `tontinesUser:${userId}:${limit}:${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         // 1. Récupérer les IDs des tontines où l'utilisateur est membre
         const tontineIdsResult = await MembreTontineModel.findAll({
@@ -949,14 +949,14 @@ class TontineService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
         return tontines;
     }
 
     async getTourDistributionsTontineUser(tontineId: number, memberId: number) {
-        const cacheKey = `tourDistributionsTontineUser:tontineId=${tontineId}&memberId=${memberId}`;
+        /*const cacheKey = `tourDistributionsTontineUser:tontineId=${tontineId}&memberId=${memberId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const tours = await TourDeDistributionModel.findAll({
             where: {
@@ -974,14 +974,14 @@ class TontineService {
             }]
         })
 
-        await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(tours), { EX: REDIS_TTL });
         return tours;
     }
 
     async getAllTontines(limit: number, startIndex: number) {
-        const cacheKey = `allTontines:limit=${limit}&startIndex=${startIndex}`;
+        /*const cacheKey = `allTontines:limit=${limit}&startIndex=${startIndex}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const tontines = await TontineModel.findAndCountAll({
             limit,
@@ -1018,7 +1018,7 @@ class TontineService {
             order: [['createdAt', 'DESC']]
         })
 
-        await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(tontines), { EX: REDIS_TTL });
         return tontines;
     }
 
@@ -1053,9 +1053,9 @@ class TontineService {
     }
 
     async getPenalitesTontineMembre(membreId: number, tontineId: number) {
-        const cacheKey = `penalitesTontineMembre:${tontineId}:${membreId}`;
+        /*const cacheKey = `penalitesTontineMembre:${tontineId}:${membreId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const penalites = await PenaliteModel.findAll({
             where: { membreId, tontineId },
@@ -1080,7 +1080,7 @@ class TontineService {
             ]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
         return penalites;
     }
 
@@ -1219,9 +1219,9 @@ class TontineService {
         membreId?: number, 
         statutPaiement?: 'VALIDATED' | 'PENDING' | 'REJECTED'
     ) {
-        const cacheKey = `cotisationsTontine:${tontineId}:${membreId}`;
+        /*const cacheKey = `cotisationsTontine:${tontineId}:${membreId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         where.tontineId = tontineId
@@ -1245,7 +1245,7 @@ class TontineService {
             }]
         })
 
-        await redisClient.set(cacheKey, JSON.stringify(cotisations), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(cotisations), { EX: REDIS_TTL });
         return cotisations;
     }
 
@@ -1255,9 +1255,9 @@ class TontineService {
         statut?: 'PAID' | 'UNPAID',
         type?: 'ABSENCE' | 'RETARD' | 'AUTRE'
     ) {
-        const cacheKey = `penalitesTontine:${tontineId}:${membreId}`;
+        /*const cacheKey = `penalitesTontine:${tontineId}:${membreId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (tontineId) where.tontineId = tontineId
@@ -1278,7 +1278,7 @@ class TontineService {
             }]
         })
 
-        await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(penalites), { EX: REDIS_TTL });
         return penalites;
     }
 

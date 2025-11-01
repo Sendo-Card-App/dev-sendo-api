@@ -65,7 +65,6 @@ class WebhookController {
                     await transaction.save()
 
                     // On check si la carte possede des dettes
-                    console.log('On check si la carte possede des dettes')
                     await settleCardDebtsIfAny(matricule, transaction.user!.id)
                     
                     await notificationService.save({

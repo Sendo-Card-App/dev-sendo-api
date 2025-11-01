@@ -206,8 +206,8 @@ class CardService {
         }
     }
 
-    async getAllOnboardingSessionUser(limit: number = 10) {
-        return await neeroService.getAllOnboardingSession(limit)
+    async getAllOnboardingSessionUser() {
+        return await neeroService.getAllOnboardingSession()
     }
 
     async getSession(sessionId: string) {
@@ -250,10 +250,6 @@ class CardService {
     }
 
     async getVirtualCardUser(userId: number) {
-        const cacheKey = `virtualCardUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await VirtualCardModel.findOne({
             where: { 
                 userId,
@@ -271,9 +267,6 @@ class CardService {
             }]
         });
 
-        if (result) {
-            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
         return result;
     }
 
@@ -288,10 +281,6 @@ class CardService {
     }
 
     async getVirtualCard(cardId?: number, idCard?: number, userId?: number) {
-        const cacheKey = `virtualCard:${cardId ?? ''}:${idCard ?? ''}:${userId ?? ''}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (cardId) where.cardId = cardId;
         if (idCard) where.id = idCard;
@@ -313,9 +302,6 @@ class CardService {
             ]
         });
 
-        if (result) {
-            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
         return result;
     }
 
@@ -382,10 +368,6 @@ class CardService {
         idCard?: number, 
         type?: 'NEERO_CARD' | 'NEERO_MERCHANT' | 'MOBILE_MONEY'
     ) {
-        const cacheKey = `paymentMethod:${userId ?? ''}:${paymentMethodId ?? ''}:${idCard ?? ''}:${type ?? ''}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (userId) where.userId = userId;
         if (paymentMethodId) where.paymentMethodId = paymentMethodId;
@@ -393,24 +375,15 @@ class CardService {
         if (type) where.type = type;
 
         const result = await PaymentMethodModel.findOne({ where });
-        if (result) {
-            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
+
         return result;
     }
 
     async getPaymentMethodCard(idCard: number) {
-        const cacheKey = `paymentMethodCard:${idCard}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await VirtualCardModel.findByPk(idCard, {
             include: [{ model: PaymentMethodModel, as: 'paymentMethod' }]
         });
 
-        if (result) {
-            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
         return result;
     }
 
@@ -419,10 +392,6 @@ class CardService {
     }
 
     async listTransactions(cardId: number, limit: number = 5, startIndex: number = 0) {
-        const cacheKey = `transactions:${cardId}:${limit}:${startIndex}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const result = await TransactionModel.findAndCountAll({
             where: { virtualCardId: cardId },
             offset: startIndex,
@@ -442,7 +411,6 @@ class CardService {
             ]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 

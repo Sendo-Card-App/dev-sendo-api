@@ -25,9 +25,9 @@ class TransactionService {
         startDate?: string,
         endDate?: string
     ) {
-        const cacheKey = `allTransactions:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        /*const cacheKey = `allTransactions:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (type) where.type = type;
@@ -62,8 +62,8 @@ class TransactionService {
             result.rows.map(async (transaction) => {
                 const receiver = await transaction.getReceiver();
                 return {
-                ...transaction.toJSON(),
-                receiver
+                    ...transaction.toJSON(),
+                    receiver
                 };
             })
         );
@@ -73,7 +73,7 @@ class TransactionService {
             rows: transactionsWithReceivers
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
         return cachedResult;
     }
 
@@ -82,9 +82,9 @@ class TransactionService {
     }
 
     async getTransaction(transactionId: string) {
-        const cacheKey = `transaction:${transactionId}`;
+        /*const cacheKey = `transaction:${transactionId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const transaction = await TransactionModel.findOne({
             where: { transactionId },
@@ -109,14 +109,14 @@ class TransactionService {
         });
         if (!transaction) throw new Error("Transaction introuvable");
 
-        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
         return transaction;
     }
 
     async getTransactionWithReceiver(transactionId: string) {
-        const cacheKey = `transactionWithReceiver:${transactionId}`;
+        /*const cacheKey = `transactionWithReceiver:${transactionId}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const transaction = await TransactionModel.findOne({
             where: { transactionId },
@@ -146,15 +146,15 @@ class TransactionService {
             receiver
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getTransactionByReference(transactionReference: string) {
         const keyRef = transactionReference.trim();
-        const cacheKey = `transactionByReference:${keyRef}`;
+        /*const cacheKey = `transactionByReference:${keyRef}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const transaction = await TransactionModel.findOne({
             where: { transactionReference: keyRef },
@@ -176,7 +176,7 @@ class TransactionService {
             ]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
         return transaction;
     }
 
@@ -190,10 +190,9 @@ class TransactionService {
         startDate?: string,
         endDate?: string
     ) {
-        const cacheKey = `transactionsUser:${userId}:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
-
+        /*const cacheKey = `transactionsUser:${userId}:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {
             [Op.or]: [
@@ -246,7 +245,7 @@ class TransactionService {
             user
         };
 
-        await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
         return cachedResult;
     }
 

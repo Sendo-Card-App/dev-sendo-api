@@ -28,6 +28,8 @@ router.post(
  *   get:
  *     summary: Récupérer le contenu de tous les webhooks envoyé par Neero
  *     tags: [Webhook]
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: query
  *         name: type
@@ -82,6 +84,8 @@ router.get(
  *   get:
  *     summary: Récupérer le contenu d'un webhook envoyé par Neero
  *     tags: [Webhook]
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id

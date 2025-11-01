@@ -23,10 +23,6 @@ class AdminService {
     }
 
     async getAllDocuments(typeAccount: 'MERCHANT' | 'CUSTOMER', status: string, limit: number, startIndex: number) {
-        const cacheKey = `documents:${typeAccount}:${status}:${limit}:${startIndex}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (status) where.status = status;
         if (typeAccount) where.typeAccount = typeAccount;
@@ -43,15 +39,10 @@ class AdminService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getDocumentsPending(typeAccount: 'MERCHANT' | 'CUSTOMER', limit: number, startIndex:number) {
-        const cacheKey = `documents_pending:${typeAccount}:${limit}:${startIndex}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const where: Record<string, any> = {};
         if (typeAccount) where.typeAccount = typeAccount;
 
@@ -70,18 +61,10 @@ class AdminService {
             order: [['createdAt', 'DESC']]
         });
 
-        await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getUser(userId: number) {
-        const cacheKey = `user:${userId}`;
-        const cachedUser = await redisClient.get(cacheKey);
-
-        if (cachedUser) {
-            return JSON.parse(cachedUser);
-        }
-
         const user = await UserModel.findByPk(userId, {
             attributes: { exclude: ['password'] },
             include: [{
@@ -91,25 +74,13 @@ class AdminService {
             }]
         });
 
-        if (user) {
-            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL }); // Cache 1h
-        }
-
         return user;
     }
 
     async getSingleUser(userId: number) {
-        const cacheKey = `singleUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const user = await UserModel.findByPk(userId, {
             attributes: { exclude: ['password'] }
         });
-
-        if (user) {
-            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
-        }
 
         return user;
     }
@@ -165,15 +136,7 @@ class AdminService {
     }
 
     async findWallet(matricule: string) {
-        const cacheKey = `wallet:${matricule}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
         const wallet = await WalletModel.findOne({ where: { matricule } });
-
-        if (wallet) {
-            await redisClient.set(cacheKey, JSON.stringify(wallet), { EX: REDIS_TTL });
-        }
         return wallet;
     }
 

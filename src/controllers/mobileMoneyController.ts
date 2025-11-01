@@ -442,35 +442,35 @@ class MobileMoneyController {
             const cashin = await neeroService.createCashInPayment(payload)
 
             transaction.transactionReference = cashin.id;
-            await transaction.save()
+            const new1Transaction = await transaction.save()
             
-            await wait(10000)
+            await wait(5000)
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-            transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
-            await transaction.save()
-
-            const newTransaction = await transaction.reload()
+            const new2Transaction = await new1Transaction.reload()
             
             if (
-                newTransaction.status === 'COMPLETED' && 
-                newTransaction.type === 'DEPOSIT' &&
-                newTransaction.method === 'MOBILE_MONEY'
+                new2Transaction.status === 'PENDING' && 
+                new2Transaction.type === 'DEPOSIT' &&
+                new2Transaction.method === 'MOBILE_MONEY' &&
+                neeroTransaction.status === "SUCCESSFUL"
             ) {
                 const wallet = await walletService.getWalletByMatricule(matriculeWallet)
                 await walletService.creditWallet(
                     wallet.matricule,
-                    newTransaction.amount
+                    new2Transaction.amount
                 )
+                
+                new2Transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
+                await new2Transaction.save()
 
                 // On check si la carte possede des dettes
-                console.log('On check si la carte possede des dettes')
-                await settleCardDebtsIfAny(wallet.matricule, newTransaction.userId)
+                await settleCardDebtsIfAny(wallet.matricule, new2Transaction.userId)
 
                 const token = await notificationService.getTokenExpo(req?.user?.id ?? 0)
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Votre recharge de ${newTransaction.amount} XAF s'est effectuée avec succès`,
+                    content: `Votre recharge de ${new2Transaction.amount} XAF s'est effectuée avec succès`,
                     userId: req.user!.id,
                     status: 'SENDED',
                     token: token?.token ?? '',
@@ -486,7 +486,7 @@ class MobileMoneyController {
             
             sendResponse(res, 200, 'La requête a été initiée avec succès', {
                 mobileMoney: neeroTransaction,
-                transaction
+                transaction: new2Transaction
             })
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message]);
@@ -611,31 +611,32 @@ class MobileMoneyController {
             
             const cashout = await neeroService.createCashOutPayment(payload)
             transaction.transactionReference = cashout.id;
-            await transaction.save()
+            const new1Transaction = await transaction.save()
 
             await wait(5000)
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
-
-            transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
-            await transaction.save()
-            const newTransaction = await transaction.reload()
+            const new2Transaction = await new1Transaction.reload()
             
             if (
-                newTransaction.type === 'WITHDRAWAL' && 
-                newTransaction.status === 'COMPLETED' &&
-                newTransaction.method === 'MOBILE_MONEY'
+                new2Transaction.type === 'WITHDRAWAL' && 
+                new2Transaction.status === 'PENDING' &&
+                new2Transaction.method === 'MOBILE_MONEY' &&
+                neeroTransaction.status == "SUCCESSFUL"
             ) {
-                if (newTransaction.amount > 0) {
+                if (new2Transaction.amount > 0) {
                     await walletService.debitWallet(
                         matriculeWallet,
-                        newTransaction.amount
+                        new2Transaction.amount
                     )
+
+                    new2Transaction.status = 'COMPLETED';
+                    await new2Transaction.save()
                 }
                 const token = await notificationService.getTokenExpo(req?.user?.id ?? 0)
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Votre retrait de ${newTransaction.amount} XAF s'est effectué avec succès`,
+                    content: `Votre retrait de ${new2Transaction.amount} XAF s'est effectué avec succès`,
                     userId: req?.user?.id ?? 0,
                     status: 'SENDED',
                     token: token?.token ?? '',
@@ -651,7 +652,7 @@ class MobileMoneyController {
             
             sendResponse(res, 200, 'La requête de débit a été initiée avec succès', {
                 mobileMoney: neeroTransaction,
-                transaction: newTransaction
+                transaction: new2Transaction
             })
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message]);

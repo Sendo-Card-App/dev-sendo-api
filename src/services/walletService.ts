@@ -34,7 +34,7 @@ class WalletService {
         if (!wallet) {
             throw new Error('Portefeuille introuvable');
         }
-
+       
         return wallet;
     }
     

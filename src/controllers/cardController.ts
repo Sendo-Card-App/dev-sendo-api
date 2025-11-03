@@ -129,6 +129,122 @@ class CardController {
         }
     }
 
+    async createCardByAdmin(req: Request, res: Response) {
+        const { name, userId } = req.body
+        try {
+            if (!req.user) {
+                sendError(res, 403, "Utilisateur non authentifié", {});
+                return;
+            }
+            if (!userId) {
+                sendError(res, 401, "userId manquant", {});
+                return;
+            }
+
+            const partySession = await cardService.getPartySession(Number(userId))
+            if (!partySession) {
+                throw new Error("Envoyez d'abord vos documents KYC pour validation")
+            }
+
+            const partyFromNeero = await cardService.getParty(partySession.partyKey ?? '')
+            if (partyFromNeero.onboardingSessionStatus === "UNDER_VERIFICATION") {
+                throw new Error("Votre demande d'onboarding n'a pas encore été validé")
+            } else if (partyFromNeero.onboardingSessionStatus === "VERIFIED") {
+                partySession.status = partyFromNeero.onboardingSessionStatus
+                await partySession.save()
+            }
+            
+            if (name.length < 5) {
+                throw new Error("Le nom de la carte doit contenir au moins 5 caractères.");
+            }
+            const cardName = name.slice(0, 19)
+
+            // On récupère le user pour savoir combien de cartes il a déjà créé
+            const user = await userService.getUserById(Number(userId))
+
+            // S'il a déjà créé au moins une carte, on applique les frais sur sa prochaine création
+            const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
+            if (user && user.numberOfCardsCreated >= 1) {
+                if (config && user.wallet && config.value > 0) {
+                    await walletService.debitWallet(
+                        user?.wallet?.matricule, 
+                        config.value
+                    )
+                    const transaction: TransactionCreate = {
+                        amount: config.value,
+                        userId: user.id,
+                        type: 'PAYMENT',
+                        description: 'Frais de création de carte',
+                        status: 'COMPLETED',
+                        currency: 'XAF',
+                        totalAmount: config.value,
+                        receiverId: user.id,
+                        receiverType: 'User'
+                    }
+                    await transactionService.createTransaction(transaction)
+                }
+            } else {
+                // On détermine d'abord si la première création de carte est gratuitre
+                const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
+                if (configFirstCreating && configFirstCreating.value === 0) {
+                    if (config && user?.wallet && config.value > 0) {
+                        await walletService.debitWallet(
+                            user?.wallet?.matricule, 
+                            config.value
+                        )
+                        const transaction: TransactionCreate = {
+                            amount: config.value,
+                            userId: user.id,
+                            type: 'PAYMENT',
+                            description: 'Frais de création de carte',
+                            status: 'COMPLETED',
+                            currency: 'XAF',
+                            totalAmount: config.value,
+                            receiverId: user.id,
+                            receiverType: 'User'
+                        }
+                        await transactionService.createTransaction(transaction)
+                    }
+                }
+            }
+
+            const payload: CreateCardPayload = {
+                partyId: partySession.partyKey ?? '',
+                cardName: cardName
+            }
+            const card = await cardService.createVirtualCard(payload);
+
+            // Enregistrer les informations de la carte dans la BD
+            const cardModel: CreateCardModel = {
+                cardName: card.cardName,
+                cardId: card.cardId,
+                last4Digits: card.last4Digits,
+                partyId: partySession.partyKey ?? '',
+                status: 'PRE_ACTIVE',
+                userId: Number(userId),
+                expirationDate: card.expirationDate
+            }
+            const virtualCard = await cardService.saveVirtualCard(cardModel)
+
+            if (user) {
+                user.numberOfCardsCreated = user.numberOfCardsCreated + 1;
+                await user.save();
+            }
+
+            await cardService.createPaymentMethod(virtualCard.cardId, virtualCard.userId, virtualCard.id)
+
+            logger.info("Nouvelle carte virtuelle créée", {
+                card: `${virtualCard.cardName} - ${virtualCard.cardId}`,
+                user: `User ID : ${Number(userId)}`,
+                admin: `Name Admin : ${req.user.firstname} ${req.user.lastname}`
+            });
+            
+            sendResponse(res, 200, 'Carte virtuelle créée avec succès', card)
+        } catch (error: any) {
+            sendError(res, 500, "Internal server error", [error.message])
+        }
+    }
+
     async getRequiredDocuments(req: Request, res: Response) {
         try {
             const requiredDocs = await kycService.getRequiredKycDocuments()
@@ -1125,7 +1241,7 @@ class CardController {
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
 
-            await wait(5000)
+            await wait(3000)
 
             const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
             
@@ -1133,7 +1249,7 @@ class CardController {
                 amount: 0,
                 type: typesTransaction['8'],
                 status: mapNeeroStatusToSendo(checkTransaction.status),
-                userId: req.user!.id,
+                userId: virtualCard!.userId,
                 currency: typesCurrency['0'],
                 totalAmount: Number(fees),
                 method: typesMethodTransaction['2'],
@@ -1141,7 +1257,7 @@ class CardController {
                 sendoFees: Number(fees),
                 virtualCardId: virtualCard!.id,
                 description: 'Frais infos carte',
-                receiverId: req.user!.id,
+                receiverId: virtualCard!.userId,
                 receiverType: 'User'
             }
             await transactionService.createTransaction(transactionToCreate)

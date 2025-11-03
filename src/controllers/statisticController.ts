@@ -20,6 +20,9 @@ class StatisticController {
             const sharedExpensesStats = await statisticService.getSharedExpenseStatistics(startDate, endDate);
             const requestFundsStats = await statisticService.getRequestFundsStatistics(startDate, endDate);
             const tontineStats = await statisticService.getTontineStatistics(startDate, endDate);
+            const merchantStats = await statisticService.getMerchantStatistics(startDate, endDate);
+            const merchantFeesStats = await statisticService.getMerchantFeesStatistics(startDate, endDate);
+            const merchantWithdrawStats = await statisticService.getMerchantWithdrawalsStatistics(startDate, endDate)
 
             sendResponse(res, 200, 'Statistiques récupérées avec succès', {
                 userStats,
@@ -30,8 +33,27 @@ class StatisticController {
                 sharedExpensesStats,
                 requestFundsStats,
                 tontineStats,
+                merchantStats,
+                merchantFeesStats,
+                merchantWithdrawStats,
                 roleStats
             });
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur lors de la récupération des statistiques', [error.message]);
+        }
+    }
+
+    async getStatisticsForMerchant(req: Request, res: Response) {
+        const { startDate, endDate } = res.locals.pagination;
+        const { merchantId } = req.params
+        try {
+            const statsForMerchant = await statisticService.getStatisticsForMerchant(
+                Number(merchantId),
+                startDate, 
+                endDate
+            )
+
+            sendResponse(res, 200, 'Statistiques récupérées avec succès', statsForMerchant);
         } catch (error: any) {
             sendError(res, 500, 'Erreur lors de la récupération des statistiques', [error.message]);
         }

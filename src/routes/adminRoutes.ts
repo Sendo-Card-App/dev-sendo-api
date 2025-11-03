@@ -975,6 +975,59 @@ router.get(
 
 /**
  * @swagger
+ * /admin/statistics/merchant/{merchantId}:
+ *   get:
+ *     summary: Récupérer toutes les statistiques des agents
+ *     description: Récupérer toutes les statistiques des agents
+ *     tags:
+ *       - Admin
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: merchantId
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: ID du marchant
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de début pour filtrer les statistiques (inclus)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de fin pour filtrer les statistiques (inclus)
+ *     responses:
+ *       200:
+ *         description: Statistiques récupérées avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get(
+    '/statistics/merchant/:merchantId',
+    authMiddleware, 
+    paginationMiddleware,
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    statisticController.getStatisticsForMerchant
+)
+
+/**
+ * @swagger
  * /admin/commission:
  *   get:
  *     summary: Récupérer toutes les statistiques du système

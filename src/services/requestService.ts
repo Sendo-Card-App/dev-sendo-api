@@ -14,6 +14,7 @@ export interface RequestCreate {
     status: TypesStatusDemande;
     userId: number;
     reviewedById?: number;
+    url: string;
 }
 
 export interface UpdateStatusRequest {

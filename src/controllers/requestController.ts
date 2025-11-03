@@ -14,16 +14,20 @@ import logger from "@config/logger";
 class RequestController {
     async askRequest(req: Request, res: Response) {
         const { type, description } = req.body
-        if (!type) {
-            sendError(res, 400, "Veuillez fournir le type de demande");
-        }
+        
         try {
             if (!req.user) throw new Error('Utilisateur non authentifié');
+            if (!type) sendError(res, 400, "Veuillez fournir le type de demande");
+
+            const file = req.file as Express.Multer.File;
+            if (!file) throw new Error('Aucun document fourni');
+
             const body: RequestCreate = {
                 type: type as TypesDemande,
                 userId: req.user.id,
                 description,
-                status: typesStatusDemande['1']
+                status: typesStatusDemande['1'],
+                url: file.path
             }
             const request = await requestService.askRequest(body)
 

@@ -20,7 +20,7 @@ const router = Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -32,6 +32,9 @@ const router = Router();
  *               description:
  *                 type: string
  *                 example: "Non obligatoire"
+ *               request:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Demande enregistrée avec succès
@@ -57,9 +60,9 @@ router.post(
     '/ask',
     authMiddleware, 
     hasRole(['CUSTOMER']),
+    upload_request,
     requestController.askRequest
 )
-
 
 /**
  * @swagger

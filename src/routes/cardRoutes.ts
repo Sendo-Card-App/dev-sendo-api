@@ -223,6 +223,37 @@ router.post(
     cardController.createCard
 )
 
+ /**
+  * @swagger
+  * /cards/admin:
+  *   post:
+  *     summary: Crée une nouvelle carte virtuelle par Sendo `SUPER_ADMIN`
+  *     tags: [Virtual Cards]
+  *     description: Crée une nouvelle carte virtuelle par Sendo `SUPER_ADMIN`
+  *     security:
+  *       - BearerAuth: []
+  *     requestBody:
+  *       required: true
+  *       content:
+  *         application/json:
+  *           schema:
+  *             type: object
+  *             properties:
+  *               name:
+  *                 type: string
+  *               userId:
+  *                 type: number
+  *     responses:
+  *       201:
+  *         description: Carte virtuelle créée
+  */
+router.post(
+    '/admin',
+    authMiddleware,
+    hasRole(['SUPER_ADMIN']), 
+    cardController.createCardByAdmin
+)
+
 /**
  * @swagger
  * /cards/admin:

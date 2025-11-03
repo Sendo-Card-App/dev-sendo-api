@@ -14,6 +14,9 @@ import CotisationModel from '@models/cotisation.model';
 import sequelize from '@config/db';
 import { TypesTransaction } from '@utils/constants';
 import redisClient from '@config/cache';
+import MerchantModel from '@models/merchant.model';
+import TransactionPartnerFeesModel from '@models/transaction-partner-fees.model';
+import PartnerWithdrawalsModel from '@models/partner-withdrawals.model';
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -939,6 +942,419 @@ class StatisticsService {
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des commissions : ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Statistiques sur les marchands (merchants)
+     */
+    static async getMerchantStatistics(startDate?: string, endDate?: string) {
+        try {
+            const whereClause: { [key: string]: any } = {};
+            if (startDate) {
+                whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
+            }
+            if (endDate) {
+                whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
+            }
+
+            const result = await sequelize.transaction(async transaction => {
+                const [
+                    totalMerchants,
+                    statusDistribution,
+                    typeDistribution,
+                    totalBalance,
+                    averageBalance,
+                    topMerchants,
+                    recentMerchants
+                ] = await Promise.all([
+                    // Total marchands
+                    MerchantModel.count({ where: whereClause, transaction }),
+
+                    // Répartition par statut (ACTIVE / PENDING / REFUSED)
+                    MerchantModel.findAll({
+                        attributes: ['status', [fn('COUNT', col('id')), 'count']],
+                        group: ['status'],
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    // Répartition par type de compte (Particulier / Entreprise)
+                    MerchantModel.findAll({
+                        attributes: ['typeAccount', [fn('COUNT', col('id')), 'count']],
+                        group: ['typeAccount'],
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    // Solde total cumulé
+                    MerchantModel.sum('balance', { where: whereClause, transaction }),
+
+                    // Solde moyen
+                    MerchantModel.findOne({
+                        attributes: [[fn('AVG', col('balance')), 'averageBalance']],
+                        where: whereClause,
+                        raw: true,
+                        transaction
+                    }),
+
+                    // Top 5 marchands par solde
+                    MerchantModel.findAll({
+                        attributes: ['id', 'balance', 'typeAccount'],
+                        order: [['balance', 'DESC']],
+                        limit: 5,
+                        include: [{
+                            model: UserModel,
+                            as: 'user',
+                            attributes: ['firstname', 'lastname', 'email', 'phone']
+                        }],
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    // 5 derniers marchands inscrits
+                    MerchantModel.findAll({
+                        order: [['createdAt', 'DESC']],
+                        limit: 5,
+                        include: [{
+                            model: UserModel,
+                            as: 'user',
+                            attributes: ['firstname', 'lastname', 'email']
+                        }],
+                        where: whereClause,
+                        transaction
+                    })
+                ]);
+
+                return {
+                    totalMerchants,
+                    totalBalance: totalBalance || 0,
+                    averageBalance: averageBalance ? Number((averageBalance as any).averageBalance) : 0,
+                    statusDistribution: statusDistribution.map(s => ({
+                        status: s.status,
+                        count: Number(s.get('count'))
+                    })),
+                    typeDistribution: typeDistribution.map(t => ({
+                        typeAccount: t.typeAccount,
+                        count: Number(t.get('count'))
+                    })),
+                    topMerchants: topMerchants.map(m => ({
+                        id: m.id,
+                        balance: m.balance,
+                        typeAccount: m.typeAccount,
+                        user: m.user ? {
+                            id: m.user.id,
+                            name: `${m.user.firstname} ${m.user.lastname}`,
+                            email: m.user.email,
+                            phone: m.user.phone
+                        } : null
+                    })),
+                    recentMerchants: recentMerchants.map(m => ({
+                        id: m.id,
+                        typeAccount: m.typeAccount,
+                        status: m.status,
+                        createdAt: m.createdAt,
+                        user: m.user ? `${m.user.firstname} ${m.user.lastname}` : null
+                    }))
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Échec des statistiques marchands : ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * Statistiques sur les commissions perçues par les marchands
+     */
+    static async getMerchantFeesStatistics(startDate?: string, endDate?: string) {
+        try {
+            const whereClause: { [key: string]: any } = {};
+            if (startDate) {
+                whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
+            }
+            if (endDate) {
+                whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
+            }
+
+            const result = await sequelize.transaction(async transaction => {
+                const [
+                    totalFees,
+                    averageFee,
+                    totalWithdrawn,
+                    topEarners,
+                    recentFees
+                ] = await Promise.all([
+                    // Total des commissions générées
+                    TransactionPartnerFeesModel.sum('amount', { where: whereClause, transaction }),
+
+                    // Montant moyen par transaction
+                    TransactionPartnerFeesModel.findOne({
+                        attributes: [[fn('AVG', col('amount')), 'averageFee']],
+                        raw: true,
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    // Total retiré
+                    TransactionPartnerFeesModel.sum('amount', {
+                        where: { ...whereClause, isWithdrawn: true },
+                        transaction
+                    }),
+
+                    // Top 5 marchands par commissions générées
+                    TransactionPartnerFeesModel.findAll({
+                        attributes: [
+                            'partnerId',
+                            [fn('SUM', col('amount')), 'totalFees']
+                        ],
+                        include: [{
+                            model: MerchantModel,
+                            as: 'partner',
+                            include: [{
+                                model: UserModel,
+                                as: 'user',
+                                attributes: ['id', 'firstname', 'lastname', 'email']
+                            }]
+                        }],
+                        group: ['partnerId', 'partner.id', 'partner.user.id'],
+                        order: [[fn('SUM', col('amount')), 'DESC']],
+                        limit: 5,
+                        transaction
+                    }),
+
+                    // 5 dernières commissions
+                    TransactionPartnerFeesModel.findAll({
+                        order: [['createdAt', 'DESC']],
+                        limit: 5,
+                        include: [
+                            {
+                                model: MerchantModel,
+                                as: 'partner',
+                                include: [{ model: UserModel, as: 'user', attributes: ['firstname', 'lastname'] }]
+                            },
+                            {
+                                model: TransactionModel,
+                                as: 'transaction',
+                                attributes: ['transactionId', 'amount', 'status']
+                            }
+                        ],
+                        transaction
+                    })
+                ]);
+
+                return {
+                    totalFees: totalFees || 0,
+                    averageFee: averageFee ? Number((averageFee as any).averageFee) : 0,
+                    totalWithdrawn: totalWithdrawn || 0,
+                    topEarners: topEarners.map(f => ({
+                        merchantId: f.partnerId,
+                        totalFees: Number(f.get('totalFees')),
+                        merchant: f.partner?.user
+                            ? `${f.partner.user.firstname} ${f.partner.user.lastname}`
+                            : 'Inconnu'
+                    })),
+                    recentFees: recentFees.map(f => ({
+                        id: f.id,
+                        amount: f.amount,
+                        isWithdrawn: f.isWithdrawn,
+                        createdAt: f.createdAt,
+                        transaction: f.transaction
+                            ? {
+                                id: f.transaction.id,
+                                transactionId: f.transaction.transactionId,
+                                amount: f.transaction.amount,
+                                status: f.transaction.status
+                            }
+                            : null,
+                        merchant: f.partner?.user
+                            ? `${f.partner.user.firstname} ${f.partner.user.lastname}`
+                            : 'Inconnu'
+                    }))
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Échec des statistiques commissions marchands : ${(error as Error).message}`);
+        }
+    }
+
+    static async getMerchantWithdrawalsStatistics(startDate?: string, endDate?: string) {
+        try {
+            const whereClause: { [key: string]: any } = {};
+            if (startDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
+            if (endDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
+
+            const result = await sequelize.transaction(async transaction => {
+                const [
+                    totalWithdrawals,
+                    totalAmountWithdrawn,
+                    averageAmount,
+                    recentWithdrawals
+                ] = await Promise.all([
+                    PartnerWithdrawalsModel.count({ where: whereClause, transaction }),
+
+                    PartnerWithdrawalsModel.sum('amount', { where: whereClause, transaction }),
+
+                    PartnerWithdrawalsModel.findOne({
+                        attributes: [[fn('AVG', col('amount')), 'averageAmount']],
+                        raw: true,
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    PartnerWithdrawalsModel.findAll({
+                        order: [['createdAt', 'DESC']],
+                        limit: 5,
+                        include: [{
+                            model: MerchantModel,
+                            as: 'partner',
+                            include: [{ 
+                                model: UserModel, 
+                                as: 'user', 
+                                attributes: ['id', 'firstname', 'lastname', 'email'] 
+                            }]
+                        }],
+                        where: whereClause,
+                        transaction
+                    })
+                ]);
+
+                return {
+                    totalWithdrawals,
+                    totalAmountWithdrawn: totalAmountWithdrawn || 0,
+                    averageAmount: averageAmount ? Number((averageAmount as any).averageAmount) : 0,
+                    recentWithdrawals: recentWithdrawals.map(w => ({
+                        id: w.id,
+                        amount: w.amount,
+                        merchant: w.partner?.user
+                            ? `${w.partner.user.firstname} ${w.partner.user.lastname}`
+                            : null,
+                        createdAt: w.createdAt
+                    }))
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Échec des statistiques retraits marchands : ${(error as Error).message}`);
+        }
+    }
+
+    static async getStatisticsForMerchant(merchantId: number, startDate?: string, endDate?: string) {
+        try {
+            const whereClause: { [key: string]: any } = { partnerId: merchantId };
+            if (startDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
+            if (endDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.lte]: endDate };
+
+            const result = await sequelize.transaction(async transaction => {
+                const [
+                    merchant,
+                    totalFees,
+                    totalWithdrawn,
+                    pendingWithdrawals,
+                    totalTransactions,
+                    recentFees,
+                    recentWithdrawals
+                ] = await Promise.all([
+                    // Détails du marchand
+                    MerchantModel.findByPk(merchantId, {
+                        include: [{ model: UserModel, as: 'user', attributes: ['id', 'firstname', 'lastname', 'email', 'phone'] }],
+                        transaction
+                    }),
+
+                    // Total des commissions perçues
+                    TransactionPartnerFeesModel.sum('amount', { where: whereClause, transaction }),
+
+                    // Total retiré
+                    TransactionPartnerFeesModel.sum('amount', {
+                        where: { ...whereClause, isWithdrawn: true },
+                        transaction
+                    }),
+
+                    // Retraits en attente
+                    PartnerWithdrawalsModel.count({
+                        where: { partnerId: merchantId, status: 'PENDING' },
+                        transaction
+                    }),
+
+                    // Total transactions liées
+                    TransactionPartnerFeesModel.count({
+                        where: whereClause,
+                        transaction
+                    }),
+
+                    // 5 dernières commissions
+                    TransactionPartnerFeesModel.findAll({
+                        where: whereClause,
+                        order: [['createdAt', 'DESC']],
+                        limit: 5,
+                        include: [{
+                            model: TransactionModel,
+                            as: 'transaction',
+                            attributes: ['transactionId', 'amount', 'status']
+                        }],
+                        transaction
+                    }),
+
+                    // 5 derniers retraits
+                    PartnerWithdrawalsModel.findAll({
+                        where: { partnerId: merchantId },
+                        order: [['createdAt', 'DESC']],
+                        limit: 5,
+                        transaction
+                    })
+                ]);
+
+                return {
+                    merchant: merchant ? {
+                        id: merchant.id,
+                        balance: merchant.balance,
+                        typeAccount: merchant.typeAccount,
+                        status: merchant.status,
+                        user: merchant.user ? {
+                            name: `${merchant.user.firstname} ${merchant.user.lastname}`,
+                            email: merchant.user.email,
+                            phone: merchant.user.phone
+                        } : null
+                    } : null,
+
+                    summary: {
+                        totalFees: totalFees || 0,
+                        totalWithdrawn: totalWithdrawn || 0,
+                        availableBalance: (merchant?.balance || 0),
+                        pendingWithdrawals,
+                        totalTransactions
+                    },
+
+                    recentFees: recentFees.map(f => ({
+                        id: f.id,
+                        amount: f.amount,
+                        isWithdrawn: f.isWithdrawn,
+                        createdAt: f.createdAt,
+                        transaction: f.transaction
+                            ? {
+                                id: f.transaction.transactionId,
+                                amount: f.transaction.amount,
+                                status: f.transaction.status
+                            }
+                            : null
+                    })),
+
+                    recentWithdrawals: recentWithdrawals.map(w => ({
+                        id: w.id,
+                        amount: w.amount,
+                        status: w.status,
+                        createdAt: w.createdAt
+                    }))
+                };
+            });
+
+            return result;
+        } catch (error) {
+            throw new Error(`Échec de la récupération des statistiques du marchand : ${(error as Error).message}`);
         }
     }
 }

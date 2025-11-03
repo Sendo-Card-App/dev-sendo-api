@@ -21,6 +21,7 @@ import webhookRoutes from './webhookRoutes';
 import emailRoutes from './emailRoutes';
 import merchantRoutes from './merchantRoutes';
 import debtRoutes from './debtRoutes';
+import paymentologyRoutes from './paymentologyRoutes';
 
 const router = express.Router();
 
@@ -46,5 +47,6 @@ router.use('/admin/pubs', pubRoutes);
 router.use('/webhook', webhookRoutes);
 router.use("/email", emailRoutes);
 router.use("/merchant", merchantRoutes);
+router.use("/paymentology", paymentologyRoutes);
 
 export default router;

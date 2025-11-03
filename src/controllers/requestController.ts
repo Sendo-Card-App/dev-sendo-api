@@ -27,7 +27,7 @@ class RequestController {
                 userId: req.user.id,
                 description,
                 status: typesStatusDemande['1'],
-                file: file.path
+                url: file.path
             }
             const request = await requestService.askRequest(body)
 

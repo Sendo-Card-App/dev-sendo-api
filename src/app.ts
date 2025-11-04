@@ -24,6 +24,7 @@ export function createApp() {
     allowedHeaders: [
       'Content-Type',
       'Authorization',
+      'X-Passcode',
       'Access-Control-Allow-Origin',
       'Access-Control-Allow-Methods'
     ]

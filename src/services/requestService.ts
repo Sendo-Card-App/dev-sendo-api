@@ -15,6 +15,7 @@ export interface RequestCreate {
     userId: number;
     reviewedById?: number;
     url: string;
+    
 }
 
 export interface UpdateStatusRequest {

@@ -17,7 +17,6 @@ const router = Router();
  *     security:
  *       - BearerAuth: []
  *     requestBody:
- *       required: true
  *       content:
  *         application/json:
  *           schema:

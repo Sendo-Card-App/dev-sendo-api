@@ -95,7 +95,7 @@ class AdminController {
             });
 
             // Si rejeté, suppression Cloudinary optionnelle
-            if (document && status === typesKYCStatus['2'] && req.query.deleteFile === 'true') {
+            if (document && status === typesKYCStatus['2']) {
                 await cloudinary.uploader.destroy(document.publicId, {
                     resource_type: document.url.includes('.pdf') ? 'raw' : 'image'
                 });
@@ -108,11 +108,23 @@ class AdminController {
                     as: 'kycDocuments'
                 }] 
             })
+            const country = user!.country
 
             const isVerifiedKYC = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
             if (
                 user && 
+                country == "Cameroon" &&
                 user.kycDocuments?.length === 5 && 
+                !user?.isVerifiedKYC && 
+                isVerifiedKYC?.length === 0
+            ) {
+                user.isVerifiedKYC = true;
+                const newUser = await user.save();
+                await sendEmailVerificationKYC(newUser);
+            } else if (
+                user && 
+                country == "Canada" &&
+                user.kycDocuments?.length === 3 && 
                 !user?.isVerifiedKYC && 
                 isVerifiedKYC?.length === 0
             ) {
@@ -180,8 +192,26 @@ class AdminController {
                     as: 'kycDocuments'
                 }] 
             })
+            const country = user?.country
+
             const isVerifiedKYC = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
-            if (user && user.kycDocuments?.length === 5 && !user?.isVerifiedKYC && isVerifiedKYC?.length === 0) {
+            if (
+                user && 
+                country == "Cameroon" &&
+                user.kycDocuments?.length === 5 && 
+                !user?.isVerifiedKYC && 
+                isVerifiedKYC?.length === 0
+            ) {
+                user.isVerifiedKYC = true;
+                const newUser = await user.save();
+                await sendEmailVerificationKYC(newUser);
+            } else if (
+                user && 
+                country == "Canada" &&
+                user.kycDocuments?.length === 3 && 
+                !user?.isVerifiedKYC && 
+                isVerifiedKYC?.length === 0
+            ) {
                 user.isVerifiedKYC = true;
                 const newUser = await user.save();
                 await sendEmailVerificationKYC(newUser);

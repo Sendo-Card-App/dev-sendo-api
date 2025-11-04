@@ -47,8 +47,17 @@ class KycController {
         
         try {
             if (!req.user) throw new Error('Utilisateur non authentifié');
-            if (!profession || !region || !city || !district) {
+            if (
+                req.user.country == "Cameroon" &&
+                (!profession || !region || !city || !district)
+            ) {
                 throw new Error('Veuillez remplir tous les champs');
+            }
+            if (
+                req.user.country == "Canada" &&
+                (!profession)
+            ) {
+                throw new Error('Veuillez fournir votre profession');
             }
            
             const updates = {
@@ -77,6 +86,7 @@ class KycController {
             const documents = JSON.parse(req.body.documents)
 
             const files = req.files as Express.Multer.File[];
+            const country = req.user.country
             
             if (!Array.isArray(documents) || documents.length === 0) {
                 throw new Error('Aucun document à uploader');
@@ -86,7 +96,7 @@ class KycController {
             }
             
             // Vérifier si l'utilisateur a déjà uploadé ses KYC
-            const checkFilesKycUSers = await kycService.checkKYCIsUploaded(req.user.id, 'User');
+            const checkFilesKycUSers = await kycService.checkKYCIsUploaded(req.user.id, 'Extern');
             if (checkFilesKycUSers) {
                 throw new Error("Vous avez déjà envoyé vos KYC");
             }
@@ -94,15 +104,15 @@ class KycController {
             const results = [];
 
             for (let i = 0; i < documents.length; i++) {
-                const { type, idDocumentNumber, taxIdNumber } = documents[i];
+                const { type, idDocumentNumber, taxIdNumber, expirationDate } = documents[i];
                 const file = files[i];
 
                 if (!type) {
                     sendError(res, 403, `Document ${i + 1}: type manquant`);
                     return;
                 }
-                if (type === 'ID_PROOF' && !idDocumentNumber) {
-                    sendError(res, 403, `Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité`);
+                if (type === 'ID_PROOF' && !idDocumentNumber && !expirationDate) {
+                    sendError(res, 403, `Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
                     return;
                 }
                 if (type === 'NIU_PROOF' && !taxIdNumber) {
@@ -115,13 +125,14 @@ class KycController {
                 }
                 
                 let doc: KycDocumentModel;
-                if (idDocumentNumber || taxIdNumber) {
+                if (country === "Cameroon") {
                     doc = await KycDocumentModel.create({
                         userId: req.user.id,
                         type,
                         url: file.path,
                         idDocumentNumber,
                         taxIdNumber,
+                        expirationDate,
                         publicId: file.filename,
                         status: typesKYCStatus['0']
                     });
@@ -130,6 +141,7 @@ class KycController {
                         userId: req.user.id,
                         type,
                         url: file.path,
+                        expirationDate,
                         publicId: file.filename,
                         status: typesKYCStatus['0']
                     });

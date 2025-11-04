@@ -11,7 +11,7 @@ class KYCService {
         })
     }
 
-    async checkKYCIsUploaded(userId: number, merchantType: "Merchant" | "User" = "User") {
+    async checkKYCIsUploaded(userId: number, merchantType: "Merchant" | "Extern" | "User" = "User") {
         // Définitions des types de documents requis pour chaque type de merchant
         const requiredDocsByType: Record<string, string[]> = {
             Merchant: [
@@ -26,7 +26,11 @@ class KYCService {
                 "ID_PROOF",
                 "ADDRESS_PROOF",
                 "NIU_PROOF",
-                "SELFIE",
+                "SELFIE"
+            ],
+            Extern: [
+                "ID_PROOF",
+                "SELFIE"
             ]
         };
 

@@ -12,6 +12,7 @@ class KycDocumentModel extends Model {
   declare publicId: string;
   declare idDocumentNumber: string;
   declare taxIdNumber: string;
+  declare expirationDate: Date;
   declare rejectionReason?: string;
   declare reviewedById?: number;
   declare reviewedAt?: Date;
@@ -57,6 +58,10 @@ KycDocumentModel.init(
       type: DataTypes.STRING(30),
       allowNull: true,
       unique: true,
+    },
+    expirationDate: {
+      type: DataTypes.STRING(10),
+      allowNull: true
     },
     rejectionReason: {
       type: DataTypes.STRING(255),

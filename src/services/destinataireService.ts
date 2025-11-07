@@ -6,23 +6,34 @@ import redisClient from '@config/cache';
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface DestinataireCreate {
-    country: string;
+    country?: string;
     firstname: string;
-    lastname: string;
+    lastname?: string;
     provider: string;
-    phone: string;
-    address: string;
+    phone?: string;
+    accountNumber?: string;
+    address?: string;
 }
 
 class DestinataireService {
     async createDestinataire(destinataire: DestinataireCreate) {
-        const destinataireExistant = await DestinataireModel.findOne({
-            where: {
-                phone: ajouterPrefixe237(destinataire.phone)
-            }
-        })
-        if (destinataireExistant) return destinataireExistant
-        else return await DestinataireModel.create(destinataire)
+        if (destinataire.phone) {
+            const destinataireExistant = await DestinataireModel.findOne({
+                where: {
+                    phone: ajouterPrefixe237(destinataire.phone)
+                }
+            })
+            if (destinataireExistant) return destinataireExistant
+            else return await DestinataireModel.create(destinataire)
+        } else if (!destinataire.phone && destinataire.firstname) {
+            const destinataireExistant = await DestinataireModel.findOne({
+                where: {
+                    firstname: destinataire.firstname
+                }
+            })
+            if (destinataireExistant) return destinataireExistant
+            else return await DestinataireModel.create(destinataire)
+        } else return await DestinataireModel.create(destinataire)
     }
 
     async getAllDestinataires(limit: number, startIndex: number) {
@@ -44,8 +55,7 @@ class DestinataireService {
         const transactions = await TransactionModel.findAll({
             where: {
                 userId,
-                type: 'TRANSFER',
-                method: 'MOBILE_MONEY'
+                type: 'TRANSFER'
             },
             order: [['createdAt', 'DESC']]
         });

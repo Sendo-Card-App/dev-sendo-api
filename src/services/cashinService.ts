@@ -23,8 +23,6 @@ class CashinService {
     ) {
         try {
             const cashin = await neeroService.createCashInPayment(cashinPayload)
-                                    
-            await wait(3000)
         
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
             console.log('checkTransaction cashinService : ', checkTransaction)
@@ -39,7 +37,7 @@ class CashinService {
                         amount: 0,
                         status: "COMPLETED",
                         userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
+                        currency: 'XAF',
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
@@ -75,10 +73,10 @@ class CashinService {
                         amount: 0,
                         status: "FAILED",
                         userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
+                        currency: 'XAF',
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
-                        transactionReference: object.transactionId,
+                        transactionReference: cashin.id,
                         virtualCardId: virtualCard.id,
                         description: object.reference,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
@@ -120,10 +118,10 @@ class CashinService {
                         amount: 0,
                         status: 'PENDING',
                         userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
+                        currency: 'XAF',
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
-                        transactionReference: object.transactionId,
+                        transactionReference: cashin.id,
                         virtualCardId: virtualCard.id,
                         description: object.reference,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),

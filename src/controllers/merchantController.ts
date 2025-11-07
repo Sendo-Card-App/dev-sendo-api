@@ -441,15 +441,12 @@ class MerchantController {
 
             const cashout = await neeroService.createCashOutPayment(payload)
             transaction.transactionReference = cashout.id;
-            await transaction.save()
-
-            await wait(5000)
+            const new0Transaction = await transaction.save()
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
 
-            transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
-            await transaction.save()
-            const newTransaction = await transaction.reload()
+            new0Transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
+            const newTransaction = await new0Transaction.save()
 
             if (
                 newTransaction.type === 'WITHDRAWAL' && 

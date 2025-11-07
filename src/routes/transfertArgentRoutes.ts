@@ -61,6 +61,50 @@ router.post(
 
 /**
  * @swagger
+ * /transfer-money/bank-init:
+ *   post:
+ *     summary: Initier un transfert d'argent par virement bancaire
+ *     tags: [Transfert Argent]
+ *     security:
+ *       - BearerAuth: []
+ *       - PasscodeAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               bankName:
+ *                 type: string
+ *               nameAccount:
+ *                 type: string
+ *               accountNumber:
+ *                 type: string 
+ *     responses:
+ *       200:
+ *         description: Transaction d'argent initiée avec succès
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+    '/bank-init',
+    authMiddleware, 
+    verifyPasscode, 
+    checkKYC, 
+    hasRole(['CUSTOMER']),
+    checkCountry(['Canada']),
+    destinataireController.initBankTransfert
+)
+
+/**
+ * @swagger
  * /transfer-money/init-to-know-destinataire:
  *   post:
  *     summary: Initier un transfert d'argent vers l'étranger à destinataire connu
@@ -120,7 +164,8 @@ router.post(
  */
 router.get(
     '/list',
-    authMiddleware, hasRole(['CUSTOMER']),
+    authMiddleware, 
+    hasRole(['CUSTOMER']),
     mobileMoneyController.listTrasnfertsUser
 )
 

@@ -130,7 +130,27 @@ export const configs: ConfigModelCreate[] = [
     {
         name: "EXCHANGE_RATES_FEES",
         value: 0.01,
-        description: "Frais du taux de change SENDO (%)"
+        description: "Frais du taux de change SENDO du XAF (%)"
+    },
+    {
+        name: "EXCHANGE_RATES_FEES_USD",
+        value: 0.01,
+        description: "Frais du taux de change SENDO de l'USD (%)"
+    },
+    {
+        name: "EXCHANGE_RATES_FEES_EUR",
+        value: 0.01,
+        description: "Frais du taux de change SENDO de l'EUR (%)"
+    },
+    {
+        name: "EXCHANGE_RATES_FEES_CAD",
+        value: 0.01,
+        description: "Frais du taux de change SENDO du CAD (%)"
+    },
+    {
+        name: "EXCHANGE_RATES_FEES_YEN",
+        value: 0.01,
+        description: "Frais du taux de change SENDO du JPY (%)"
     },
     {
         name: "SPONSORSHIP_FEES",
@@ -241,6 +261,11 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_VIEW_DETAILS_CARD_FEES',
         value: 1000,
         description: "Frais SENDO appliqués pour voir les détails cachés d'une carte (XAF)"
+    },
+    {
+        name: 'SENDO_VALUE_CAD_CA_CAM',
+        value: 450,
+        description: "Valeur Sendo du CAD pour les transactions CA-CAM (XAF)"
     }
 ]
 
@@ -258,15 +283,19 @@ export const typesConfig = [
     'USD_SENDO_VALUE',
     'SALT_ROUND',
     'SENDO_SERVICE_FEES',
-    'EXCHANGE_RATES_FEES',
     'SPONSORSHIP_FEES',
     'PARTNER_VISA_FEES',
+    'EXCHANGE_RATES_FEES',
+    'EXCHANGE_RATES_FEES_USD',
     'EUR_REAL_TIME_VALUE',
     'EUR_SENDO_VALUE',
+    'EXCHANGE_RATES_FEES_EUR',
     'CAD_REAL_TIME_VALUE',
     'CAD_SENDO_VALUE',
+    'EXCHANGE_RATES_FEES_CAD',
     'YEN_REAL_TIME_VALUE',
     'YEN_SENDO_VALUE',
+    'EXCHANGE_RATES_FEES_YEN',
     'NIU_REQUEST_FEES',
     'TRANSFER_FEES',
     'MIN_AMOUNT_TO_TRANSFER_FROM_CANADA',
@@ -286,7 +315,8 @@ export const typesConfig = [
     'NEERO_TRANSACTION_CARD_PERCENTAGE',
     'SENDO_TRANSACTION_CARD_REJECT_FEES',
     'SENDO_UNLOCK_CARD_FEES',
-    'SENDO_VIEW_DETAILS_CARD_FEES'
+    'SENDO_VIEW_DETAILS_CARD_FEES',
+    'SENDO_VALUE_CAD_CA_CAM'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

@@ -5,7 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import { Request, Response } from "express";
 import configService from "@services/configService";
-import { ajouterPrefixe237, detectOperator, generateAlphaNumeriqueString, troisChiffresApresVirgule } from "@utils/functions";
+import { ajouterPrefixe237, detectOperator, troisChiffresApresVirgule } from "@utils/functions";
 import logger from "@config/logger";
 
 class DestinataireController {
@@ -83,7 +83,7 @@ class DestinataireController {
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
-                receiverId: response.id,
+                receiverId: response!.id,
                 receiverType: 'Destinataire',
                 currency: typesCurrency['3'],
                 totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
@@ -98,7 +98,7 @@ class DestinataireController {
             logger.info("Transfert initié", {
                 amount: amountToCAD,
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
-                receiver: `Destinataire ID : ${response.id} - ${response.firstname} ${response.lastname}`
+                receiver: `Destinataire ID : ${response!.id} - ${response!.firstname} ${response!.lastname}`
             });
 
             sendResponse(res, 200, 'Transfert initié', {
@@ -110,8 +110,90 @@ class DestinataireController {
         }
     }
 
+    async initBankTransfert(req: Request, res: Response) {
+        const {
+            amount,
+            bankName,
+            nameAccount,
+            accountNumber
+        } = req.body
+        try {
+            if (
+                !amount || 
+                !bankName || 
+                !nameAccount || 
+                !accountNumber
+            ) {
+                sendError(res, 403, 'Veuillez fournir tous les paramètres')
+                return
+            }
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié")
+                return
+            }
+
+            if (Number(amount) >= 500000) {
+                sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
+                return
+            }
+
+            const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
+            if (Number(amount) < Number(configMinAmout!.value)) {
+                sendError(res, 403, `Le montant minimum d\'envoi est de ${Number(configMinAmout!.value)} francs CFA`)
+                return
+            }
+
+            const payload: DestinataireCreate = {
+                firstname: nameAccount,
+                provider: 'BANK',
+                accountNumber,
+                address: bankName
+            }
+            const response = await destinataireService.createDestinataire(payload)
+
+            const configCadSendo = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
+            const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
+            const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+
+            const transactionToCreate: TransactionCreate = {
+                amount: troisChiffresApresVirgule(Number(amountToCAD)),
+                type: typesTransaction['2'],
+                status: typesStatusTransaction['0'],
+                userId: req.user.id,
+                receiverId: response!.id,
+                receiverType: 'Destinataire',
+                bankName,
+                accountNumber,
+                currency: typesCurrency['3'],
+                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
+                description: 'Transfert CA-CAM',
+                method: typesMethodTransaction['1'],
+                provider: 'BANK',
+                sendoFees: Number(configTransferFees!.value)
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+            logger.info("Bank transfert initié", {
+                amount: amountToCAD,
+                user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
+                receiver: `Destinataire : ${bankName} - ${nameAccount} - ${accountNumber}`
+            });
+
+            sendResponse(res, 200, 'Transfert initié', {
+                transaction,
+                receiver: {
+                    bankName,
+                    nameAccount,
+                    accountNumber
+                }
+            })
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', error.message)
+        }
+    }
+
     async initTransfertFromDestinataire(req: Request, res: Response) {
-        const { destinataireId, amount, description } = req.body
+        const { destinataireId, amount } = req.body
         try {
             if (!destinataireId || !amount) {
                 sendError(res, 403, 'Veuillez fournir tous les paramètres')

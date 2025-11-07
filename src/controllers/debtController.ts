@@ -116,12 +116,9 @@ class DebtController {
                 const cashin = await neeroService.createCashInPayment(payload)
                 
                 transaction.transactionReference = cashin.id;
-                const new1Transaction = await transaction.save()
-
-                await wait(5000)
+                const new2Transaction = await transaction.save()
 
                 const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
-                const new2Transaction = await new1Transaction.reload()
 
                 if (
                     checkTransaction.status === "SUCCESSFUL" &&
@@ -223,12 +220,9 @@ class DebtController {
             const cashin = await neeroService.createCashInPayment(payload)
 
             transaction.transactionReference = cashin.id;
-            const new1Transaction = await transaction.save()
-
-            await wait(5000)
+            const new2Transaction = await transaction.save()
 
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
-            const new2Transaction = await new1Transaction.reload()
 
             if (
                 checkTransaction.status === "SUCCESSFUL" &&
@@ -539,12 +533,9 @@ class DebtController {
 
             const cashin = await neeroService.createCashInPayment(payload)
             transaction.transactionReference = cashin.id;
-            const new1Transaction = await transaction.save()
-
-            await wait(5000)
+            const new2Transaction = await transaction.save()
 
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
-            const new2Transaction = await new1Transaction.reload()
 
             if (
                 checkTransaction.status === "SUCCESSFUL" &&

@@ -616,8 +616,8 @@ class CardController {
             }
 
             // 4. Vérifier les limites
-            if (amountNum < 500 || amountNum > 500000) {
-                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
+            if (amountNum < 1500 || amountNum > 500000) {
+                sendError(res, 400, "Intervalle acceptable 1500 - 500000 XAF");
                 return;
             }
 
@@ -709,12 +709,9 @@ class CardController {
          
             // On met à jour les données de la transaction
             transaction.transactionReference = cashout.id
-            await transaction.save()
-
-            await wait(5000)
+            const newTransaction = await transaction.save()
 
             const checkTransaction = await neeroService.getTransactionIntentById(cashout.id)
-            const newTransaction = await transaction.reload()
 
             if (
                 checkTransaction.status === "SUCCESSFUL" &&
@@ -726,7 +723,7 @@ class CardController {
                 )
 
                 newTransaction.status = 'COMPLETED'
-                await newTransaction.reload()
+                await newTransaction.save()
 
                 // On met à jour le status de la carte
                 if (virtualCard.status === 'PRE_ACTIVE') {
@@ -790,8 +787,8 @@ class CardController {
             }
 
             // 4. Vérifier les limites
-            if (amountNum < 500 || amountNum > 500000) {
-                sendError(res, 400, "Le montant doit être compris entre 500 et 500000 XAF");
+            if (amountNum < 1500 || amountNum > 500000) {
+                sendError(res, 400, "Intervalle acceptable 1500 - 500000 XAF");
                 return;
             }
 
@@ -854,12 +851,9 @@ class CardController {
             
             const cashin = await neeroService.createCashInPayment(payload)
             transaction.transactionReference = cashin.id
-            await transaction.save()
-
-            await wait(10000)
+            const newTransaction = await transaction.save()
 
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
-            const newTransaction = await transaction.reload()
 
             if (
                 checkTransaction.status === "SUCCESSFUL" &&
@@ -994,8 +988,6 @@ class CardController {
                 const cashin = await neeroService.createCashInPayment(payload)
 
                 const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-                
-                await wait(2000)
 
                 const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
 
@@ -1117,8 +1109,6 @@ class CardController {
                 const cashin = await neeroService.createCashInPayment(payload)
 
                 const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-                
-                await wait(2000)
 
                 const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
 
@@ -1241,7 +1231,7 @@ class CardController {
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
 
-            await wait(3000)
+            await wait(1500)
 
             const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
             

@@ -6,7 +6,7 @@ import transactionService from "@services/transactionService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
 import { TransactionCreate } from "../types/Transaction";
 import { sendError, sendResponse } from "@utils/apiResponse";
-import { arrondiSuperieur, checkSignatureNeero, mapNeeroStatusToSendo, roundToNextMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
+import { arrondiSuperieur, checkSignatureNeero, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
 import { Request, Response } from "express";
 import configService from "@services/configService";
 import neeroService, { CashInPayload } from "@services/neeroService";
@@ -18,6 +18,7 @@ import userService from "@services/userService";
 import cashinService from "@services/cashinService";
 import debtService from "@services/debtService";
 import { PaginatedData } from "../types/BaseEntity";
+import ConfigModel from "@models/config.model";
 
 const WEBHOOK_SECRET = process.env.NEERO_WEBHOOK_KEY || ''
 
@@ -225,6 +226,13 @@ class WebhookController {
                 ) {
                     transaction.status = 'COMPLETED';
                     await transaction.save();
+                } else if (
+                    transaction?.type === 'PAYMENT' &&
+                    transaction.status === 'PENDING' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    transaction.status = 'COMPLETED';
+                    await transaction.save();
                 }
             } else if (
                 mapNeeroStatusToSendo(event.data.object.newStatus) === "FAILED" ||
@@ -306,8 +314,20 @@ class WebhookController {
         } else if (event.type == "cardManagement.onlineTransactions") {
             // Webhook pour les cartes virtuelles
             const amountNum = Number(event.data.object.totalAmount)
+            const currency = event.data.object.transactionOriginCurrencyCode
             console.log("amount num : ", amountNum)
-            const exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES')
+            let exchangeRates: ConfigModel | null = null;
+            if (currency == 'CAD') {
+                exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES_CAD')
+            } else if (currency == 'EUR') {
+                exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES_EUR')
+            } else if (currency == 'USD') {
+                exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES_USD')
+            } else if (currency == 'JPY') {
+                exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES_YEN')
+            } else {
+                exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES')
+            }
             const totalAmountWithEchangeRates = amountNum * (Number(exchangeRates!.value) / 100) // 1
             console.log("exchange rates fees : ", totalAmountWithEchangeRates)
             const feesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_FEES') // 2
@@ -331,7 +351,7 @@ class WebhookController {
                         amount: Number(event.data.object.totalAmount),
                         status: "COMPLETED",
                         userId: virtualCard!.userId,
-                        currency: event.data.object.cardCurrencyCode,
+                        currency: currency,
                         totalAmount: Number(event.data.object.totalAmount),
                         method: typesMethodTransaction['2'],
                         transactionReference: event.data.object.transactionId,
@@ -387,7 +407,7 @@ class WebhookController {
                         console.log("la balance de la carte ne couvre pas les frais sendo")
                         // Si la carte n'a pas assez de fonds pour prélever les frais, on prélève tout ce qu'elle a
                         const payload: CashInPayload = {
-                            amount: roundToNextMultipleOfFive(Number(balanceObject.balance)),
+                            amount: roundToPreviousMultipleOfFive(Number(balanceObject.balance)),
                             currencyCode: 'XAF',
                             confirm: true,
                             paymentType: 'NEERO_CARD_CASHOUT',
@@ -396,7 +416,7 @@ class WebhookController {
                         }
                         await cashinService.init(
                             payload, 
-                            roundToNextMultipleOfFive(Number(balanceObject.balance)), 
+                            roundToPreviousMultipleOfFive(Number(balanceObject.balance)), 
                             event.data.object, 
                             virtualCard, 
                             token!, 
@@ -404,9 +424,8 @@ class WebhookController {
                         )
 
                         // ensuite on vérifie si le wallet possède de l'argent
-                        console.log("on vérifie si le wallet possède de l'argent")
                         const user = await userService.getUserById(virtualCard!.user!.id)
-                        const result = (roundToNextMultipleOfFive(sendoFees) - Number(balanceObject.balance || 0))
+                        const result = (sendoFees - Number(balanceObject.balance || 0))
                         if (user!.wallet!.balance > 0 && user!.wallet!.balance > result) {
                             console.log("le wallet couvre le reste des frais sendo")
                             await walletService.debitWallet(

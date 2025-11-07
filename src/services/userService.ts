@@ -209,10 +209,6 @@ class UserService {
     }    
 
     async getMe(id: number): Promise<UserModel> {
-        /*const cacheKey = `userConnected:${id}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
@@ -251,12 +247,6 @@ class UserService {
 
         if (!user) throw new Error('Utilisateur non trouvé');
 
-        /*if (user) {
-            await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
-        } else {
-            throw new Error('Utilisateur non trouvé');
-        }*/
-
         return user;
     }
 
@@ -265,15 +255,10 @@ class UserService {
     }
 
     async getKYCDocumentsUser(userId: number) {
-        /*const cacheKey = `kycDocumentsUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const kyc = await KycDocumentModel.findAll({
             where: {userId: userId}
         })
 
-        //await redisClient.set(cacheKey, JSON.stringify(kyc), { EX: REDIS_TTL });
         return kyc;
     }
 
@@ -318,10 +303,6 @@ class UserService {
     }
 
     async getTokenExpoUser(userId: number) {
-        /*const cacheKey = `tokenExpoUser:${userId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const token = await TokenModel.findOne({
             where: {
                 userId,
@@ -333,7 +314,6 @@ class UserService {
             throw new Error("Token Expo introuvable")
         }
 
-        //await redisClient.set(cacheKey, JSON.stringify(token), { EX: REDIS_TTL });
         return token
     }
 
@@ -402,23 +382,19 @@ class UserService {
     }
 
     async getMerchant(id: number) {
-        /*const cacheKey = `merchantById:${id}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
                 { model: KycDocumentModel, as: 'kycDocuments' },
                 { model: MerchantModel, as: 'merchant' },
                 { model: WalletModel, as: 'wallet', attributes: ['id', 'balance', 'currency', 'status', 'matricule'] },
-                { model: TransactionModel, as: 'transactions', attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'], order: [['createdAt', 'DESC']] }
+                { model: TransactionModel, as: 'transactions', attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'], order: [['createdAt', 'DESC']] },
+                { model: RoleModel, as: 'roles', attributes: ['id', 'name'], through: { attributes: [] }}
             ]
         });
 
         if (!user) throw new Error('Utilisateur non trouvé');
 
-        //await redisClient.set(cacheKey, JSON.stringify(user), { EX: REDIS_TTL });
         return user;
     }
 

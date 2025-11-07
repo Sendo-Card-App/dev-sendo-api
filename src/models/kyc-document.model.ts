@@ -57,7 +57,6 @@ KycDocumentModel.init(
     taxIdNumber: {
       type: DataTypes.STRING(30),
       allowNull: true,
-      unique: true,
     },
     expirationDate: {
       type: DataTypes.STRING(10),

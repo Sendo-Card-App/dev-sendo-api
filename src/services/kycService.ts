@@ -25,7 +25,6 @@ class KYCService {
             User: [
                 "ID_PROOF",
                 "ADDRESS_PROOF",
-                "NIU_PROOF",
                 "SELFIE"
             ],
             Extern: [

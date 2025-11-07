@@ -13,11 +13,12 @@ class DestinataireModel extends Model<
 > {
   declare id: CreationOptional<number>;
   declare firstname: string;
-  declare lastname: string;
-  declare country: string;
+  declare lastname?: string;
+  declare country?: string;
   declare provider: string;
-  declare phone: string;
-  declare address: string;
+  declare phone?: string;
+  declare address?: string;
+  declare accountNumber?: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -31,27 +32,31 @@ DestinataireModel.init(
     },
     firstname: {
       type: DataTypes.STRING(40),
-      allowNull: false,
+      allowNull: true
     },
     lastname: {
       type: DataTypes.STRING(40),
-      allowNull: false,
+      allowNull: true
     },
     country: {
       type: DataTypes.STRING(40),
-      allowNull: false,
+      allowNull: true
     },
     provider: {
       type: DataTypes.STRING(20),
-      allowNull: false,
+      allowNull: false
     },
     phone: {
       type: DataTypes.STRING(20),
-      allowNull: false,
+      allowNull: true
     },
     address: {
       type: DataTypes.STRING(100),
-      allowNull: false,
+      allowNull: true
+    },
+    accountNumber: {
+      type: DataTypes.STRING(60),
+      allowNull: true
     },
     createdAt: {
       type: DataTypes.DATE,

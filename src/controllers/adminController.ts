@@ -114,7 +114,7 @@ class AdminController {
             if (
                 user && 
                 country == "Cameroon" &&
-                user.kycDocuments?.length === 5 && 
+                user.kycDocuments?.length === 4 && 
                 !user?.isVerifiedKYC && 
                 isVerifiedKYC?.length === 0
             ) {
@@ -198,7 +198,7 @@ class AdminController {
             if (
                 user && 
                 country == "Cameroon" &&
-                user.kycDocuments?.length === 5 && 
+                user.kycDocuments?.length === 4 && 
                 !user?.isVerifiedKYC && 
                 isVerifiedKYC?.length === 0
             ) {
@@ -258,9 +258,11 @@ class AdminController {
     async updateRoleUser(req: Request, res: Response) {
         const { name } = req.body
         const { id } = req.params
-        if (!name) sendError(res, 500, 'Nom de role manquant');
-        if (!id) sendError(res, 500, 'ID du role manquant');
+        
         try {
+            if (!name) sendError(res, 500, 'Nom de role manquant');
+            if (!id) sendError(res, 500, 'ID du role manquant');
+
             const role = await adminService.getRoleById(parseInt(id));
             if (!role) throw new Error('Role introuvable');
 
@@ -514,7 +516,7 @@ class AdminController {
 
                 // Architecture de Neero
                 const destinataire = await transaction.getReceiver()
-                await cashoutService.init(destinataire!.phone, transaction.transactionId ||'')
+                await cashoutService.init(destinataire!.phone || '', transaction.transactionId ||'')
             }
 
             logger.info("Status de la transaction mis à jour", {

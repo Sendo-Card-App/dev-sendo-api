@@ -47,7 +47,7 @@ class KycController {
         
         try {
             if (!req.user) throw new Error('Utilisateur non authentifié');
-            /*if (
+            if (
                 req.user.country == "Cameroon" &&
                 (!profession || !region || !city || !district)
             ) {
@@ -58,10 +58,10 @@ class KycController {
                 (!profession)
             ) {
                 throw new Error('Veuillez fournir votre profession');
-            }*/
-            if (!profession || !region || !city || !district) {
-                throw new Error('Veuillez remplir tous les champs');
             }
+            /*if (!profession || !region || !city || !district) {
+                throw new Error('Veuillez remplir tous les champs');
+            }*/
            
             const updates = {
                 profession, 

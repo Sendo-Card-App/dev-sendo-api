@@ -616,7 +616,7 @@ class WebhookController {
                                     method: typesMethodTransaction['2'],
                                     transactionReference: event.id,
                                     virtualCardId: virtualCard?.id,
-                                    description: `${event.data.object.denialReasonCode} : #${event.data.object.reference}`,
+                                    description: `${event.data.object.denialReason} : #${event.data.object.reference}`,
                                     provider: 'CARD',
                                     receiverId: virtualCard?.user?.id ?? 0,
                                     receiverType: 'User',

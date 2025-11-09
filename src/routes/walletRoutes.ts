@@ -3,7 +3,7 @@ import walletController from "@controllers/walletController";
 import { authMiddleware } from "@middlewares/auth";
 import { checkKYC } from "@middlewares/kycMiddleware";
 import { verifyPasscode } from "@middlewares/passcode";
-import { hasRole } from "@middlewares/roleMiddleware";
+import { checkCountry, hasRole } from "@middlewares/roleMiddleware";
 import { Router } from "express";
 
 const router = Router();
@@ -122,7 +122,10 @@ router.get(
  */
 router.post(
     '/transfer-funds',
-    authMiddleware, verifyPasscode, hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CUSTOMER']),
+    authMiddleware, 
+    verifyPasscode, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CUSTOMER']),
+    checkCountry(['Cameroon']),
     walletController.transferFunds
 )
 

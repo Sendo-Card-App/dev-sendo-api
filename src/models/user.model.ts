@@ -317,7 +317,7 @@ UserModel.init(
         await WalletModel.create({
           balance: 0,
           userId: user.id,
-          currency: typesCurrency['0'],
+          currency: user.country === 'Cameroon' ? 'XAF' : 'CAD',
           matricule: generateMatriculeWallet(),
         });
       },

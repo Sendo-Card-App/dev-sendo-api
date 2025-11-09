@@ -81,7 +81,7 @@ export const checkCountry = (countries: string[]) => {
       }
 
       // Vérifier si le pays de l'utilisateur est dans la liste passée au middleware
-      if (!countries.includes(user.country) && user!.country === 'Canada') {
+      if (!countries.includes(user.country)) {
         return sendError(res, 403, "Pays utilisateur non autorisé", { userCountry: user.country, allowedCountries: countries });
       }
 

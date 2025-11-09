@@ -606,6 +606,24 @@ class WebhookController {
                                 }
                                 await cardService.saveDebt(debt)
                             } else {
+                                const transactionToCreate: TransactionCreate = {
+                                    type: 'PAYMENT',
+                                    amount: 0,
+                                    status: 'FAILED',
+                                    userId: virtualCard?.user?.id ?? 0,
+                                    currency: 'XAF',
+                                    totalAmount: Number(event.data.object.totalAmount),
+                                    method: typesMethodTransaction['2'],
+                                    transactionReference: event.id,
+                                    virtualCardId: virtualCard?.id,
+                                    description: `${event.data.object.denialReason} : #${event.data.object.reference}`,
+                                    provider: 'CARD',
+                                    receiverId: virtualCard?.user?.id ?? 0,
+                                    receiverType: 'User',
+                                    sendoFees: Number(rejectFeesCard!.value)
+                                }
+                                await transactionService.createTransaction(transactionToCreate)
+
                                 // sinon on enregistre la dette
                                 const debt: VirtualCardDebtCreate = {
                                     amount: Number(rejectFeesCard!.value),
@@ -641,8 +659,6 @@ class WebhookController {
                                 const cashin = await neeroService.createCashInPayment(cashinPayload)
 
                                 const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-
-                                await wait(5000)
                                 
                                 const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
 

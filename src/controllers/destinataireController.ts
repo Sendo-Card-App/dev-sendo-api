@@ -174,7 +174,7 @@ class DestinataireController {
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             logger.info("Bank transfert initié", {
-                amount: amountToCAD,
+                amount: troisChiffresApresVirgule(amountToCAD),
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
                 receiver: `Destinataire : ${bankName} - ${nameAccount} - ${accountNumber}`
             });

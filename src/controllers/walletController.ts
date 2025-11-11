@@ -119,7 +119,7 @@ class WalletController {
         try {
             if (!req.user) throw new Error('Utilisateur non authentifié');
         
-            if (!file) {
+            if (!file && method == 'BANK_TRANSFER') {
                 throw new Error('Aucun document fourni');
             }
 

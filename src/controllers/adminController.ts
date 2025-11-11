@@ -485,6 +485,31 @@ class AdminController {
                     status: 'SENDED'
                 })
             } else if (
+                transaction?.type === typesTransaction['0'] && 
+                transaction.method === typesMethodTransaction['5'] &&
+                transaction.user &&
+                transaction.user.wallet &&
+                status === typesStatusTransaction['1']
+            ) {
+                await walletService.creditWallet(
+                    transaction.user.wallet.matricule,
+                    transaction.amount,
+                    typesMethodTransaction['5']
+                );
+
+                transaction.status = 'COMPLETED'
+                await transaction.save();
+
+                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
+                await notificationService.save({
+                    title: 'Sendo',
+                    type: 'INFORMATION',
+                    content: `${transaction.user?.firstname} votre dépôt INTERAC sur Senso a été traité avec succès`,
+                    userId: transaction.user?.id ?? 0,
+                    token: token?.token ?? '',
+                    status: 'SENDED'
+                })
+            } else if (
                 transaction?.type === typesTransaction['2'] && 
                 transaction.method === typesMethodTransaction['0'] &&
                 status === typesStatusTransaction['1']

@@ -78,7 +78,11 @@ export const sendUserMail = async (
                 <ul>
                     <li><b>Email : </b>${user.email}</li>
                     <li><b>Mot de passe : </b>${password}</li>
-                    ${typeAccount != 'Customer' && `<li><b>Type de compte agent : </b>${typeAccount}</li>`}
+                    ${typeAccount != 'Customer' ? `
+                        <li><b>Type de compte agent : </b>${typeAccount}</li>
+                        <li><b>Cliquez ici pour vous connecter : </b>${process.env.APP_URL_MERCHANT_AUTH}</li>` :
+                        `<li><b>Cliquez ici pour vous connecter : </b>${process.env.APP_URL_FRONTEND_AUTH}</li>`
+                    }
                 </ul>
             `
         )

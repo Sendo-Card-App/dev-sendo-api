@@ -28,7 +28,8 @@ export const typesMethodTransaction = [
     'BANK_TRANSFER',
     'VIRTUAL_CARD',
     'WALLET',
-    'AGENT'
+    'AGENT',
+    'INTERAC'
 ]as const;
 export type TypesMethodTransaction = typeof typesMethodTransaction[number];
 

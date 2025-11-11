@@ -134,7 +134,7 @@ router.post(
  * /wallet/recharge:
  *   post:
  *     summary: Recharger son portefeuille
- *     description: On peut recharger son portefeuille de plusieurs façons. Les différents types de method `MOBILE_MONEY` et `BANK_TRANSFER`
+ *     description: On peut recharger son portefeuille de plusieurs façons. Les différents types de method `MOBILE_MONEY` `BANK_TRANSFER` et `INTERAC`
  *     tags: [Wallets]
  *     security:
  *       - BearerAuth: []
@@ -148,7 +148,7 @@ router.post(
  *             properties:
  *               method:
  *                 type: string
- *                 description: Les différents types de method `MOBILE_MONEY` et `BANK_TRANSFER`
+ *                 description: Les différents types de method `MOBILE_MONEY` `BANK_TRANSFER` et `INTERAC`
  *               amount:
  *                 type: integer
  *                 description: Montant de la transaction

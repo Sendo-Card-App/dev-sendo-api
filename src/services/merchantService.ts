@@ -12,6 +12,7 @@ import { generateAlphaNumeriqueString, getUTCBoundaries } from "@utils/functions
 import TransactionModel from "@models/transaction.model";
 import PartnerWithdrawalsModel from "@models/partner-withdrawals.model";
 import redisClient from '@config/cache';
+import { NumberContextImpl } from "twilio/lib/rest/pricing/v2/number";
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -182,10 +183,6 @@ class MerchantService {
         startDate?: string,
         endDate?: string
     ) {
-        /*const cacheKey = `merchantTransactions:${idMerchant}:${limit}:${startIndex}:${status ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const where: Record<string, any> = { partnerId: idMerchant };
 
         if (startDate || endDate) {
@@ -216,7 +213,15 @@ class MerchantService {
         const result = await sequelize.transaction(async (t) => {
             const transactionsPartenaires = await TransactionPartnerFeesModel.findAndCountAll({
                 where,
-                include: [includeOptions],
+                include: [{ 
+                    model: TransactionModel, 
+                    as: 'transaction',
+                    include: [{
+                        model: UserModel,
+                        as: 'user',
+                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+                    }]
+                }],
                 limit,
                 offset: startIndex,
                 order: [['createdAt', 'DESC']],
@@ -235,21 +240,23 @@ class MerchantService {
             };
         });
 
-        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 
     async getMerchantTransactionById(transactionId: number) {
-        /*const cacheKey = `merchantTransaction:${transactionId}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
-
         const transaction = await TransactionPartnerFeesModel.findByPk(transactionId, {
-            include: [{ model: TransactionModel, as: 'transaction' }]
+            include: [{ 
+                model: TransactionModel, 
+                as: 'transaction',
+                include: [{
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+                }]
+            }]
         });
         if (!transaction) throw new Error("Transaction introuvable");
 
-        //await redisClient.set(cacheKey, JSON.stringify(transaction), { EX: REDIS_TTL });
         return transaction;
     }
 
@@ -331,14 +338,15 @@ class MerchantService {
     async getAllRequestWithdraw(
         status: 'VALIDATED' | 'REJECTED' | 'PENDING',
         limit: number, 
-        startIndex: number
+        startIndex: number,
+        idMerchant?: number
     ) {
-        /*const cacheKey = `allRequestWithdraw:${status}:${limit}:${startIndex}`;
-        const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
+        const whereClause: Record<string, any> = {};
+        if (idMerchant) whereClause.partnerId = idMerchant;
+        if (status) whereClause.status = status;
 
         const result = await PartnerWithdrawalsModel.findAndCountAll({
-            where: status ? { status } : undefined,
+            where: whereClause,
             limit,
             offset: startIndex,
             include: [{
@@ -352,7 +360,6 @@ class MerchantService {
             }]
         });
 
-        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
         return result;
     }
 }

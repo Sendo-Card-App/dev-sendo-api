@@ -759,6 +759,11 @@ router.post(
  *     summary: Liste toutes les demandes de retrait des marchands
  *     parameters:
  *       - in: query
+ *         name: idMerchant
+ *         required: false
+ *         schema:
+ *           type: number
+ *       - in: query
  *         name: page
  *         required: false
  *         schema:

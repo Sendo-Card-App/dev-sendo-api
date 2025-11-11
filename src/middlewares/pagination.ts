@@ -27,6 +27,7 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
   const country = req.query.country as string | undefined;
   const userId = req.query.userId ? parseInt(req.query.userId as string, 10) : undefined;
   const idCard = req.query.idCard ? parseInt(req.query.idCard as string, 10) : undefined;
+  const idMerchant = req.query.idMerchant ? parseInt(req.query.idMerchant as string, 10) : undefined;
 
   res.locals.pagination = { 
     page, 
@@ -42,7 +43,8 @@ export const paginationMiddleware = (req: Request, res: Response, next: NextFunc
     idCard,
     country,
     search,
-    code
+    code,
+    idMerchant
   };
 
   next();

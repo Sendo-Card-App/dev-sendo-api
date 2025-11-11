@@ -8,6 +8,7 @@ import logger from "@config/logger";
 import { successTransferFunds } from "@services/emailService";
 import { typesCurrency } from "@utils/constants";
 import notificationService from "@services/notificationService";
+import TransactionModel from "@models/transaction.model";
 
 
 class WalletController {
@@ -122,8 +123,9 @@ class WalletController {
                 throw new Error('Aucun document fourni');
             }
 
-            if (method === 'BANK_TRANSFER') {
-                const transaction: TransactionCreate = {
+            let transactionResponse: TransactionModel | null = null;
+            if (method == 'BANK_TRANSFER') {
+                const transactionToCreate: TransactionCreate = {
                     userId: req.user?.id || 0,
                     type: 'DEPOSIT',
                     amount: parseFloat(amount),
@@ -135,16 +137,32 @@ class WalletController {
                     receiverId: req.user?.id || 0,
                     receiverType: 'User'
                 }
-                const transac = await transactionService.createTransaction(transaction)
-                
-
-                logger.info("Recharge du wallet", {
-                    userId: req.user?.id,
-                    amount: parseFloat(amount)
-                });
-
-                sendResponse(res, 201, 'Transaction enregistrée !', transac)
+                const transaction = await transactionService.createTransaction(transactionToCreate)
+                transactionResponse = transaction
+            } else if (method == 'INTERAC') {
+                const transactionToCreate: TransactionCreate = {
+                    userId: req.user?.id || 0,
+                    type: 'DEPOSIT',
+                    amount: parseFloat(amount),
+                    status: 'PENDING',
+                    currency: typesCurrency['3'],
+                    totalAmount: parseFloat(amount),
+                    method: 'INTERAC',
+                    description: 'Recharge portefeuille',
+                    receiverId: req.user?.id || 0,
+                    receiverType: 'User'
+                }
+                const transaction = await transactionService.createTransaction(transactionToCreate)
+                transactionResponse = transaction
             }
+
+            logger.info("Recharge du wallet", {
+                userId: req.user?.id,
+                method: transactionResponse?.method,
+                amount: parseFloat(amount)
+            });
+
+            sendResponse(res, 201, 'Transaction enregistrée !', transactionResponse)
         } catch (error: any) {
             sendError(res, 500, "Erreur lors de la recharge du portefeuille", [error.message]);
         }

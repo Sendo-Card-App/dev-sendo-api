@@ -480,9 +480,10 @@ class MerchantController {
     }
 
     async getAllRequestWithdraw(req: Request, res: Response) {
-        const { page, limit, startIndex, status } = res.locals.pagination;
+        const { page, limit, startIndex, status, idMerchant } = res.locals.pagination;
+        
         try {
-            const requests = await merchantService.getAllRequestWithdraw(status, limit, startIndex)
+            const requests = await merchantService.getAllRequestWithdraw(status, limit, startIndex, idMerchant)
 
             const totalPages = Math.ceil(requests.count / limit);
             const responseData: PaginatedData = {

@@ -94,13 +94,6 @@ class AdminController {
                 reviewedAt: new Date()
             });
 
-            // Si rejeté, suppression Cloudinary optionnelle
-            if (document && status === typesKYCStatus['2']) {
-                await cloudinary.uploader.destroy(document.publicId, {
-                    resource_type: document.url.includes('.pdf') ? 'raw' : 'image'
-                });
-            }
-
             //const user = document && await document.user?.reload()
             const user = await UserModel.findByPk(document?.userId ?? 0, {
                 include: [{

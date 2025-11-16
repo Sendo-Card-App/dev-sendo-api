@@ -242,6 +242,22 @@ class WebhookController {
                     transaction.status = 'FAILED';
                     await transaction.save();
                 }
+                
+                if (
+                    transaction && 
+                    transaction.status === 'PENDING' &&
+                    transaction.type === 'PAYMENT' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    // on enregistre le reste comme dette
+                    const debt: VirtualCardDebtCreate = {
+                        amount: transaction.sendoFees,
+                        userId: transaction.userId,
+                        cardId: transaction.virtualCardId,
+                        intitule: transaction.description || 'Frais de service'
+                    }
+                    await cardService.saveDebt(debt)
+                }
 
                 const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
                 await notificationService.save({
@@ -351,7 +367,7 @@ class WebhookController {
                         amount: Number(event.data.object.totalAmount),
                         status: "COMPLETED",
                         userId: virtualCard!.userId,
-                        currency: currency,
+                        currency: event.data.object.cardCurrencyCode,
                         totalAmount: Number(event.data.object.totalAmount),
                         method: typesMethodTransaction['2'],
                         transactionReference: event.data.object.transactionId,
@@ -364,6 +380,20 @@ class WebhookController {
                         createdAt: new Date(event.data.object.transactionDate)
                     }
                     await transactionService.createTransaction(transactionToCreate)
+
+                    await sendEmailWithHTML(
+                        virtualCard?.user?.email ?? '',
+                        'Paiement échoué sur la carte',
+                        `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
+                    )
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
+                        userId: virtualCard!.userId,
+                        status: 'SENDED',
+                        token: token?.token ?? '',
+                        type: 'SUCCESS_WITHDRAWAL_CARD'
+                    })
 
                     const card = await cardService.getPaymentMethodCard(virtualCard?.id ?? 0)
                     let balanceObject = null;
@@ -400,7 +430,7 @@ class WebhookController {
                         )
                     } else if (
                         balanceObject.balance &&
-                        (Number(balanceObject.balance) < roundToNextMultipleOfFive(sendoFees)) && 
+                        (Number(balanceObject.balance) < Number(sendoFees)) && 
                         Number(balanceObject.balance) > 0 &&
                         virtualCard
                     ) {
@@ -424,8 +454,9 @@ class WebhookController {
                         )
 
                         // ensuite on vérifie si le wallet possède de l'argent
+                        console.log("on vérifie si le wallet possède de l'argent")
                         const user = await userService.getUserById(virtualCard!.user!.id)
-                        const result = (sendoFees - Number(balanceObject.balance || 0))
+                        const result = (Number(sendoFees) - roundToPreviousMultipleOfFive(Number(balanceObject.balance || 0)))
                         if (user!.wallet!.balance > 0 && user!.wallet!.balance > result) {
                             console.log("le wallet couvre le reste des frais sendo")
                             await walletService.debitWallet(
@@ -496,6 +527,20 @@ class WebhookController {
                         }
                     } 
                 } else if (event.data.object.status == 'FAILED') {
+                    await sendEmailWithHTML(
+                        virtualCard?.user?.email ?? '',
+                        'Paiement échoué sur la carte',
+                        `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échoué sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
+                    )
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échoué sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
+                        userId: virtualCard!.userId,
+                        status: 'SENDED',
+                        token: token?.token ?? '',
+                        type: 'PAYMENT_FAILED'
+                    })
+
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
@@ -623,7 +668,7 @@ class WebhookController {
                                     sendoFees: Number(rejectFeesCard!.value)
                                 }
                                 await transactionService.createTransaction(transactionToCreate)
-
+                                
                                 // sinon on enregistre la dette
                                 const debt: VirtualCardDebtCreate = {
                                     amount: Number(rejectFeesCard!.value),

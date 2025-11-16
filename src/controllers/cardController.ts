@@ -501,11 +501,11 @@ class CardController {
         const { cardId } = req.params
         try {
             const virtualCard = await cardService.getVirtualCard(Number(cardId))
-            if (virtualCard?.status === 'FROZEN') {
-                sendError(res, 400, 'Carte déjà bloquée')
-            }
             if (virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
+            }
+            if (virtualCard?.status === 'FROZEN') {
+                sendError(res, 400, 'Carte déjà bloquée')
             }
             if (virtualCard?.status === 'TERMINATED') {
                 sendError(res, 400, 'Carte supprimée')
@@ -556,14 +556,14 @@ class CardController {
         const { cardId } = req.params
         try {
             const virtualCard = await cardService.getVirtualCard(Number(cardId))
-            if (virtualCard?.status === 'ACTIVE') {
-                sendError(res, 400, 'Carte déjà active')
-            }
             if (virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte bloquée par SENDO, veuillez contacter le support')
             }
             if (virtualCard?.status === 'TERMINATED') {
                 sendError(res, 400, 'Carte supprimée')
+            }
+            if (virtualCard?.status === 'ACTIVE') {
+                sendError(res, 400, 'Carte déjà active')
             }
 
             const payload: FreezeCardPayload = {

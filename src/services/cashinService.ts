@@ -37,7 +37,7 @@ class CashinService {
                         amount: 0,
                         status: "COMPLETED",
                         userId: virtualCard.userId,
-                        currency: 'XAF',
+                        currency: object.cardCurrencyCode,
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
@@ -73,7 +73,7 @@ class CashinService {
                         amount: 0,
                         status: "FAILED",
                         userId: virtualCard.userId,
-                        currency: 'XAF',
+                        currency: object.cardCurrencyCode,
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
@@ -93,7 +93,7 @@ class CashinService {
                         amount: sendoFees,
                         userId: virtualCard.userId,
                         cardId: virtualCard.id,
-                        intitule: object.reference || 'Frais de rejet'
+                        intitule: object.reference || 'Frais de service'
                     }
                     await cardService.saveDebt(debt)
 
@@ -118,7 +118,7 @@ class CashinService {
                         amount: 0,
                         status: 'PENDING',
                         userId: virtualCard.userId,
-                        currency: 'XAF',
+                        currency: object.cardCurrencyCode,
                         totalAmount: sendoFees,
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,

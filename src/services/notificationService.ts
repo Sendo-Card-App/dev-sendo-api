@@ -2,9 +2,6 @@ import NotificationModel from "@models/notification.model";
 import TokenModel from "@models/token.model";
 import { TypesNotification } from "@utils/constants";
 import axios from 'axios';
-import redisClient from '@config/cache';
-
-const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface NotificationCreate {
     title: string;

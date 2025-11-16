@@ -39,9 +39,9 @@ class StatisticsService {
      */
     static async getUserStatistics(): Promise<UserStatistics> {
         try {
-            /*const cacheKey = 'userStatistics';
+            const cacheKey = 'userStatistics';
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const result = await sequelize.transaction(async transaction => {
                 const queries = [
@@ -129,7 +129,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques utilisateurs: ${(error as Error).message}`);
@@ -141,9 +141,9 @@ class StatisticsService {
      */
     static async getWalletStatistics() {
         try {
-            /*const cacheKey = 'walletStatistics';
+            const cacheKey = 'walletStatistics';
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
             
             const result = await sequelize.transaction(async transaction => {
                 const [
@@ -206,7 +206,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques wallets: ${(error as Error).message}`);
@@ -218,9 +218,9 @@ class StatisticsService {
      */
     static async getTransactionStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `transactionStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `transactionStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -311,7 +311,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques transactions : ${(error as Error).message}`);
@@ -323,9 +323,9 @@ class StatisticsService {
      */
     static async getSharedExpenseStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `sharedExpenseStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `sharedExpenseStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -428,7 +428,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des dépenses partagées : ${(error as Error).message}`);
@@ -440,9 +440,9 @@ class StatisticsService {
      */
     static async getRequestFundsStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `requestFundsStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `requestFundsStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -524,7 +524,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des demandes de fonds : ${(error as Error).message}`);
@@ -536,9 +536,9 @@ class StatisticsService {
      */
     static async getTontineStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `tontineStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `tontineStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -654,7 +654,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques tontines : ${(error as Error).message}`);
@@ -666,9 +666,9 @@ class StatisticsService {
      */
     static async getVirtualCardStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `virtualCardStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `virtualCardStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -709,7 +709,7 @@ class StatisticsService {
                         where: {
                             method: 'VIRTUAL_CARD',
                             ...whereClause,
-                            //status: { [Op.not]: 'CANCELLED' }
+                            status: 'COMPLETED'
                         },
                         transaction
                     })
@@ -726,7 +726,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques cartes virtuelles : ${(error as Error).message}`);
@@ -738,9 +738,9 @@ class StatisticsService {
      */
     static async getRequestStatistics(startDate: string, endDate: string) {
         try {
-            /*const cacheKey = `requestStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+            const cacheKey = `requestStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -807,7 +807,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques demandes : ${(error as Error).message}`);
@@ -846,9 +846,9 @@ class StatisticsService {
      */
     static async getSendoFeesStatistics(startDate: string, endDate: string, type?: TypesTransaction) {
         try {
-            /*const cacheKey = `sendoFeesStats:${startDate ?? 'none'}:${endDate ?? 'none'}:${type ?? 'all'}`;
+            const cacheKey = `sendoFeesStats:${startDate ?? 'none'}:${endDate ?? 'none'}:${type ?? 'all'}`;
             const cached = await redisClient.get(cacheKey);
-            if (cached) return JSON.parse(cached);*/
+            if (cached) return JSON.parse(cached);
 
             const whereClause: { [key: string]: any } = {
                 //sendoFees: { [Op.gt]: 0 }
@@ -938,7 +938,7 @@ class StatisticsService {
                 };
             });
 
-            //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques des commissions : ${(error as Error).message}`);

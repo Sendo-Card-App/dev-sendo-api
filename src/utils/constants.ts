@@ -80,7 +80,7 @@ export const roles: any[] = [
 export const configs: ConfigModelCreate[] = [
     {
         name: "USD_REAL_TIME_VALUE",
-        value: 555,
+        value: 620,
         description: "Valeur en temps réel du dollar américain (XAF)"
     },
     {

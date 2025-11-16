@@ -27,7 +27,7 @@ class AuthService {
                 { 
                     model: WalletModel, 
                     as: 'wallet', 
-                    attributes: ['id', 'balance', 'status', 'matricule']
+                    attributes: ['id', 'balance', 'currency', 'status', 'matricule']
                 }
             ]
         })

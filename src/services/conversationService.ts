@@ -2,9 +2,6 @@ import ConversationModel from "@models/conversation.model";
 import { IConversationCreate } from "../types/Conversation";
 import UserModel from "@models/user.model";
 import { TypesStatusConversation } from "@utils/constants";
-import redisClient from '@config/cache';
-
-const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class ConversationService {
     async createConversation(conversation: IConversationCreate) {
@@ -26,7 +23,7 @@ class ConversationService {
                     attributes: ['id', 'firstname', 'lastname', 'email']
                 }
             ],
-            order: [['createdAt', 'DESC']]
+            order: [['updatedAt', 'DESC']]
         });
 
         return conversations;
@@ -66,7 +63,7 @@ class ConversationService {
                     attributes: ['id', 'firstname', 'lastname', 'email']
                 }
             ],
-            order: [['createdAt', 'DESC']]
+            order: [['updatedAt', 'DESC']]
         });
 
         return result;
@@ -85,8 +82,7 @@ class ConversationService {
                     as: 'admin',
                     attributes: ['id', 'firstname', 'lastname', 'email']
                 }
-            ],
-            order: [['createdAt', 'DESC']]
+            ]
         });
 
         return conversation;

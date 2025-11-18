@@ -122,7 +122,7 @@ class KycController {
                     sendError(
                         res, 
                         403, 
-                        `Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité, sa date d'expiration et le numéro NIU`
+                        `Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité, sa date d'expiration et/ou le numéro NIU`
                     );
                     return;
                 }
@@ -167,6 +167,7 @@ class KycController {
                     });
                 } else if (
                     country == "Canada" && 
+                    type == "ID_PROOF" &&
                     idDocumentNumber && 
                     expirationDate &&
                     !taxIdNumber
@@ -176,6 +177,20 @@ class KycController {
                         type,
                         idDocumentNumber,
                         expirationDate,
+                        url: file.path,
+                        publicId: file.filename,
+                        status: typesKYCStatus['0']
+                    });
+                } else if (
+                    country == "Canada" && 
+                    type == "SELFIE" &&
+                    !idDocumentNumber && 
+                    !expirationDate &&
+                    !taxIdNumber
+                ) {
+                    doc = await KycDocumentModel.create({
+                        userId: req.user.id,
+                        type,
                         url: file.path,
                         publicId: file.filename,
                         status: typesKYCStatus['0']

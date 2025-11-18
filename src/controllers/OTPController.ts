@@ -167,14 +167,14 @@ class OTPController {
             await verificationToken.destroy();
             await codePhone.destroy()
     
-            logger.info('Numéro de téléphone du compte vérifié', {
+            logger.info('Compte Sendo vérifié', {
                 phone: user.phone
             })
         
             await sendGlobalEmail(
                 user.email,
-                'Vérification téléphone',
-                `${user.firstname} votre numéro de téléphone sur Sendo a bien été vérifié`
+                'Vérification compte',
+                `${user.firstname} votre compte sur Sendo a bien été vérifié`
             )
             sendResponse(res, 201, 'Compte vérifié avec succès', { success: true });
         } catch (error: any) {
@@ -233,12 +233,16 @@ class OTPController {
             await verificationToken.destroy();
             await codePhone.destroy();
     
-            logger.info('Second numéro de téléphone vérifié', {
+            logger.info('Numéro de téléphone vérifié', {
                 phone: phoneNumber.phone,
                 user: phoneNumber.user.firstname
             })
         
-            await sendEmailVerificationSuccess(phoneNumber.user);
+            await sendGlobalEmail(
+                phoneNumber.user.email,
+                'Vérification téléphone',
+                `${phoneNumber.user.firstname} votre compte sur Sendo a bien été vérifié`
+            )
             sendResponse(res, 200, 'Numéro vérifié avec succès', { success: true });
         } catch (error: any) {
             sendError(res, 500, 'Failed to verify OTP', [error.message]);

@@ -39,7 +39,7 @@ export const sendEmailVerificationSuccess = async (user: UserModel) => {
         category: typesNotification['0'],
         html: basicEmailTemplate(
             `<h3>Bonjour ${user.firstname} ${user.lastname}</h3>
-        <p>Votre compte a été vérifié avec succès</p>`
+            <p>Votre compte a été vérifié avec succès</p>`
         )
     });
 }

@@ -114,16 +114,6 @@ class AdminController {
                 user.isVerifiedKYC = true;
                 const newUser = await user.save();
                 await sendEmailVerificationKYC(newUser);
-            } else if (
-                user && 
-                country == "Canada" &&
-                user.kycDocuments?.length === 3 && 
-                !user?.isVerifiedKYC && 
-                isVerifiedKYC?.length === 0
-            ) {
-                user.isVerifiedKYC = true;
-                const newUser = await user.save();
-                await sendEmailVerificationKYC(newUser);
             }
 
             const token = await notificationService.getTokenExpo(user?.id ?? 0)
@@ -190,18 +180,7 @@ class AdminController {
             const isVerifiedKYC = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
             if (
                 user && 
-                country == "Cameroon" &&
                 user.kycDocuments?.length === 4 && 
-                !user?.isVerifiedKYC && 
-                isVerifiedKYC?.length === 0
-            ) {
-                user.isVerifiedKYC = true;
-                const newUser = await user.save();
-                await sendEmailVerificationKYC(newUser);
-            } else if (
-                user && 
-                country == "Canada" &&
-                user.kycDocuments?.length === 3 && 
                 !user?.isVerifiedKYC && 
                 isVerifiedKYC?.length === 0
             ) {

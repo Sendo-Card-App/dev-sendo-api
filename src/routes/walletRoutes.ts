@@ -125,7 +125,6 @@ router.post(
     authMiddleware, 
     verifyPasscode, 
     hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CUSTOMER']),
-    checkCountry(['Cameroon']),
     walletController.transferFunds
 )
 

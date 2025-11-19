@@ -8,6 +8,7 @@ import sequelize from '@config/db';
 import cardService from "./cardService";
 import MerchantModel from "@models/merchant.model";
 import merchantService from "./merchantService";
+import configService from "./configService";
 
 class WalletService {
     constructor() {
@@ -28,7 +29,7 @@ class WalletService {
             include: [{ 
                 model: UserModel, 
                 as: 'user', 
-                attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'picture']
+                attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'picture', 'country']
             }]
         });
         if (!wallet) {
@@ -48,7 +49,13 @@ class WalletService {
         return wallet.balance;
     }
 
-    async transferFunds(fromWalletId: string, toWalletId: string, amount: number, description: string) {
+    async transferFunds(
+        fromWalletId: string, 
+        toWalletId: string, 
+        amount: number, 
+        description: string,
+        userId: number
+    ) {
         const transaction = await sequelize.transaction();
         
         try {
@@ -69,13 +76,34 @@ class WalletService {
             
             // 2. Validations initiales
             if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
+            if (fromWallet?.user?.id !== userId) throw new Error('Ce wallet ne vous appartient pas')
             if (fromWallet.balance < amount) throw new Error('Solde insuffisant');
-    
-            // 3. Mise à jour atomique
-            await fromWallet.decrement('balance', { by: amount, transaction });
-            await toWallet.increment('balance', { by: amount, transaction });
+            if (fromWallet.currency === 'CAD' && toWallet.currency === 'CAD') throw new Error('Impossible de faire un transfert CAD vers CAD');
 
-            // 4. Enregistrement de la transaction côté initiateur
+            // 3. On calcule les frais de transfert
+            let total: number = 0;
+            let configFeesValue: number | null = null;
+            let amountToIncrement: number = 0;
+            if (fromWallet.currency === 'CAD' && toWallet.currency === 'XAF') {
+                const feesConfig = await configService.getConfigByName('SENDO_TO_SENDO_TRANSFER_FEES')
+                if (!feesConfig) throw new Error('Configuration des frais introuvable');
+                const cadSendoValue = await configService.getConfigByName('CAD_SENDO_VALUE')
+                if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
+
+                configFeesValue = amount * (Number(feesConfig.value) / 100)
+                total = amount + configFeesValue
+                amountToIncrement = amount * Number(cadSendoValue.value)
+            } else {
+                configFeesValue = 0
+                total = amount
+                amountToIncrement = amount
+            }  
+
+            // 4. Mise à jour atomique
+            await fromWallet.decrement('balance', { by: total, transaction });
+            await toWallet.increment('balance', { by: amountToIncrement, transaction });
+
+            // 5. Enregistrement de la transaction côté initiateur et receveur
             const transactionCreate: TransactionCreate = {
                 userId: fromWallet?.user?.id || 0,
                 type: typesTransaction['4'],
@@ -83,8 +111,9 @@ class WalletService {
                 receiverId: toWallet?.user?.id || 0,
                 receiverType: 'User',
                 status: typesStatusTransaction['1'],
-                currency: typesCurrency['0'],
-                totalAmount: Number(amount),
+                currency: fromWallet.currency,
+                totalAmount: total,
+                sendoFees: configFeesValue!,
                 description: "Transfert Sendo-Sendo",
                 provider: typesMethodTransaction['3'],
                 method: typesMethodTransaction['3']
@@ -100,7 +129,8 @@ class WalletService {
             return {
                 sender: fromWallet,
                 receiver: newToWallet,
-                transaction: transac
+                transaction: transac,
+                amountToIncrement
             };
     
         } catch (error) {

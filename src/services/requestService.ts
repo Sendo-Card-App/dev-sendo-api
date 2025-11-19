@@ -5,6 +5,7 @@ import configService from "./configService";
 import UserModel from "@models/user.model";
 import sequelize from '@config/db';
 import redisClient from '@config/cache';
+import ConfigModel from "@models/config.model";
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -24,13 +25,10 @@ export interface UpdateStatusRequest {
 }
 
 class DemandeService {
-    async askRequest(request: RequestCreate) {
+    async askRequest(request: RequestCreate, amount: number) {
         const transaction = await sequelize.transaction();
         try {
             if (request.type === typesDemande['0']) {
-                const config = await configService.getConfigByName(typesConfig['13'])
-                if (!config) throw new Error('Configuration introuvable');
-
                 const isRequestExists = await RequestModel.findOne({
                     where: {
                         userId: request.userId,
@@ -47,9 +45,9 @@ class DemandeService {
                 });
 
                 if (!wallet) throw new Error('Portefeuille introuvable');
-                if (wallet.balance < config.value) throw new Error('Solde insuffisant');
+                if (wallet.balance < amount) throw new Error('Solde insuffisant');
 
-                await wallet.decrement('balance', { by: config.value, transaction });
+                await wallet.decrement('balance', { by: amount, transaction });
                 await transaction.commit();
             }
             return RequestModel.create(request)

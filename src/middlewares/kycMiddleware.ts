@@ -20,7 +20,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
           model: MerchantModel,
           as: 'merchant'
         }
-    ]
+      ]
     });
 
     if (!user) return sendError(res, 404, 'Utilisateur introuvable');

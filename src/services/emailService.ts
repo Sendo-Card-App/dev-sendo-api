@@ -2,7 +2,7 @@ import transporter from "@config/mailer";
 import ParticipantSharedExpenseModel from "@models/participant-shared-expense.model";
 import SharedExpenseModel from "@models/shared-expense.model";
 import UserModel from "@models/user.model";
-import { TypesKYCStatus, typesNotification } from "@utils/constants";
+import { TypesCurrency, TypesKYCStatus, typesNotification } from "@utils/constants";
 
 const sender = {
     address: process.env.EMAIL_FROM || '',
@@ -209,7 +209,12 @@ export const successVerifySecondPhone = async (user: UserModel, phone: string) =
     });
 }
 
-export const successTransferFunds = async (senderP: UserModel, email: string, amount: number) => {
+export const successTransferFunds = async (
+    senderP: UserModel, 
+    email: string, 
+    amount: number,
+    currency: TypesCurrency
+) => {
     await transporter.sendMail({
         from: sender,
         to: email,
@@ -218,7 +223,7 @@ export const successTransferFunds = async (senderP: UserModel, email: string, am
         html: basicEmailTemplate(
             `
                 <h1>Transfert de fonds</h1>
-                <p>Vous avez reçu de <b>${senderP.firstname} ${senderP.lastname}</b> la somme de ${amount} FCFA</p>
+                <p>Vous avez reçu de <b>${senderP.firstname} ${senderP.lastname}</b> la somme de ${amount} ${currency}</p>
             `
         )
     });

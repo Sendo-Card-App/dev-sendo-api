@@ -231,6 +231,10 @@ class WebhookController {
                     transaction.status === 'PENDING' &&
                     transaction.method === 'VIRTUAL_CARD'
                 ) {
+                    if (transaction.card!.paymentRejectNumber > 1) {
+                        transaction.card!.paymentRejectNumber = 0;
+                        await transaction.card!.save();
+                    }
                     transaction.status = 'COMPLETED';
                     await transaction.save();
                 }
@@ -543,6 +547,9 @@ class WebhookController {
                         }
                     } 
                 } else if (event.data.object.status == 'FAILED') {
+                    const transactionReference =  event.data.object.transactionIntentId.trim();
+                    const transaction = await transactionService.getTransactionByReference(String(transactionReference))
+                    
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
@@ -599,7 +606,8 @@ class WebhookController {
                             virtualCard, 
                             token!, 
                             true, 
-                            req.user!.id
+                            req.user!.id,
+                            transaction!
                         )
                     } else if (
                         rejectFeesCard &&

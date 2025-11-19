@@ -154,27 +154,43 @@ export function mapKYCStatus(kycStatus: TypesKYCStatus): 'En cours de vérificat
 }
 
 export const sendEmailVerificationKYC = async (user: UserModel) => {
+    // S'assurer que les documents KYC sont bien présents
+    const docs = user.kycDocuments ?? [];
+
+    // Mapping des types reconnus pour l'affichage
+    const typeLabels: Record<string, string> = {
+        'ID_PROOF_RECTO': "Pièce d'identité recto",
+        'ID_PROOF_VERSO': "Pièce d'identité verso",
+        'NIU_PROOF': "Document NIU",
+        'ADDRESS_PROOF': "Plan de localisation",
+        'SELFIE': "Selfie"
+    };
+    
+    // Génère une liste du statut de chaque document reconnu, avec fallback si absent ou type inconnu
+    const documentsListHTML = docs.length
+        ? docs.map(doc =>
+            `<li><b>${typeLabels[doc.type] || doc.type || 'Type inconnu'} :</b> ${mapKYCStatus(doc.status)}</li>`
+        ).join('\n')
+        : '<li>Aucun document KYC trouvé</li>';
+
+    // Construction dynamique de l’email
+    const emailHTML = basicEmailTemplate(`
+        <h1>Status vérification KYC</h1>
+        <p>Votre KYC a été vérifié, voici les statuts de vos documents :</p>
+        <ul>
+            ${documentsListHTML}
+        </ul>
+        <p>Lorsque tous vos documents sont validés, vous pouvez profiter de toutes les fonctionnalités de notre plateforme.</p>
+    `);
+
     await transporter.sendMail({
         from: sender,
         to: user.email,
         subject: 'Vérification KYC status',
         category: typesNotification['3'],
-        html: basicEmailTemplate(
-            `
-                <h1>Status vérification KYC</h1>
-                <p>Votre KYC a été vérifié, voici les status de vos documents</p>
-                <ul>
-                    <li><b>${user.kycDocuments?.[0].type === 'ID_PROOF' && "Pièce d'identité recto : "} </b>${mapKYCStatus(user.kycDocuments![0].status)}</li>
-                    <li><b>${user.kycDocuments?.[1].type === 'ID_PROOF' && "Pièce d'identité verso : "} </b>${mapKYCStatus(user.kycDocuments![1].status)}</li>
-                    <li><b>${user.kycDocuments?.[2].type === 'NIU_PROOF' && 'Document NIU'} : </b>${mapKYCStatus(user.kycDocuments![2].status)}</li>
-                    <li><b>${user.kycDocuments?.[3].type === 'ADDRESS_PROOF' && "Plan de localisation"} : </b>${mapKYCStatus(user.kycDocuments![3].status)}</li>
-                    <li><b>${user.kycDocuments?.[4].type === 'SELFIE' && 'Selfie'} : </b>${mapKYCStatus(user.kycDocuments![4].status)}</li>
-                </ul>
-                <p>Lorsque tous vos documents sont validés vous pouvez profiter de toutes les fonctionnalités de notre plateforme.</p>
-            `
-        )
+        html: emailHTML
     });
-}
+};
 
 export const successAddingSecondPhone = async (user: UserModel, phone: string) => {
     await transporter.sendMail({

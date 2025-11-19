@@ -9,6 +9,7 @@ import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
 import transactionService from "./transactionService";
 import cardService, { VirtualCardDebtCreate } from "./cardService";
+import TransactionModel from "@models/transaction.model";
 
 
 class CashinService {
@@ -19,7 +20,8 @@ class CashinService {
         virtualCard: VirtualCardModel, 
         token: TokenModel,
         isFailed: boolean,
-        userId?: number
+        userId?: number,
+        transaction?: TransactionModel
     ) {
         try {
             const cashin = await neeroService.createCashInPayment(cashinPayload)
@@ -135,6 +137,27 @@ class CashinService {
                 }
             } else {
                 if (checkTransaction.status === "SUCCESSFUL") {
+                    const transactionToCreate: TransactionCreate = {
+                        amount: 0,
+                        type: typesTransaction['3'],
+                        status: 'COMPLETED',
+                        userId: userId!,
+                        currency: typesCurrency['0'],
+                        totalAmount: sendoFees,
+                        method: typesMethodTransaction['2'],
+                        transactionReference: cashin.id,
+                        virtualCardId: virtualCard!.id,
+                        description: `Paiement des frais de rejet : #${object.reference}`,
+                        receiverId: userId!,
+                        receiverType: 'User',
+                        sendoFees: sendoFees
+                    }
+                    await transactionService.createTransaction(transactionToCreate)
+
+                    if (transaction && transaction.card!.paymentRejectNumber > 1) {
+                        transaction.card!.paymentRejectNumber = 0;
+                        await transaction.card!.save();
+                    }
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
@@ -152,6 +175,23 @@ class CashinService {
                         type: 'PAYMENT_FAILED'
                     })
                 } else {
+                    const transactionToCreate: TransactionCreate = {
+                        amount: 0,
+                        type: typesTransaction['3'],
+                        status: mapNeeroStatusToSendo(checkTransaction.status),
+                        userId: userId!,
+                        currency: typesCurrency['0'],
+                        totalAmount: sendoFees,
+                        method: typesMethodTransaction['2'],
+                        transactionReference: cashin.id,
+                        virtualCardId: virtualCard!.id,
+                        description: `Paiement des frais de rejet : #${object.reference}`,
+                        receiverId: userId!,
+                        receiverType: 'User',
+                        sendoFees: sendoFees
+                    }
+                    await transactionService.createTransaction(transactionToCreate)
+
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
@@ -169,22 +209,6 @@ class CashinService {
                         type: 'PAYMENT_FAILED'
                     })
                 }
-                const transactionToCreate: TransactionCreate = {
-                    amount: 0,
-                    type: typesTransaction['3'],
-                    status: mapNeeroStatusToSendo(checkTransaction.status),
-                    userId: userId!,
-                    currency: typesCurrency['0'],
-                    totalAmount: sendoFees,
-                    method: typesMethodTransaction['2'],
-                    transactionReference: cashin.id,
-                    virtualCardId: virtualCard!.id,
-                    description: `Paiement des frais de rejet : #${object.reference}`,
-                    receiverId: userId!,
-                    receiverType: 'User',
-                    sendoFees: sendoFees
-                }
-                await transactionService.createTransaction(transactionToCreate)
             }
         } catch (error: any) {
             throw new Error(error)

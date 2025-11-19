@@ -225,7 +225,8 @@ class MerchantController {
             await successTransferFunds(
                 req.user, 
                 transfert.receiver!.email, 
-                parseFloat(amount)
+                parseFloat(amount),
+                'XAF'
             )
 
             logger.info("Transfert d'argent AGENT-SENDO", {

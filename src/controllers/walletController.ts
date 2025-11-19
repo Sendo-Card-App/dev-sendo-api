@@ -59,23 +59,20 @@ class WalletController {
     
     async transferFunds(req: Request, res: Response) {
         const { fromWallet, toWallet, amount, description } = req.body
-        if (!fromWallet || !toWallet || !amount) {
-            sendError(res, 400, "Veuillez remplir tous les champs");
-        }
+        
         try {
-            const walletSender = await walletService.getWalletByMatricule(fromWallet)
-            if (walletSender?.user?.id !== req.user?.id) {
-                throw new Error('Ce wallet ne vous appartient pas')
+            if (!fromWallet || !toWallet || !amount) {
+                sendError(res, 400, "Veuillez remplir tous les champs");
             }
 
-            const wallet = await walletService.transferFunds(fromWallet, toWallet, amount, description)
+            const wallet = await walletService.transferFunds(fromWallet, toWallet, amount, description, req.user!.id)
 
             // On notifie tout le monde
             const tokenSender = await notificationService.getTokenExpo(wallet.sender.user?.id ?? 0)
             await notificationService.save({
                 type: 'SUCCESS_TRANSFER_FUNDS',
                 userId: wallet.sender.user?.id ?? 0,
-                content: `Votre transfert de ${amount} XAF à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
+                content: `Votre transfert de ${amount} ${wallet.sender.currency} à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
                 title: 'Sendo',
                 status: 'SENDED',
                 token: tokenSender?.token ?? ''
@@ -84,7 +81,7 @@ class WalletController {
             await notificationService.save({
                 type: 'SUCCESS_TRANSFER_FUNDS',
                 userId: wallet.receiver.user?.id ?? 0,
-                content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${amount} XAF sur votre portefeuille SENDO`,
+                content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${wallet.amountToIncrement} XAF sur votre portefeuille SENDO`,
                 title: 'Sendo',
                 status: 'SENDED',
                 token: tokenReceiver?.token ?? ''
@@ -93,7 +90,8 @@ class WalletController {
             await successTransferFunds(
                 wallet.sender.user!, 
                 wallet.receiver.user?.email ?? "", 
-                parseFloat(amount)
+                parseFloat(amount),
+                wallet.sender.currency,
             )
 
             logger.info("Transfert d'argent SENDO-SENDO", {
@@ -187,7 +185,7 @@ class WalletController {
                 type: 'DEPOSIT',
                 amount: 0,
                 status: 'COMPLETED',
-                currency: 'XAF',
+                currency: wallet.currency,
                 totalAmount: Number(amount),
                 method: 'WALLET',
                 description: "Dépôt par SENDO",
@@ -230,7 +228,7 @@ class WalletController {
                 type: 'WITHDRAWAL',
                 amount: 0,
                 status: 'COMPLETED',
-                currency: 'XAF',
+                currency: wallet.currency,
                 totalAmount: Number(amount),
                 sendoFees: Number(amount),
                 method: 'WALLET',
@@ -239,7 +237,6 @@ class WalletController {
                 receiverType: 'User'
             }
             const transac = await transactionService.createTransaction(transaction)
-            
 
             logger.info("Retrait du wallet", {
                 userId: wallet!.user!.id,

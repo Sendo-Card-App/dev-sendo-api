@@ -22,6 +22,18 @@ class RequestController {
             const file = req.file as Express.Multer.File;
             if (!file) throw new Error('Aucun document fourni');
 
+            const config = await configService.getConfigByName('NIU_REQUEST_FEES')
+            if (!config) throw new Error('Configuration introuvable');
+
+            let totalAmount: number | null = null;
+            if (req.user.country === "Cameroon") {
+                totalAmount = Number(config.value);
+            } else {
+                const currencyConfig = await configService.getConfigByName('CAD_SENDO_VALUE');
+                if (!currencyConfig) throw new Error('Configuration de devise introuvable');
+                totalAmount = Number(config.value) / Number(currencyConfig.value);
+            }
+
             const body: RequestCreate = {
                 type: type as TypesDemande,
                 userId: req.user.id,
@@ -29,19 +41,16 @@ class RequestController {
                 status: typesStatusDemande['1'],
                 url: file.path
             }
-            const request = await requestService.askRequest(body)
-
-            const config = await configService.getConfigByName('NIU_REQUEST_FEES')
-            if (!config) throw new Error('Configuration introuvable');
+            const request = await requestService.askRequest(body, totalAmount)
 
             if (request.type === typesDemande['0']) {  
                 const transaction: TransactionCreate = {
-                    userId: req.user?.id || 0,
+                    userId: req.user!.id,
                     type: typesTransaction['3'],
                     amount: 0,
                     status: typesStatusTransaction['1'],
-                    currency: typesCurrency['0'],
-                    totalAmount: Number(config.value),
+                    currency: req.user.country === "Cameroon" ? 'XAF' : 'CAD',
+                    totalAmount,
                     description: "Demande de NIU",
                     receiverId: req.user!.id,
                     receiverType: 'User',

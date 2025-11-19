@@ -259,6 +259,22 @@ class WebhookController {
                     await cardService.saveDebt(debt)
                 }
 
+                if (
+                    transaction && 
+                    transaction.status === 'PENDING' &&
+                    transaction.type === 'PAYMENT' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    // on enregistre le reste comme dette
+                    const debt: VirtualCardDebtCreate = {
+                        amount: transaction.sendoFees,
+                        userId: transaction.userId,
+                        cardId: transaction.virtualCardId,
+                        intitule: transaction.description || 'Frais de service'
+                    }
+                    await cardService.saveDebt(debt)
+                }
+
                 const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
                 await notificationService.save({
                     title: 'Sendo',

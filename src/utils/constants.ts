@@ -267,6 +267,11 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_VALUE_CAD_CA_CAM',
         value: 450,
         description: "Valeur Sendo du CAD pour les transactions CA-CAM (XAF)"
+    },
+    {
+        name: 'SENDO_TO_SENDO_TRANSFER_FEES',
+        value: 1,
+        description: "Frais SENDO appliqués lors d'un transfert SENDO vers SENDO (%)"
     }
 ]
 
@@ -317,7 +322,8 @@ export const typesConfig = [
     'SENDO_TRANSACTION_CARD_REJECT_FEES',
     'SENDO_UNLOCK_CARD_FEES',
     'SENDO_VIEW_DETAILS_CARD_FEES',
-    'SENDO_VALUE_CAD_CA_CAM'
+    'SENDO_VALUE_CAD_CA_CAM',
+    'SENDO_TO_SENDO_TRANSFER_FEES'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

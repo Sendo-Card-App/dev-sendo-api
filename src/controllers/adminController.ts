@@ -89,7 +89,7 @@ class AdminController {
 
             document && await document.update({
                 status,
-                rejectionReason: status === typesKYCStatus['1'] ? '' : rejectionReason,
+                rejectionReason: status == typesKYCStatus['1'] ? '' : rejectionReason,
                 reviewedById: adminId,
                 reviewedAt: new Date()
             });
@@ -103,13 +103,23 @@ class AdminController {
             })
             const country = user!.country
 
-            const isVerifiedKYC = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
+            const kycVerified = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
             if (
                 user && 
                 country == "Cameroon" &&
-                user.kycDocuments?.length === 4 && 
+                user.kycDocuments!.length === 4 && 
                 !user?.isVerifiedKYC && 
-                isVerifiedKYC?.length === 0
+                kycVerified?.length == 0
+            ) {
+                user.isVerifiedKYC = true;
+                const newUser = await user.save();
+                await sendEmailVerificationKYC(newUser);
+            } else if (
+                user && 
+                country == "Canada" &&
+                user.kycDocuments!.length === 3 && 
+                !user?.isVerifiedKYC && 
+                kycVerified?.length == 0
             ) {
                 user.isVerifiedKYC = true;
                 const newUser = await user.save();
@@ -168,21 +178,31 @@ class AdminController {
                 })
             );
 
-            //const user = doc1 && await doc1.user?.reload()
             const user = await UserModel.findByPk(doc1?.userId ?? 0, {
                 include: [{
                     model: KycDocumentModel,
                     as: 'kycDocuments'
                 }] 
             })
-            const country = user?.country
 
-            const isVerifiedKYC = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
+            const country = user!.country
+            const kycVerified = user?.kycDocuments?.filter(kyc => kyc.status === typesKYCStatus['0'] || kyc.status === typesKYCStatus['2'])
             if (
                 user && 
+                country == "Cameroon" &&
                 user.kycDocuments?.length === 4 && 
                 !user?.isVerifiedKYC && 
-                isVerifiedKYC?.length === 0
+                kycVerified?.length === 0
+            ) {
+                user.isVerifiedKYC = true;
+                const newUser = await user.save();
+                await sendEmailVerificationKYC(newUser);
+            } else if (
+                user && 
+                country == "Canada" &&
+                user.kycDocuments!.length === 3 && 
+                !user?.isVerifiedKYC && 
+                kycVerified?.length == 0
             ) {
                 user.isVerifiedKYC = true;
                 const newUser = await user.save();

@@ -383,7 +383,7 @@ class WebhookController {
 
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
-                        'Paiement échoué sur la carte',
+                        'Paiement sur la carte',
                         `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
                     await notificationService.save({
@@ -529,7 +529,7 @@ class WebhookController {
                 } else if (event.data.object.status == 'FAILED') {
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
-                        'Paiement échoué sur la carte',
+                        'Paiement sur la carte',
                         `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échoué sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
                     await notificationService.save({

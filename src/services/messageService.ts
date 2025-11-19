@@ -3,13 +3,13 @@ import { IMessage, IMessageCreate } from '../types/Conversation';
 import UserModel from '@models/user.model';
 import ConversationModel from '@models/conversation.model';
 import conversationService from './conversationService';
-import redisClient from '@config/cache';
-
-const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 class MessageService {
     async sendMessage(message: IMessageCreate) {
         const conversation = await ConversationModel.findByPk(message.conversationId);
+        if (!conversation) {
+            throw new Error('Conversation introuvable');
+        }
         if (conversation?.status === 'CLOSED') {
             throw new Error('Cette conversation est déjà fermée');
         }
@@ -17,6 +17,10 @@ class MessageService {
             conversation.status = 'OPEN'
             await conversation.save()
         }
+
+        // conversation is guaranteed to exist here, assign directly and save
+        conversation.updatedAt = new Date();
+        await conversation.save();
 
         const messageCreated = await MessageModel.create(message);
 

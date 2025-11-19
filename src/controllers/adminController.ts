@@ -87,12 +87,14 @@ class AdminController {
             });
             if (!document) sendError(res, 500, 'Admin non authentifié');
 
-            document && await document.update({
-                status,
-                rejectionReason: status == typesKYCStatus['1'] ? '' : rejectionReason,
-                reviewedById: adminId,
-                reviewedAt: new Date()
-            });
+            if (document) {
+                await document.update({
+                    status,
+                    rejectionReason: status == typesKYCStatus['1'] ? '' : rejectionReason,
+                    reviewedById: adminId,
+                    reviewedAt: new Date()
+                });
+            }
 
             //const user = document && await document.user?.reload()
             const user = await UserModel.findByPk(document?.userId ?? 0, {
@@ -130,7 +132,7 @@ class AdminController {
             await notificationService.save({
                 title: 'Sendo',
                 type: 'SUCCESS_KYC_VERIFIED',
-                content: `${user?.firstname} votre ${document?.type} KYC ont été traités`,
+                content: `${user?.firstname} votre document KYC a été traité`,
                 userId: user?.id ?? 0,
                 token: token?.token ?? '',
                 status: 'SENDED'

@@ -25,20 +25,22 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
 
     if (!user) return sendError(res, 404, 'Utilisateur introuvable');
 
-    if (!user.merchant) {
-      const approvedDocs = user.kycDocuments || [];
-      const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
-      const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
-      const hasValidNIU = approvedDocs.some((doc: { type: string; }) => doc.type === 'NIU_PROOF');
-      const hasValidSelfie = approvedDocs.some((doc: { type: string; }) => doc.type === 'SELFIE');
-      const hasEnoughDocs = approvedDocs.length === 5;
-      const numberDocsRequired = 5 - approvedDocs.length;
+    const requiredDocsForIndividuals = user.country === "Cameroon" ? ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'SELFIE'] : ['ID_PROOF', 'ID_PROOF', 'SELFIE'];
+    const approvedDocs = user.kycDocuments || [];
+    const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
+    const hasValidSelfie = approvedDocs.some((doc: { type: string; }) => doc.type === 'SELFIE');
 
-      if (!hasValidID || !hasValidAddress || !hasValidNIU || !hasValidSelfie || !hasEnoughDocs) {
+    if (!user.merchant) {
+      const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
+      const hasEnoughDocs = user.country === "Cameroon" ? approvedDocs.length >= 4 : approvedDocs.length === 3;
+      const numberDocsRequired = user.country === "Cameroon" ? (4 - approvedDocs.length) : (3 - approvedDocs.length);
+      const validAddressConditionsFalse = user.country === "Cameroon" ? !hasValidAddress : true;
+
+      if (!hasValidID || !validAddressConditionsFalse || !hasValidSelfie || !hasEnoughDocs) {
         return sendError(res, 403, 'Documents KYC manquants', {
           required: {
-            minimumDocuments: 5,
-            mandatoryTypes: ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE']
+            minimumDocuments: user.country === "Cameroon" ? 4 : 3,
+            mandatoryTypes: requiredDocsForIndividuals
           },
           currentStatus: {
             documents: approvedDocs.map((d: any) => d.type),
@@ -64,7 +66,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
         verified: true,
         lastDocumentDate: approvedDocs[approvedDocs.length - 1]?.updatedAt
       };
-    } /*else {
+    } else {
       const approvedDocs = user.kycDocuments || [];
       const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
       const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
@@ -113,7 +115,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
         verified: true,
         lastDocumentDate: approvedDocs[approvedDocs.length - 1]?.updatedAt
       };
-    }*/
+    }
     
     next();
   } catch (error) {
@@ -124,12 +126,13 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
 
 export async function fileCheck(req: Request, res: Response, next: NextFunction) {
   const files = req.files as Express.Multer.File[];
+  const requiredDocsForIndividuals = req.user!.country === "Cameroon" ? ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'SELFIE'] : ['ID_PROOF', 'ID_PROOF', 'SELFIE'];
   try {
     if (!files || !files.length) {
       return sendResponse(res, 400, 'Aucun fichier fourni', {
         required: {
-          minimumDocuments: 5,
-          mandatoryTypes: ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE']
+          minimumDocuments: req.user!.country === "Cameroon" ? 4 : 3,
+          mandatoryTypes: requiredDocsForIndividuals
         }
       });
     }

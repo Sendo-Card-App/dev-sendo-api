@@ -2,7 +2,7 @@ import TransactionModel from "@models/transaction.model";
 import { TransactionCreate } from "../types/Transaction";
 import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
-import { Op } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import { getUTCBoundaries } from "@utils/functions";
 import walletService from "./walletService";
 import mobileMoneyService from "./mobileMoneyService";
@@ -77,8 +77,8 @@ class TransactionService {
         return cachedResult;
     }
 
-    async createTransaction(transaction: TransactionCreate) {
-        return await TransactionModel.create(transaction);
+    async createTransaction(transaction: TransactionCreate, options?: { transaction: Transaction }) {
+        return await TransactionModel.create(transaction, { transaction: options?.transaction });
     }
 
     async getTransaction(transactionId: string) {

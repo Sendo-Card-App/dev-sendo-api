@@ -64,14 +64,14 @@ class WalletService {
                 where: { matricule: fromWalletId },
                 transaction,
                 include: [{ model: UserModel, as: 'user' }],
-                //lock: true
+                //lock: transaction.LOCK.UPDATE
             });
     
             const toWallet = await WalletModel.findOne({
                 where: { matricule: toWalletId },
                 transaction,
                 include: [{ model: UserModel, as: 'user' }],
-                //lock: true
+                //lock: transaction.LOCK.UPDATE
             });
             
             // 2. Validations initiales
@@ -93,6 +93,8 @@ class WalletService {
                 configFeesValue = amount * (Number(feesConfig.value) / 100)
                 total = amount + configFeesValue
                 amountToIncrement = amount * Number(cadSendoValue.value)
+            } else if (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') {
+                throw new Error('Transfert de XAF vers CAD non autorisé');
             } else {
                 configFeesValue = 0
                 total = amount
@@ -118,11 +120,11 @@ class WalletService {
                 provider: typesMethodTransaction['3'],
                 method: typesMethodTransaction['3']
             }
-            const transac = await transactionService.createTransaction(transactionCreate)
+            const transac = await transactionService.createTransaction(transactionCreate, { transaction });
 
             // 4. On check si la carte possede des dettes
             await settleCardDebtsIfAny(toWallet!.matricule, toWallet!.userId)
-            const newToWallet = await toWallet.reload()
+            const newToWallet = await toWallet.reload({ transaction })
             
             await transaction.commit();
             

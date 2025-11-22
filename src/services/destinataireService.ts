@@ -6,13 +6,13 @@ import redisClient from '@config/cache';
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
 export interface DestinataireCreate {
-    country?: string;
+    country: string;
     firstname: string;
     lastname: string;
     provider: string;
-    phone?: string;
+    phone: string;
     accountNumber?: string;
-    address?: string;
+    address: string;
 }
 
 class DestinataireService {

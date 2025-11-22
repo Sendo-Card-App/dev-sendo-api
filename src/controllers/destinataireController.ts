@@ -5,7 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import { Request, Response } from "express";
 import configService from "@services/configService";
-import { ajouterPrefixe237, detectOperator, troisChiffresApresVirgule } from "@utils/functions";
+import { ajouterPrefixe237, detectOperator, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
 import logger from "@config/logger";
 
 class DestinataireController {
@@ -35,6 +35,11 @@ class DestinataireController {
                 return
             }
 
+            if (Number(amount) % 50 !== 0) {
+                sendError(res, 400, "Le montant doit être un multiple de 50");
+                return;
+            }
+
             if (Number(amount) >= 500000) {
                 sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
                 return
@@ -62,31 +67,15 @@ class DestinataireController {
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
             const amountToCAD = Number(amount) / Number(configCadSendo!.value)
 
-            /*const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
-                type: typesTransaction['2'],
-                status: typesStatusTransaction['0'],
-                userId: req.user.id,
-                receiverId: response.id,
-                receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
-                description: description,
-                method: typesMethodTransaction['0'],
-                provider: payload.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value),
-                transactionReference: generateAlphaNumeriqueString(12)
-            }*/
-           const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
+            const transactionToCreate: TransactionCreate = {
+                amount: roundToPreviousMultipleOfFive(amountToCAD),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: response!.id,
                 receiverType: 'Destinataire',
                 currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
+                totalAmount: roundToPreviousMultipleOfFive(amountToCAD) + Number(configTransferFees!.value),
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: payload.provider,
@@ -148,7 +137,9 @@ class DestinataireController {
                 lastname: '****',
                 provider: 'BANK',
                 accountNumber,
-                address: bankName
+                address: bankName,
+                country: 'Cameroon',
+                phone: req.user.phone
             }
             const response = await destinataireService.createDestinataire(payload)
 
@@ -204,6 +195,15 @@ class DestinataireController {
                 sendError(res, 401, "Utilisateur non authentifié")
                 return
             }
+            if (Number(amount) % 50 !== 0) {
+                sendError(res, 400, "Le montant doit être un multiple de 50");
+                return;
+            }
+            if (Number(amount) >= 500000) {
+                sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
+                return
+            }
+
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
             if (parseInt(amount) < (configMinAmout?.value ?? 0)) {
                 sendError(res, 403, `Le montant minimum d\'envoi est de ${configMinAmout?.value} francs CFA`)
@@ -221,31 +221,15 @@ class DestinataireController {
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
             const amountToCAD = Number(amount) / Number(configCadSendo!.value)
             
-            /*const transactionToCreate: TransactionCreate = {
-                amount: amountToCAD,
-                type: typesTransaction['2'],
-                status: typesStatusTransaction['0'],
-                userId: req.user.id,
-                receiverId: destinataire.id,
-                receiverType: 'Destinataire',
-                currency: typesCurrency['0'],
-                totalAmount: amountToCAD + Number(configTransferFees!.value),
-                description: description,
-                method: typesMethodTransaction['0'],
-                provider: destinataire.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value),
-                transactionReference: generateAlphaNumeriqueString(12)
-            }*/
-           const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
+            const transactionToCreate: TransactionCreate = {
+                amount: roundToPreviousMultipleOfFive(amountToCAD),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: destinataire.id,
                 receiverType: 'Destinataire',
                 currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
+                totalAmount: roundToPreviousMultipleOfFive(amountToCAD) + Number(configTransferFees!.value),
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: destinataire.provider,

@@ -469,6 +469,13 @@ class AdminController {
                 transaction.status = 'COMPLETED'
                 await transaction.save();
 
+                await sendGlobalEmail(
+                    transaction.user.email,
+                    'Dépôt bancaire Sendo',
+                    `<p>Votre dépôt bancaire a été traité avec succès. Votre portefeuille a été crédité de ${transaction.amount} XAF.</p>
+                    `
+                );
+
                 const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
                 await notificationService.save({
                     title: 'Sendo',
@@ -493,6 +500,13 @@ class AdminController {
 
                 transaction.status = 'COMPLETED'
                 await transaction.save();
+
+                await sendGlobalEmail(
+                    transaction.user.email,
+                    'Dépôt Interac - Sendo',
+                    `<p>Votre recharge du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été crédité de ${transaction.amount} CAD.</p>
+                    `
+                );
 
                 const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
                 await notificationService.save({

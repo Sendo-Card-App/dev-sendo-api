@@ -58,7 +58,7 @@ class DestinataireController {
             const response = await destinataireService.createDestinataire(payload)
 
             const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
-            const configCadSendo = await configService.getConfigByName('CAD_SENDO_VALUE')
+            const configCadSendo = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
             const amountToCAD = Number(amount) / Number(configCadSendo!.value)
 
@@ -145,6 +145,7 @@ class DestinataireController {
 
             const payload: DestinataireCreate = {
                 firstname: nameAccount,
+                lastname: '****',
                 provider: 'BANK',
                 accountNumber,
                 address: bankName

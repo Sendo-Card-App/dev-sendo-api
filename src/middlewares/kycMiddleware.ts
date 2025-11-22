@@ -34,7 +34,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
       const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
       const hasEnoughDocs = user.country === "Cameroon" ? approvedDocs.length >= 4 : approvedDocs.length === 3;
       const numberDocsRequired = user.country === "Cameroon" ? (4 - approvedDocs.length) : (3 - approvedDocs.length);
-      const validAddressConditionsFalse = user.country === "Cameroon" ? !hasValidAddress : true;
+      const validAddressConditionsFalse = user.country === "Cameroon" ? hasValidAddress : false;
 
       if (!hasValidID || !validAddressConditionsFalse || !hasValidSelfie || !hasEnoughDocs) {
         return sendError(res, 403, 'Documents KYC manquants', {

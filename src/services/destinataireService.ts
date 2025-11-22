@@ -8,7 +8,7 @@ const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 export interface DestinataireCreate {
     country?: string;
     firstname: string;
-    lastname?: string;
+    lastname: string;
     provider: string;
     phone?: string;
     accountNumber?: string;

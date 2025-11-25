@@ -90,14 +90,14 @@ class WalletController {
             await successTransferFunds(
                 wallet.sender.user!, 
                 wallet.receiver.user?.email ?? "", 
-                parseFloat(amount),
-                wallet.sender.currency,
+                wallet.amountToIncrement,
+                wallet.receiver.currency,
             )
 
             logger.info("Transfert d'argent SENDO-SENDO", {
                 sender: `${wallet.sender.user?.firstname} ${wallet.sender.user?.lastname}`,
                 receiver: `${wallet.receiver.user?.firstname} ${wallet.receiver.user?.lastname}`,
-                amount: parseFloat(amount)
+                amount: wallet.amountToIncrement
             });
 
             sendResponse(res, 200, 'Transfert réussi !', {
@@ -183,13 +183,13 @@ class WalletController {
             const transaction: TransactionCreate = {
                 userId: wallet!.user!.id,
                 type: 'DEPOSIT',
-                amount: 0,
+                amount: Number(amount),
                 status: 'COMPLETED',
                 currency: wallet.currency,
                 totalAmount: Number(amount),
                 method: 'WALLET',
                 description: "Dépôt par SENDO",
-                sendoFees: Number(amount),
+                sendoFees: 0,
                 receiverId: wallet!.user!.id,
                 transactionReference: generateAlphaNumeriqueString(12),
                 receiverType: 'User'

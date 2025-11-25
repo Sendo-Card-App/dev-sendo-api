@@ -50,9 +50,9 @@ class AuthController {
         referrer = await userService.getUserReferralCode(referralCode)
         if (referrer) {
           referredByUserId = referrer.id;
-        } else {
+        } /*else {
           return sendError(res, 400, 'Code de parrainage invalide');
-        }
+        }*/
       }
 
       const user = await authService.register({
@@ -72,8 +72,8 @@ class AuthController {
         if (referrer) {
           const config = await configService.getConfigByName("SPONSORSHIP_FEES")
           if (referrer.wallet?.matricule && config && user.wallet?.matricule) {
-            await walletService.creditWallet(referrer.wallet.matricule, config?.value, "SPONSORSHIP_FEES");
-            await walletService.creditWallet(user.wallet.matricule, config?.value, "SPONSORSHIP_FEES");
+            await walletService.creditWallet(referrer.wallet.matricule, Number(config.value));
+            await walletService.creditWallet(user.wallet.matricule, Number(config.value));
             await successCreatingAccountWithYourRefferalCode(referrer, user, config.value);
           } else {
             throw new Error("Portefeuille du refferer introuvable");

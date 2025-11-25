@@ -105,7 +105,7 @@ class WalletService {
             await fromWallet.decrement('balance', { by: total, transaction });
             await toWallet.increment('balance', { by: amountToIncrement, transaction });
 
-            // 5. Enregistrement de la transaction côté initiateur et receveur
+            // 5. Enregistrement de la transaction côté initiateur
             const transactionCreate: TransactionCreate = {
                 userId: fromWallet?.user?.id || 0,
                 type: typesTransaction['4'],
@@ -122,7 +122,7 @@ class WalletService {
             }
             const transac = await transactionService.createTransaction(transactionCreate, { transaction });
 
-            // 4. On check si la carte possede des dettes
+            // 6. On check si la carte possede des dettes
             await settleCardDebtsIfAny(toWallet!.matricule, toWallet!.userId)
             const newToWallet = await toWallet.reload({ transaction })
             

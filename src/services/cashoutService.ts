@@ -5,6 +5,7 @@ import transactionService from "./transactionService";
 import configService from "./configService";
 import { wait } from "@controllers/mobileMoneyController";
 import notificationService from "./notificationService";
+import walletService from "./walletService";
 
 
 class CashoutService {
@@ -17,7 +18,7 @@ class CashoutService {
 
             let created: boolean;
             const phoneParsed = ajouterPrefixe237(phone)
-            const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')    
+            const configCadReal = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')    
 
             let paymentMethodDestinataire = await mobileMoneyService.getPaymentMethodByPhone(phoneParsed)
             if (!paymentMethodDestinataire) {
@@ -29,7 +30,8 @@ class CashoutService {
                 throw new Error("Transaction initiale introuvable")
             }
 
-            const amountToSend = Number(transaction.amount) * Number(configCadReal!.value)
+            const amountToDecrement = Number(transaction.totalAmount) / Number(configCadReal!.value)
+            const amountToSend = Number(transaction.amount)
             const payload: CashOutPayload = {
                 amount: roundToPreviousMultipleOfFive(amountToSend),
                 currencyCode: 'XAF',
@@ -42,7 +44,7 @@ class CashoutService {
             const cashout = await neeroService.createCashOutPayment(payload)
             transaction.transactionReference = cashout.id;
             await transaction.save()
-            await wait(5000)
+            await wait(3000)
 
             const neeroTransaction = await neeroService.getTransactionIntentById(cashout.id)
             
@@ -55,6 +57,12 @@ class CashoutService {
                 newTransaction.type === 'TRANSFER' &&
                 newTransaction.status === "COMPLETED"
             ) {
+                //On décrémente le solde du portefeuille
+                await walletService.debitWallet(
+                    newTransaction.user?.wallet?.matricule  || '',
+                    amountToDecrement
+                )
+
                 const receiver = await transaction.getReceiver()
                 await notificationService.save({
                     title: 'Sendo',

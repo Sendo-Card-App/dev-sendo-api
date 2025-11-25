@@ -5,7 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import { Request, Response } from "express";
 import configService from "@services/configService";
-import { ajouterPrefixe237, detectOperator, troisChiffresApresVirgule } from "@utils/functions";
+import { ajouterPrefixe237, detectOperator, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
 import logger from "@config/logger";
 
 class DestinataireController {
@@ -21,9 +21,7 @@ class DestinataireController {
         try {
             if (
                 !country || 
-                !amount || 
-                !firstname || 
-                !lastname || 
+                !amount ||  
                 !phone ||  
                 !address
             ) {
@@ -49,8 +47,8 @@ class DestinataireController {
             const operator = detectOperator(phone)
             const payload: DestinataireCreate = {
                 country,
-                firstname,
-                lastname,
+                firstname: firstname ? firstname : 'Non défini',
+                lastname: lastname ? lastname : 'Non défini',
                 phone: ajouterPrefixe237(operator.phone),
                 provider: operator.operator,
                 address
@@ -58,45 +56,30 @@ class DestinataireController {
             const response = await destinataireService.createDestinataire(payload)
 
             const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
-            const configCadSendo = await configService.getConfigByName('CAD_SENDO_VALUE')
+            const configCadSendo = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
-            const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            //const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo)
 
-            /*const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
-                type: typesTransaction['2'],
-                status: typesStatusTransaction['0'],
-                userId: req.user.id,
-                receiverId: response.id,
-                receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
-                description: description,
-                method: typesMethodTransaction['0'],
-                provider: payload.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value),
-                transactionReference: generateAlphaNumeriqueString(12)
-            }*/
-           const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
+            const transactionToCreate: TransactionCreate = {
+                amount: Number(amount),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: response!.id,
                 receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
+                currency: typesCurrency['0'],
+                totalAmount: Number(amount) + feesToXAF,
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: payload.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value)
+                sendoFees: feesToXAF,
+                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value)
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             logger.info("Transfert initié", {
-                amount: amountToCAD,
+                amount: Number(amount),
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
                 receiver: `Destinataire ID : ${response!.id} - ${response!.firstname} ${response!.lastname}`
             });
@@ -145,9 +128,12 @@ class DestinataireController {
 
             const payload: DestinataireCreate = {
                 firstname: nameAccount,
+                lastname: '****',
                 provider: 'BANK',
                 accountNumber,
-                address: bankName
+                address: bankName,
+                country: 'Cameroon',
+                phone: req.user.phone
             }
             const response = await destinataireService.createDestinataire(payload)
 
@@ -203,6 +189,11 @@ class DestinataireController {
                 sendError(res, 401, "Utilisateur non authentifié")
                 return
             }
+            if (Number(amount) >= 500000) {
+                sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
+                return
+            }
+
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
             if (parseInt(amount) < (configMinAmout?.value ?? 0)) {
                 sendError(res, 403, `Le montant minimum d\'envoi est de ${configMinAmout?.value} francs CFA`)
@@ -218,43 +209,28 @@ class DestinataireController {
             const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
             const configCadSendo = await configService.getConfigByName('CAD_SENDO_VALUE')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
-            const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            //const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo)
             
-            /*const transactionToCreate: TransactionCreate = {
-                amount: amountToCAD,
+            const transactionToCreate: TransactionCreate = {
+                amount: Number(amount),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: destinataire.id,
                 receiverType: 'Destinataire',
                 currency: typesCurrency['0'],
-                totalAmount: amountToCAD + Number(configTransferFees!.value),
-                description: description,
-                method: typesMethodTransaction['0'],
-                provider: destinataire.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value),
-                transactionReference: generateAlphaNumeriqueString(12)
-            }*/
-           const transactionToCreate: TransactionCreate = {
-                amount: troisChiffresApresVirgule(Number(amountToCAD)),
-                type: typesTransaction['2'],
-                status: typesStatusTransaction['0'],
-                userId: req.user.id,
-                receiverId: destinataire.id,
-                receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
+                totalAmount: Number(amount) + feesToXAF,
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: destinataire.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value)
+                sendoFees: feesToXAF,
+                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value)
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             logger.info("Transfert initié", {
-                amount: amount,
+                amount: Number(amount),
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
                 receiver: `Destinataire ID : ${destinataire.id} - ${destinataire.firstname} ${destinataire.lastname}`
             });

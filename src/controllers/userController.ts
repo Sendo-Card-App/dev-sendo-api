@@ -380,25 +380,30 @@ class UserController {
   }
 
   async saveOrUpdateTokenExpoUser(req: Request, res: Response) {
-    const { token, userId } = req.body
-    try {
-      if (!userId || !token) {
-        throw new Error('Veuillez fournir l\'id du user et le token')
-      }
-      // Vérifier que le token est un token Expo valide
-      if (!Expo.isExpoPushToken(token)) {
-        return sendError(res, 400, 'Le token fourni n\'est pas un token Expo valide');
-      }
-      
-      const data = {
-        token,
-        tokenType: typesToken['4'],
-        userId: parseInt(userId)
-      }
-      const tokenCreated = await userService.saveOrUpdateTokenExpoUser(data)
-      sendResponse(res, 200, 'Token Expo récupéré ou créé avec succès', tokenCreated)
+    const { token, userId } = req.body;
+      try {
+        if (!userId || !token) {
+            throw new Error('Veuillez fournir l\'id du user et le token');
+        }
+        if (!Expo.isExpoPushToken(token)) {
+            return sendError(res, 400, 'Le token fourni n\'est pas un token Expo valide');
+        }
+
+        const userIdInt = Number(userId);
+        if (!Number.isInteger(userIdInt)) {
+          return sendError(res, 400, 'userId invalide');
+        }
+
+        const data = {
+          token,
+          tokenType: typesToken['4'],
+          userId: userIdInt
+        };
+        const tokenCreated = await userService.saveOrUpdateTokenExpoUser(data);
+
+        sendResponse(res, 200, 'Token Expo récupéré ou créé avec succès', tokenCreated);
     } catch (error: any) {
-      sendError(res, 500, 'Erreur lors de l\'enregistrement ou la mise à jour du token', [error.message]);
+        sendError(res, 500, 'Erreur lors de l\'enregistrement ou la mise à jour du token', [error.message]);
     }
   }
 

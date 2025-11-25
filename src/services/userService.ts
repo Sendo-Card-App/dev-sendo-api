@@ -276,7 +276,7 @@ class UserService {
             include: [{ 
                 model: WalletModel, 
                 as: 'wallet', 
-                attributes: ['id', 'balance', 'matricule', 'status'] 
+                attributes: ['id', 'balance', 'matricule', 'status', 'currency'] 
             }]
         });
     }
@@ -323,17 +323,17 @@ class UserService {
                 userId: tokenCreate.userId,
                 tokenType: tokenCreate.tokenType
             }
-        })
+        });
 
         if (!token) {
-            return TokenModel.create(tokenCreate)
+            return await TokenModel.create(tokenCreate);
         }
-        
-        if (token.token !== tokenCreate.token) {
-            token.token = tokenCreate.token
-            token.save()
+
+        if (token.token != tokenCreate.token) {
+            token.token = tokenCreate.token;
+            await token.save();
         }
-        return token.reload()
+        return await token.reload();
     }
 
     async getMeWithKyc(id: number): Promise<UserModel> {

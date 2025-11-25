@@ -108,8 +108,28 @@ class CardService {
         documentType: 'NATIONALID' | 'PASSPORT' | 'RECEIPT'
     ) {
         const user = await userService.getMeWithKyc(userId)
-        if (!user.isVerifiedKYC) {
-            throw new Error("Veuillez soumettre vos documents KYC avant de créer une carte virtuelle.")
+        if (!user.isVerifiedKYC) throw new Error("Veuillez soumettre vos documents KYC avant de créer une carte virtuelle.")
+        if (user.country === 'Canada') throw new Error("Vous ne pouvez pas avoir de carte etant au Canada")
+
+        const kycDocs = user.kycDocuments ?? [];
+
+        const hasNiuProof = kycDocs.some(doc => doc.type === 'NIU_PROOF');
+
+        let taxIdNumber = '';
+        let idDocumentNumber = '';
+
+        // Si ancien système (NIU_PROOF présent)
+        if (hasNiuProof) {
+            const niuDoc = kycDocs.find(doc => doc.type === 'NIU_PROOF');
+            taxIdNumber = niuDoc?.taxIdNumber ?? '';
+
+            const idProofDoc = kycDocs.find(doc => doc.type === 'ID_PROOF');
+            idDocumentNumber = idProofDoc?.idDocumentNumber ?? '';
+        } else {
+            // Nouveau système : taxIdNumber dans ID_PROOF ou absent selon pays
+            const idProofDocs = kycDocs.find(doc => doc.type === 'ID_PROOF');
+            idDocumentNumber = idProofDocs?.idDocumentNumber ?? '';
+            taxIdNumber = idProofDocs?.taxIdNumber ?? '';
         }
 
         const partyObject: PartyObject = {
@@ -120,8 +140,8 @@ class CardService {
                 birthDate: formaterDateISO(user.dateOfBirth) ?? user.dateOfBirth,
                 givenName: '',
                 idDocumentType: documentType,
-                idDocumentNumber: user.kycDocuments?.filter(k => k.type === 'ID_PROOF')?.[0].idDocumentNumber ?? '',
-                taxIdNumber: user.kycDocuments?.find(k => k.type === 'NIU_PROOF')?.taxIdNumber ?? '',
+                idDocumentNumber,
+                taxIdNumber,
                 nationality: 'CM'
             },
             locations: [

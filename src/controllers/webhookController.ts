@@ -120,8 +120,16 @@ class WebhookController {
                     transaction?.type === 'TRANSFER' && 
                     transaction.status === 'PENDING'
                 ) {
-                    const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
-                    const amountToSend = Number(transaction.amount) * Number(configCadReal!.value)
+                    const configCadReal = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')  
+                    const amountToDecrement = Number(transaction.totalAmount) / Number(configCadReal!.value)
+                    const amountToSend = Number(transaction.amount)
+
+                    //On décrémente le solde du portefeuille
+                    await walletService.debitWallet(
+                        transaction.user?.wallet?.matricule  || '',
+                        amountToDecrement
+                    )
+
                     const receiver = await transaction.getReceiver()
                     await notificationService.save({
                         title: 'Sendo',

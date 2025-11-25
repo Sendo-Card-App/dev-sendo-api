@@ -21,9 +21,7 @@ class DestinataireController {
         try {
             if (
                 !country || 
-                !amount || 
-                !firstname || 
-                !lastname || 
+                !amount ||  
                 !phone ||  
                 !address
             ) {
@@ -33,11 +31,6 @@ class DestinataireController {
             if (!req.user) {
                 sendError(res, 401, "Utilisateur non authentifié")
                 return
-            }
-
-            if (Number(amount) % 50 !== 0) {
-                sendError(res, 400, "Le montant doit être un multiple de 50");
-                return;
             }
 
             if (Number(amount) >= 500000) {
@@ -54,8 +47,8 @@ class DestinataireController {
             const operator = detectOperator(phone)
             const payload: DestinataireCreate = {
                 country,
-                firstname,
-                lastname,
+                firstname: firstname ? firstname : 'Non défini',
+                lastname: lastname ? lastname : 'Non défini',
                 phone: ajouterPrefixe237(operator.phone),
                 provider: operator.operator,
                 address
@@ -65,27 +58,28 @@ class DestinataireController {
             const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
             const configCadSendo = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
-            const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            //const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo)
 
             const transactionToCreate: TransactionCreate = {
-                amount: roundToPreviousMultipleOfFive(amountToCAD),
+                amount: Number(amount),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: response!.id,
                 receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: roundToPreviousMultipleOfFive(amountToCAD) + Number(configTransferFees!.value),
+                currency: typesCurrency['0'],
+                totalAmount: Number(amount) + feesToXAF,
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: payload.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value)
+                sendoFees: feesToXAF,
+                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value)
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             logger.info("Transfert initié", {
-                amount: amountToCAD,
+                amount: Number(amount),
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
                 receiver: `Destinataire ID : ${response!.id} - ${response!.firstname} ${response!.lastname}`
             });
@@ -195,10 +189,6 @@ class DestinataireController {
                 sendError(res, 401, "Utilisateur non authentifié")
                 return
             }
-            if (Number(amount) % 50 !== 0) {
-                sendError(res, 400, "Le montant doit être un multiple de 50");
-                return;
-            }
             if (Number(amount) >= 500000) {
                 sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
                 return
@@ -219,27 +209,28 @@ class DestinataireController {
             const configCadReal = await configService.getConfigByName('CAD_REAL_TIME_VALUE')
             const configCadSendo = await configService.getConfigByName('CAD_SENDO_VALUE')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
-            const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            //const amountToCAD = Number(amount) / Number(configCadSendo!.value)
+            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo)
             
             const transactionToCreate: TransactionCreate = {
-                amount: roundToPreviousMultipleOfFive(amountToCAD),
+                amount: Number(amount),
                 type: typesTransaction['2'],
                 status: typesStatusTransaction['0'],
                 userId: req.user.id,
                 receiverId: destinataire.id,
                 receiverType: 'Destinataire',
-                currency: typesCurrency['3'],
-                totalAmount: roundToPreviousMultipleOfFive(amountToCAD) + Number(configTransferFees!.value),
+                currency: typesCurrency['0'],
+                totalAmount: Number(amount) + feesToXAF,
                 description: 'Transfert CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: destinataire.provider,
-                sendoFees: Number(configTransferFees!.value),
-                exchangeRates: Number(configCadSendo!.value) - Number(configCadReal!.value)
+                sendoFees: feesToXAF,
+                exchangeRates: Number(configCadReal!.value) - Number(configCadSendo!.value)
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
             logger.info("Transfert initié", {
-                amount: amount,
+                amount: Number(amount),
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`,
                 receiver: `Destinataire ID : ${destinataire.id} - ${destinataire.firstname} ${destinataire.lastname}`
             });

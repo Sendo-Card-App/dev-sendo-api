@@ -276,7 +276,7 @@ class UserService {
             include: [{ 
                 model: WalletModel, 
                 as: 'wallet', 
-                attributes: ['id', 'balance', 'matricule', 'status'] 
+                attributes: ['id', 'balance', 'matricule', 'status', 'currency'] 
             }]
         });
     }

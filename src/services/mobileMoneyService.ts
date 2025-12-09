@@ -258,7 +258,7 @@ class MobileMoneyService {
         for (const ref of referrals) {
             const usedBy = ref.usedBy || []; 
             const exists = usedBy.some(
-                (item: { userId: number; isUsed: boolean }) => item.userId === userId
+                (item: { userId: number; isUsed: boolean }) => (item.userId === userId && item.isUsed === false)
             );
             if (exists) return { referralExists: !!ref, referral: ref };
         }
@@ -308,7 +308,15 @@ class MobileMoneyService {
             await transactionService.createTransaction(transactionToReceiver)
 
             // On met à jour la propriété isUsed du code de parrainage
-            await response.referral.update({ isUsed: true });
+            await response.referral.update({
+                isUsed: true,
+                usedBy: response.referral.usedBy.map((item: { userId: number; isUsed: boolean }) => {
+                    if (item.userId === user.id) {
+                        return { ...item, isUsed: true };
+                    }
+                    return item;
+                })
+            });
         }
     }
 }

@@ -374,11 +374,11 @@ class TontineService {
                 method: typesMethodTransaction['3'],
                 description: `Cotisation tontine #${data.tontineId}`
             };
-            await transactionService.createTransaction(transaction);
+            await transactionService.createTransaction(transaction, { transaction: t});
 
             // 6. Mise à jour du statut de la cotisation
             cotisationComplete.statutPaiement = 'VALIDATED';
-            await cotisationComplete.save();
+            await cotisationComplete.save({ transaction: t });
 
             // 7. Incrément du solde du compte séquestre
             await CompteSequestreModel.increment('soldeActuel', {
@@ -386,7 +386,6 @@ class TontineService {
                 where: { tontineId: data.tontineId },
                 transaction: t
             });
-
 
             //On notifie l'admin de la tontine
             const emailAdmin = tontine.admin?.user?.email;
@@ -423,7 +422,7 @@ class TontineService {
                     token: tokenExpoAdmin.token,
                     type: 'TONTINE'
                 }); 
-            }
+            } 
 
             //Envoyer une notification au cotiseur de la tontine
             const tokenExpoMembre = await notificationService.getTokenExpo(cotisationComplete.membre?.user?.id ?? 0)

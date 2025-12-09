@@ -385,7 +385,8 @@ class MobileMoneyController {
                 sendoFees: parseInt(`${fees}`),
                 description: "Dépôt sur le portefeuille",
                 receiverId: req.user!.id,
-                receiverType: 'User'
+                receiverType: 'User',
+                accountNumber: phone
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
@@ -544,7 +545,8 @@ class MobileMoneyController {
                 sendoFees: parseInt(`${fees}`),
                 description: "Retrait sur le portefeuille",
                 receiverId: req.user!.id,
-                receiverType: 'User'
+                receiverType: 'User',
+                accountNumber: phone
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
@@ -636,6 +638,9 @@ class MobileMoneyController {
                     token: token?.token ?? '',
                     type: 'SUCCESS_WITHDRAWAL_WALLET'
                 })
+
+                // On envoie le gain si nécessaire
+                await mobileMoneyService.sendGiftForReferralCode(req.user)
             }
 
             logger.info("Débit neero initié", {

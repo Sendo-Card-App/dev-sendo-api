@@ -44,7 +44,7 @@ class CashinService {
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard?.id,
-                        description: object.reference,
+                        description: `Frais de service #${object.reference}`,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
@@ -80,7 +80,7 @@ class CashinService {
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard.id,
-                        description: object.reference,
+                        description: `Frais de service #${object.reference}`,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
@@ -125,7 +125,7 @@ class CashinService {
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard.id,
-                        description: object.reference,
+                        description: `Frais de service #${object.reference}`,
                         partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
@@ -147,16 +147,16 @@ class CashinService {
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard!.id,
-                        description: `Paiement des frais de rejet : #${object.reference}`,
+                        description: `Frais de rejet : #${object.denialReason}`,
                         receiverId: userId!,
                         receiverType: 'User',
                         sendoFees: sendoFees
                     }
                     await transactionService.createTransaction(transactionToCreate)
 
-                    if (transaction && transaction.card!.paymentRejectNumber > 1) {
-                        transaction.card!.paymentRejectNumber = 0;
-                        await transaction.card!.save();
+                    if (virtualCard.paymentRejectNumber > 1) {
+                        virtualCard.paymentRejectNumber = 0;
+                        await virtualCard.save();
                     }
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
@@ -185,7 +185,7 @@ class CashinService {
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard!.id,
-                        description: `Paiement des frais de rejet : #${object.reference}`,
+                        description: `Frais de rejet : #${object.denialReason}`,
                         receiverId: userId!,
                         receiverType: 'User',
                         sendoFees: sendoFees

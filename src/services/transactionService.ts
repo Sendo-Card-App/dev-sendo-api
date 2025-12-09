@@ -96,8 +96,7 @@ class TransactionService {
                     include: [
                         {
                             model: WalletModel,
-                            as: 'wallet',
-                            attributes: ['matricule', 'balance', 'userId', 'status']
+                            as: 'wallet'
                         }
                     ]
                 },
@@ -127,8 +126,7 @@ class TransactionService {
                     attributes: ['id', 'firstname', 'lastname', 'email', 'phone'],
                     include: [{
                         model: WalletModel,
-                        as: 'wallet',
-                        attributes: ['matricule', 'balance', 'userId', 'status']
+                        as: 'wallet'
                     }]
                 },
                 {

@@ -24,6 +24,8 @@ import PaymentMethodModel from './payment-method.model';
 import CardTransactionDebtsModel from './card-transaction-debts.model';
 import sequelize from '@config/db';
 import MerchantModel from './merchant.model';
+import ReferralCodeModel from './referral-code.model';
+import logger from '@config/logger';
 
 class UserModel extends Model<
   InferAttributes<UserModel>,
@@ -37,8 +39,6 @@ class UserModel extends Model<
         | 'numberOfCardsCreated'
         | 'isVerifiedPhone'
         | 'picture'
-        | 'referralCode'
-        | 'referredBy'
         | 'profession'
         | 'status'
         | 'region'
@@ -70,8 +70,6 @@ class UserModel extends Model<
   declare isVerifiedKYC: boolean;
   declare picture: string;
   declare passcode: string;
-  declare referralCode: string;
-  declare referredBy: number;
   declare numberOfCardsCreated: number;
   declare numberFailureConnection: number;
   declare createdAt: CreationOptional<Date>;
@@ -90,6 +88,7 @@ class UserModel extends Model<
   declare paymentMethod?: NonAttribute<PaymentMethodModel>;
   declare debts?: NonAttribute<CardTransactionDebtsModel[]>;
   declare merchant?: NonAttribute<MerchantModel>;
+  declare usedCodes?: NonAttribute<ReferralCodeModel[]>;
   //declare requests?: NonAttribute<RequestModel[]>;
   declare static associations: {
     roles: Association<UserModel, RoleModel>;
@@ -249,19 +248,6 @@ UserModel.init(
       },
       allowNull: true,
     },
-    referralCode: {
-      type: DataTypes.STRING(8),
-      unique: true,
-      allowNull: true,
-    },
-    referredBy: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
     isVerifiedKYC: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -295,7 +281,7 @@ UserModel.init(
         }
 
         // Génération du code de parrainage unique
-        if (!user.referralCode) {
+        /*if (!user.referralCode) {
           let code;
           let exists = true;
           do {
@@ -304,9 +290,10 @@ UserModel.init(
             if (!userWithCode) exists = false;
           } while (exists);
           user.referralCode = code;
-        }
+        }*/
       },
       afterCreate: async (user) => {
+        // Attribution du rôle par défaut "Utilisateur"
         const role = await RoleModel.findByPk(8);
         if (role) {
           await UserRoleModel.create({
@@ -314,12 +301,25 @@ UserModel.init(
             roleId: role.id,
           });
         }
+
+        // Création du wallet associé
+        const matricule = generateMatriculeWallet();
         await WalletModel.create({
           balance: 0,
           userId: user.id,
           currency: user.country === 'Cameroon' ? 'XAF' : 'CAD',
-          matricule: generateMatriculeWallet(),
+          matricule
         });
+        logger.info(`Wallet généré pour ${user.email}: ${matricule}`);
+
+        // Code de parrainage généré automatiquement
+        const code = generateAlphaNumeriqueString(8).toUpperCase();
+        await ReferralCodeModel.create({
+          code,
+          userId: user.id,
+          isUsed: false
+        });
+        logger.info(`Code parrainage généré pour ${user.email}: ${code}`);
       },
       beforeUpdate: async (user) => {
         if (user.password && !user.password.startsWith('$2b$')) {

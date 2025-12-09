@@ -34,15 +34,8 @@ import { CommissionModel } from './commission.model';
 import TransactionPartnerFeesModel from './transaction-partner-fees.model';
 import MerchantModel from './merchant.model';
 import PartnerWithdrawalsModel from './partner-withdrawals.model';
+import ReferralCodeModel from './referral-code.model';
 
-  UserModel.belongsTo(UserModel, {
-    as: 'referrer',
-    foreignKey: 'referredBy'
-  });
-  UserModel.hasOne(UserModel, {
-    as: 'referral',
-    foreignKey: 'referredBy'
-  });
 
   /** -------------------------------
    * User ↔ Role (Many-to-Many)
@@ -261,6 +254,22 @@ import PartnerWithdrawalsModel from './partner-withdrawals.model';
   PartnerWithdrawalsModel.belongsTo(MerchantModel, { foreignKey: 'partnerId', as: 'partner' })
   MerchantModel.hasMany(PartnerWithdrawalsModel, { foreignKey: 'partnerId', as: 'withdrawals' })
 
+  // Un code appartient à un user
+  ReferralCodeModel.belongsTo(UserModel, { 
+    foreignKey: 'userId', 
+    as: 'owner' 
+  });
+  ReferralCodeModel.belongsTo(WalletModel, { 
+    foreignKey: 'userId', 
+    as: 'wallet' 
+  });
+
+  // Liaison inverse: codes utilisés par un user
+  /*UserModel.hasMany(ReferralCodeModel, { 
+    foreignKey: 'usedBy',  // Via JSON parsing
+    as: 'usedCodes' 
+  });*/
+
 export {
   RoleModel,
   UserModel,
@@ -293,4 +302,5 @@ export {
   DestinataireModel,
   CodePhoneModel,
   CardTransactionDebtsModel,
+  ReferralCodeModel
 };

@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import authService from "@services/authService";
 import logger from "@config/logger";
 import { generateTokens, verifyToken } from "@config/jwt";
-import { TokenModel, UserModel, WalletModel } from "@models/index.model";
+import { ReferralCodeModel, TokenModel, UserModel, WalletModel } from "@models/index.model";
 import { v4 as uuidv4 } from 'uuid';
 import { generateVerificationToken } from '@services/tokenService';
 import { typesStatusUser, typesToken } from "@utils/constants";
@@ -44,62 +44,92 @@ class AuthController {
         return sendError(res, 400, 'Tous les champs obligatoires doivent être remplis');
       }
 
-      let referredByUserId = null;
-      let referrer = null;
-      if (referralCode) {
-        referrer = await userService.getUserReferralCode(referralCode)
-        if (referrer) {
-          referredByUserId = referrer.id;
-        } /*else {
-          return sendError(res, 400, 'Code de parrainage invalide');
-        }*/
-      }
-
+      // 1. Créer l'utilisateur SANS code parrainage d'abord
       const user = await authService.register({
-        firstname,
-        lastname,
-        email,
+        firstname: firstname.trim() || firstname,
+        lastname: lastname.trim() || lastname,
+        email: email.trim().toLowerCase() || email,
         phone,
         address,
         password,
-        referredBy: referredByUserId,
         country,
         dateOfBirth,
         placeOfBirth
       });
 
       if (user) {
-        if (referrer) {
-          const config = await configService.getConfigByName("SPONSORSHIP_FEES")
-          if (referrer.wallet?.matricule && config && user.wallet?.matricule) {
-            await walletService.creditWallet(referrer.wallet.matricule, Number(config.value));
-            await walletService.creditWallet(user.wallet.matricule, Number(config.value));
-            await successCreatingAccountWithYourRefferalCode(referrer, user, config.value);
-          } else {
-            throw new Error("Portefeuille du refferer introuvable");
+        // 2. Gérer le code de parrainage APRÈS création
+        let referrer = null;
+        if (referralCode) {
+          referrer = await ReferralCodeModel.findOne({ 
+            where: { code: referralCode },
+            include: [{ model: UserModel, as: 'owner' }]
+          });
+          
+          if (!referrer) {
+            return sendError(res, 400, 'Code de parrainage invalide');
+          }
+          
+          /*if (referrer.usedBy.length >= (referrer.maxUses || 1)) {
+            return sendError(res, 400, 'Code de parrainage épuisé');
+          }*/
+          
+          // Marquer comme utilisé
+          const currentUsedBy = Array.isArray(referrer.usedBy) ? referrer.usedBy : [];
+          const newUsedBy = [
+            ...currentUsedBy, 
+            {
+              userId: user.id,
+              isUsed: false
+            }
+          ];
+
+          await ReferralCodeModel.update({
+            isUsed: false,
+            usedBy: newUsedBy,
+          }, { where: { id: referrer.id } });
+          
+          // Créditer les bonus
+          const config = await configService.getConfigByName("SPONSORSHIP_FEES");
+          if (
+            referrer.owner && 
+            referrer.owner.wallet?.matricule && 
+            config && 
+            user.wallet?.matricule
+          ) {
+            await successCreatingAccountWithYourRefferalCode(referrer.owner, user, config.value);
           }
         }
-        
-        const code = generateNumericCode(6)
+
+        // 3. Créer code SMS de vérification
+        const code = generateNumericCode(6);
         await CodePhoneModel.create({
           userId: user.id,
           phone: user.phone,
           code
-        })
-        await successCreatingAccount(user, code)
+        });
+        
+        const message = referrer 
+          ? 'Compte créé avec succès via parrainage !' 
+          : 'Compte créé - Vérifiez votre SMS';
+        await successCreatingAccount(user, code);
 
-        logger.info("Nouvel utilisateur créé", { user: user.firstname+' '+user.lastname });
+        logger.info("Nouvel utilisateur créé", { 
+          user: `${user.firstname} ${user.lastname}`,
+          referralUsed: !!referrer 
+        });
       }
 
-      // Génération du token de vérification
+      // 4. Token email vérification
       const verificationToken = generateVerificationToken();
       await TokenModel.create({
         token: verificationToken,
-        userId: user?.id,
+        userId: user!.id,
         tokenType: typesToken['1']
       });
       
-      sendResponse(res, 201, 'Utilisateur créé - Vérifiez votre email', user);
+      sendResponse(res, 201, 'Utilisateur créé - Vérifiez votre SMS', user);
+      
     } catch (error: any) {
       if (error.name === 'SequelizeValidationError') {
         const messages = error.errors.map((err: any) => err.message);
@@ -109,7 +139,7 @@ class AuthController {
       if (error.message.includes('déjà')) {
         return sendError(res, 409, error.message);
       }
-  
+      
       sendError(res, 500, 'Erreur serveur', [error.message]);
     }
   }

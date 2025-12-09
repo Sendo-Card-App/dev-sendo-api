@@ -13,6 +13,14 @@ import { ApiErrorResponse, PaymentErrorResponse } from '../utils/apiResponse';
 import UserModel from '../models/user.model';
 import PaymentMethodModel from '../models/payment-method.model';
 import { detectOtherMoneyTransferType } from '../utils/functions';
+import ReferralCodeModel from '@models/referral-code.model';
+import { col, fn, literal, Op, where } from 'sequelize';
+import WalletModel from '@models/wallet.model';
+import configService from './configService';
+import walletService from './walletService';
+import { TransactionCreate } from '../types/Transaction';
+import { typesCurrency, typesMethodTransaction, typesTransaction } from '@utils/constants';
+import transactionService from './transactionService';
 
 
 class MobileMoneyService {
@@ -233,6 +241,84 @@ class MobileMoneyService {
         return await neeroService.findOrSavePaymentMethod(paymentMethodModel)
     }
     
+    public async hasUsedReferralCode(userId: number) {
+        const referrals = await ReferralCodeModel.findAll({
+            where: {
+                isUsed: false,
+                [Op.and]: [
+                    where(fn('LENGTH', col('usedBy')), '>', 0)
+                ]
+            },
+            include: [{
+                model: WalletModel,
+                as: 'wallet'
+            }]
+        });
+
+        for (const ref of referrals) {
+            const usedBy = ref.usedBy || []; 
+            const exists = usedBy.some(
+                (item: { userId: number; isUsed: boolean }) => (item.userId === userId && item.isUsed === false)
+            );
+            if (exists) return { referralExists: !!ref, referral: ref };
+        }
+
+        return { referralExists: false, referral: null };
+    }
+
+    public async sendGiftForReferralCode(user: UserModel) {
+        // Vérification de l'utilisation de son code de parrainage
+        const response = await this.hasUsedReferralCode(user.id);
+        const config = await configService.getConfigByName("SPONSORSHIP_FEES");
+        if (
+            response.referralExists && 
+            config && 
+            user.wallet &&
+            response.referral
+        ) {
+            //On crédite les portefeuilles concernés
+            await walletService.creditWallet(response.referral.wallet!.matricule, Number(config.value));
+            const transactionToRefferer: TransactionCreate = {
+                amount: Number(config.value),
+                type: typesTransaction['10'],
+                status: 'COMPLETED',
+                userId: response.referral.userId,
+                currency: typesCurrency['0'],
+                totalAmount: Number(config.value),
+                method: typesMethodTransaction['3'],
+                description: "Gain parrainage",
+                receiverId: response.referral.userId,
+                receiverType: 'User'
+            }
+            await transactionService.createTransaction(transactionToRefferer)
+
+            await walletService.creditWallet(user.wallet.matricule, Number(config.value));
+            const transactionToReceiver: TransactionCreate = {
+                amount: Number(config.value),
+                type: typesTransaction['10'],
+                status: 'COMPLETED',
+                userId: user.id,
+                currency: typesCurrency['0'],
+                totalAmount: Number(config.value),
+                method: typesMethodTransaction['3'],
+                description: "Gain parrainage",
+                receiverId: user.id,
+                receiverType: 'User'
+            }
+            await transactionService.createTransaction(transactionToReceiver)
+
+            // On met à jour la propriété isUsed du code de parrainage
+            await response.referral.update({
+                isUsed: true,
+                usedBy: response.referral.usedBy.map((item: { userId: number; isUsed: boolean }) => {
+                    if (item.userId === user.id) {
+                        return { ...item, isUsed: true };
+                    }
+                    return item;
+                })
+            });
+        }
+    }
 }
 
 export default new MobileMoneyService();

@@ -141,14 +141,14 @@ class AdminService {
     }
 
     async findRoleById(id: number) {
-        const cacheKey = `roleById:${id}`;
+        /*const cacheKey = `roleById:${id}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const role = await RoleModel.findByPk(id);
         if (!role) throw new Error("Role introuvable");
 
-        await redisClient.set(cacheKey, JSON.stringify(role), { EX: REDIS_TTL });
+        //await redisClient.set(cacheKey, JSON.stringify(role), { EX: REDIS_TTL });
         return role;
     }
 

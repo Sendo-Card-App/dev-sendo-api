@@ -16,6 +16,7 @@ import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/
 import notificationService from "@services/notificationService";
 import PaymentMethodModel from "@models/payment-method.model";
 import logger from "@config/logger";
+import mobileMoneyService from "@services/mobileMoneyService";
 
 class CardController {
     async createCard(req: Request, res: Response) {
@@ -53,16 +54,16 @@ class CardController {
                 if (config && user.wallet && config.value > 0) {
                     await walletService.debitWallet(
                         user?.wallet?.matricule, 
-                        config.value
+                        Number(config.value)
                     )
                     const transaction: TransactionCreate = {
-                        amount: config.value,
+                        amount: Number(config.value),
                         userId: user.id,
                         type: 'PAYMENT',
                         description: 'Frais de création de carte',
                         status: 'COMPLETED',
                         currency: 'XAF',
-                        totalAmount: config.value,
+                        totalAmount: Number(config.value),
                         receiverId: user.id,
                         receiverType: 'User'
                     }
@@ -75,16 +76,16 @@ class CardController {
                     if (config && user?.wallet && config.value > 0) {
                         await walletService.debitWallet(
                             user?.wallet?.matricule, 
-                            config.value
+                            Number(config.value)
                         )
                         const transaction: TransactionCreate = {
-                            amount: config.value,
+                            amount: Number(config.value),
                             userId: user.id,
                             type: 'PAYMENT',
                             description: 'Frais de création de carte',
                             status: 'COMPLETED',
                             currency: 'XAF',
-                            totalAmount: config.value,
+                            totalAmount: Number(config.value),
                             receiverId: user.id,
                             receiverType: 'User'
                         }
@@ -168,16 +169,16 @@ class CardController {
                 if (config && user.wallet && config.value > 0) {
                     await walletService.debitWallet(
                         user?.wallet?.matricule, 
-                        config.value
+                        Number(config.value)
                     )
                     const transaction: TransactionCreate = {
-                        amount: config.value,
+                        amount: Number(config.value),
                         userId: user.id,
                         type: 'PAYMENT',
                         description: 'Frais de création de carte',
                         status: 'COMPLETED',
                         currency: 'XAF',
-                        totalAmount: config.value,
+                        totalAmount: Number(config.value),
                         receiverId: user.id,
                         receiverType: 'User'
                     }
@@ -190,16 +191,16 @@ class CardController {
                     if (config && user?.wallet && config.value > 0) {
                         await walletService.debitWallet(
                             user?.wallet?.matricule, 
-                            config.value
+                            Number(config.value)
                         )
                         const transaction: TransactionCreate = {
-                            amount: config.value,
+                            amount: Number(config.value),
                             userId: user.id,
                             type: 'PAYMENT',
                             description: 'Frais de création de carte',
                             status: 'COMPLETED',
                             currency: 'XAF',
-                            totalAmount: config.value,
+                            totalAmount: Number(config.value),
                             receiverId: user.id,
                             receiverType: 'User'
                         }
@@ -327,7 +328,7 @@ class CardController {
 
             logger.info("Demande d'onboarding soumise à Neero", {
                 status: submit.status,
-                user: partySession && partySession.user ? `User ID : ${partySession.user.id} - ${partySession.user.firstname} ${partySession.user.lastname}` : 'Utilisateur non trouvé'
+                user: (partySession && partySession.user) ? `User ID : ${partySession.user.id} - ${partySession.user.firstname} ${partySession.user.lastname}` : 'Utilisateur non trouvé'
             });
 
             sendResponse(res, 200, 'Documents soumis', submit)
@@ -393,11 +394,88 @@ class CardController {
                     method: 'WALLET'
                 }
                 await transactionService.createTransaction(transaction)
+
+                // On envoie le gain si nécessaire
+                await mobileMoneyService.sendGiftForReferralCode(user)
             }
 
             logger.info("Demande de création de carte initiée", {
                 documentType: documentType,
                 user: `User ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}`
+            });
+
+            sendResponse(res, 201, "Envoie réussie", response)
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message])
+        }
+    }
+
+    async askCreatingCardByAdmin(req: Request, res: Response) {
+        const { documentType, userId } = req.body
+        try {
+            if (!req.user || !req.user.id) {
+                sendError(res, 403, "Utilisateur non authentifié");
+                return;
+            }
+            if (!documentType || !userId) {
+                sendError(res, 401, "Veuillez fournir le documentType et le userId");
+                return;
+            }
+
+            const partySession = await cardService.getPartySession(Number(userId))
+            if (partySession) {
+                const onboardingUser = await cardService.getOnboardingSessionUser(Number(userId))
+                if (onboardingUser.onboardingSession.onboardingSessionStatus == 'UNDER_VERIFICATION') {
+                    sendError(res, 403, "Votre demande d'onboarding n'a pas encore été validé")
+                    return;
+                }
+                if (onboardingUser.onboardingSession.onboardingSessionStatus == 'VERIFIED') {
+                    sendError(res, 403, "Vous possédez déjà une carte virtuelle active")
+                    return; 
+                }
+            }
+
+            // On récupère le montant des frais de création de carte
+            const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
+            const user = await userService.getUserById(Number(userId))
+
+            if (config && user && user.wallet!.balance < config!.value) {
+                throw new Error("Veuillez recharger votre portefeuille")
+            }
+
+            const response = await cardService.createOnboardingSessionHandler(Number(userId), documentType)
+            if (!response) {
+                throw new Error("Erreur lors de l'initiation d'un onboarding Neero")
+            }
+
+            if (config && user && user.wallet!.balance >= config!.value) {
+                await walletService.debitWallet(
+                    user.wallet!.matricule, 
+                    config.value
+                )
+                const transaction: TransactionCreate = {
+                    amount: 0,
+                    userId: user.id,
+                    type: 'PAYMENT',
+                    description: 'Frais de création de carte',
+                    status: 'COMPLETED',
+                    currency: 'XAF',
+                    totalAmount: Number(config.value),
+                    receiverId: user.id,
+                    receiverType: 'User',
+                    sendoFees: Number(config.value),
+                    method: 'WALLET'
+                }
+                await transactionService.createTransaction(transaction)
+
+                // On envoie le gain si nécessaire
+                await mobileMoneyService.sendGiftForReferralCode(user)
+            }
+
+            logger.info("Demande de création de carte initiée", {
+                documentType: documentType,
+                user: `User ID : ${Number(userId)} - ${user!.firstname} ${user!.lastname}`,
+                admin: `Name Admin : ${req.user.firstname} ${req.user.lastname}`
             });
 
             sendResponse(res, 201, "Envoie réussie", response)

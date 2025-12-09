@@ -86,7 +86,6 @@ class KycController {
             const documents = JSON.parse(req.body.documents) as any[];
             const files = req.files as Express.Multer.File[];
             const country = req.user.country;
-            console.log('kyc files : ', documents)
 
             if (!Array.isArray(documents) || documents.length === 0) {
                 throw new Error('Aucun document à uploader');
@@ -124,8 +123,8 @@ class KycController {
 
                 // Validation spécifique pour Cameroon
                 if (country === "Cameroon" && type === 'ID_PROOF') {
-                    if (!idDocumentNumber || !expirationDate || !taxIdNumber) {
-                        errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité, sa date d'expiration et le numéro NIU`);
+                    if (!idDocumentNumber || !expirationDate) {
+                        errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
                         continue;
                     }
                 }
@@ -144,7 +143,7 @@ class KycController {
                 if (
                     country === "Cameroon" &&
                     type === "ID_PROOF" &&
-                    idDocumentNumber && taxIdNumber && expirationDate
+                    idDocumentNumber && expirationDate
                 ) {
                     doc = await KycDocumentModel.create({
                         userId: req.user.id,

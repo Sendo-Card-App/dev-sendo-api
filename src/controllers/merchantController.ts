@@ -15,7 +15,6 @@ import configService from "@services/configService";
 import neeroService, { CashOutPayload } from "@services/neeroService";
 import mobileMoneyService from "@services/mobileMoneyService";
 import PaymentMethodModel from "@models/payment-method.model";
-import { wait } from "./mobileMoneyController";
 
 
 class MerchantController {

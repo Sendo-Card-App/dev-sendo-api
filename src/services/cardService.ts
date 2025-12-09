@@ -61,14 +61,15 @@ class CardService {
     }
 
     async getPartySession(userId?: number, partyKey?: string, sessionId?: string) {
-        const cacheKey = `partySession:${userId ?? ''}:${partyKey ?? ''}:${sessionId ?? ''}`;
+        /*const cacheKey = `partySession:${userId ?? ''}:${partyKey ?? ''}:${sessionId ?? ''}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) return JSON.parse(cached);*/
 
         const where: Record<string, any> = {};
         if (userId) where.userId = userId;
         if (partyKey) where.partyKey = partyKey;
         if (sessionId) where.sessionId = sessionId;
+        where.status = { [Op.ne]: 'REFUSED_TIMEOUT' };
 
         const result = await PartyCard.findOne({
             where,
@@ -76,12 +77,13 @@ class CardService {
                 model: UserModel,
                 as: 'user',
                 attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
-            }]
+            }],
+            order: [['createdAt', 'DESC']]
         });
 
-        if (result) {
+        /*if (result) {
             await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
-        }
+        }*/
         return result;
     }
 
@@ -191,7 +193,7 @@ class CardService {
         };
 
         const partySession = await this.getPartySession(userId)
-        if (partySession) {
+        if (partySession && partySession.status !== 'REFUSED_TIMEOUT') {
             throw new Error("Vous avez déjà une demande en cours...")
         }
 

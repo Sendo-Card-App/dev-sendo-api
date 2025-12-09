@@ -6,6 +6,9 @@ import { Request } from 'express';
 import axios from 'axios';
 import { extname } from 'path';
 import transactionService from '@services/transactionService';
+import UserModel from '@models/user.model';
+import ReferralCodeModel from '@models/referral-code.model';
+import sequelize from '@config/db';
 
 // Interface pour représenter un fichier téléchargé
 export interface DownloadedFile {
@@ -403,4 +406,40 @@ export async function canInitiateTransaction(
   const currentTimestamp = Date.now();
   const diffMinutes = (currentTimestamp - lastTimestamp) / (1000 * 60);
   return diffMinutes >= 3;
+}
+
+export async function migrateReferralCodes() {
+  // 1. Trouver users SANS code (requête raw → pas d'associations)
+  const usersWithoutCodeResult = await sequelize.query(`
+    SELECT u.id 
+    FROM users u 
+    LEFT JOIN referral_codes rc ON u.id = rc.userId 
+    WHERE rc.id IS NULL
+  `, { 
+    type: 'SELECT'
+  });
+
+  const usersWithoutCode = usersWithoutCodeResult as { id: number }[];
+
+  for (const userRecord of usersWithoutCode) {
+    let code: string;
+    let exists: any;
+    
+    // Générer code unique
+    do {
+      code = generateAlphaNumeriqueString(8).toUpperCase();
+      exists = await ReferralCodeModel.findOne({ where: { code } });
+    } while (exists);
+    
+    // Créer code
+    await ReferralCodeModel.create({
+      code,
+      userId: userRecord.id,
+      isUsed: false
+    });
+    
+    console.log(`✅ Code ${code} généré pour user ${userRecord.id}`);
+  }
+  
+  console.log(`Migration terminée ! ${usersWithoutCode.length} codes générés`);
 }

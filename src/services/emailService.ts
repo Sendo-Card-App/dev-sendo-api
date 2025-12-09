@@ -80,8 +80,8 @@ export const sendUserMail = async (
                     <li><b>Mot de passe : </b>${password}</li>
                     ${typeAccount != 'Customer' ? `
                         <li><b>Type de compte agent : </b>${typeAccount}</li>
-                        <li><b>Cliquez ici pour vous connecter : </b>${process.env.APP_URL_MERCHANT_AUTH}</li>` :
-                        `<li><b>Cliquez ici pour vous connecter : </b>${process.env.APP_URL_FRONTEND_AUTH}</li>`
+                        <li><b>Cliquez ici pour vous connecter : </b><a href='${process.env.APP_URL_MERCHANT_AUTH}'>${process.env.APP_URL_MERCHANT_AUTH}</a></li>` :
+                        `<li><b>Cliquez ici pour vous connecter : </b><a href='${process.env.APP_URL_FRONTEND_AUTH}'>${process.env.APP_URL_FRONTEND_AUTH}</a></li>`
                     }
                 </ul>
             `
@@ -93,7 +93,7 @@ export const successCreatingAccount = async (user: UserModel, code: string) => {
     await transporter.sendMail({
         from: sender,
         to: user.email,
-        subject: 'Nouveau compte SENDO créé',
+        subject: 'Nouveau compte Sendo créé',
         category: 'Création de compte',
         html: basicEmailTemplate(
             `
@@ -249,14 +249,14 @@ export const successCreatingAccountWithYourRefferalCode = async (owner: UserMode
     await transporter.sendMail({
         from: sender,
         to: owner.email,
-        subject: 'Utilisation code de parrainage',
+        subject: 'Compte Sendo créé avec succès via parrainage !',
         category: 'Création de compte',
         html: basicEmailTemplate(
             `
                 <h1>Utilisation code de parrainage</h1>
                 <p>${owner.firstname} ${owner.lastname}</p>
                 <p>${referred.firstname} ${referred.lastname} a utilisé votre code de parrainage pour créer son compte.</p>
-                <p>Vous recevez donc sur votre portefeuille comme cadeau la somme de ${profit} XAF.</p>
+                <p>Vous recevez donc sur votre portefeuille comme cadeau la somme de ${profit} XAF après qu'il aura effectué une première transaction d'achat.</p>
             `
         )
     });

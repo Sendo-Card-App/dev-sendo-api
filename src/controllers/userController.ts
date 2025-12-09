@@ -14,6 +14,7 @@ import Expo from 'expo-server-sdk';
 import CodePhoneModel from '@models/code-phone.model';
 import UserModel from '@models/user.model';
 import MerchantModel from '@models/merchant.model';
+import ReferralCodeModel from '@models/referral-code.model';
 
 
 class UserController {
@@ -77,14 +78,17 @@ class UserController {
       dateOfBirth,
       placeOfBirth
     };
-    
+
     try {
       const user = await authService.register(newUser);
       if (user) {
         const role = await adminService.findRoleById(parseInt(roleId))
         await adminService.attributeRoleUser(user.id, role.id)
         
-        if (role.name === 'MERCHANT' && typeMerchantAccount) {
+        if (
+          role.name === 'MERCHANT' && 
+          (typeMerchantAccount == 'Particulier' || typeMerchantAccount == 'Entreprise')
+        ) {
           await adminService.createMerchant(
             user.id, 
             typeMerchantAccount as 'Particulier' | 'Entreprise'
@@ -109,7 +113,8 @@ class UserController {
       }
 
       logger.info("Nouvel user créé avec le nom : ", {
-        user: `${user.firstname} ${user.lastname}`
+        user: `${user.firstname} ${user.lastname}`,
+        typeMerchantAccount: `${typeMerchantAccount ? typeMerchantAccount : 'Customer'}`
       });
 
       sendResponse(res, 201, 'Utilisateur créé', user);
@@ -137,7 +142,7 @@ class UserController {
         return sendError(res, 400, 'Utilisateur non authentifié ou ID invalide');
       }
       
-      let user: UserModel | MerchantModel | null;
+      let user;
       const isMerchant = Array.isArray(req.user.roles) && req.user.roles.some(role => role.name === 'MERCHANT');
 
       if (isMerchant) {
@@ -381,29 +386,29 @@ class UserController {
 
   async saveOrUpdateTokenExpoUser(req: Request, res: Response) {
     const { token, userId } = req.body;
-      try {
-        if (!userId || !token) {
-            throw new Error('Veuillez fournir l\'id du user et le token');
-        }
-        if (!Expo.isExpoPushToken(token)) {
-            return sendError(res, 400, 'Le token fourni n\'est pas un token Expo valide');
-        }
+    try {
+      if (!userId || !token) {
+        throw new Error('Veuillez fournir l\'id du user et le token');
+      }
+      if (!Expo.isExpoPushToken(token)) {
+        return sendError(res, 400, 'Le token fourni n\'est pas un token Expo valide');
+      }
 
-        const userIdInt = Number(userId);
-        if (!Number.isInteger(userIdInt)) {
-          return sendError(res, 400, 'userId invalide');
-        }
+      const userIdInt = Number(userId);
+      if (!Number.isInteger(userIdInt)) {
+        return sendError(res, 400, 'userId invalide');
+      }
 
-        const data = {
-          token,
-          tokenType: typesToken['4'],
-          userId: userIdInt
-        };
-        const tokenCreated = await userService.saveOrUpdateTokenExpoUser(data);
+      const data = {
+        token,
+        tokenType: typesToken['4'],
+        userId: userIdInt
+      };
+      const tokenCreated = await userService.saveOrUpdateTokenExpoUser(data);
 
-        sendResponse(res, 200, 'Token Expo récupéré ou créé avec succès', tokenCreated);
+      sendResponse(res, 200, 'Token Expo récupéré ou créé avec succès', tokenCreated);
     } catch (error: any) {
-        sendError(res, 500, 'Erreur lors de l\'enregistrement ou la mise à jour du token', [error.message]);
+      sendError(res, 500, 'Erreur lors de l\'enregistrement ou la mise à jour du token', [error.message]);
     }
   }
 
@@ -472,7 +477,7 @@ class UserController {
       sendError(res, 500, 'Veuillez fournir le merchant ID');
     }
     try {
-      const merchant = await userService.getMerchantByUserId(Number(id))
+      const merchant = await userService.getMerchantByUserId(undefined, Number(id))
       sendResponse(res, 200, 'Marchand récupéré', merchant)
     } catch (error: any) {
       sendError(res, 400, 'Erreur de la récupération du marchand', [error.message]);
@@ -490,8 +495,8 @@ class UserController {
       await sendGlobalEmail(
         merchantUpdated.user!.email,
         'Status de votre compte',
-        `<h4>Voici le nouveau status de votre compte :</h4>
-        <p>Status : <b>${merchantUpdated.status}</b></p>`
+        `<h4>Bonjour ${merchantUpdated.user!.firstname}, le status de votre compte a été modifié.</h4>
+        <p>Nouveau status : <b>${merchantUpdated.status}</b></p>`
       )
 
       logger.info("Status du marchant mis à jour", {

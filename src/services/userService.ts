@@ -10,7 +10,7 @@ import PhoneNumberUserModel from '@models/phone-number-user.model';
 import configService from './configService';
 import { TypesCurrency, typesToken } from '@utils/constants';
 import ConfigModel from '@models/config.model';
-import { TokenModel } from '@models/index.model';
+import { ReferralCodeModel, TokenModel } from '@models/index.model';
 import notificationService from './notificationService';
 import MerchantModel from '@models/merchant.model';
 import redisClient from '@config/cache';
@@ -208,7 +208,7 @@ class UserService {
         return user;
     }    
 
-    async getMe(id: number): Promise<UserModel> {
+    async getMe(id: number) {
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
@@ -240,14 +240,18 @@ class UserService {
                     model: TransactionModel,
                     as: 'transactions',
                     attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'],
-                    order: [['createdAt', 'DESC']]
+                    order: [['createdAt', 'DESC']],
+                    limit: 5
                 }
             ]
         });
 
         if (!user) throw new Error('Utilisateur non trouvé');
-
-        return user;
+        const referralCode = await ReferralCodeModel.findOne({ where: { userId: user.id } })
+        if (!referralCode) throw new Error('Code de parrainage non trouvé');
+        const userConverted: { user: UserModel, referralCode: ReferralCodeModel } = { user, referralCode }
+        
+        return userConverted;
     }
 
     async addSecondPhoneNumberUser(phone: string, userId: number) {
@@ -271,12 +275,19 @@ class UserService {
     }
 
     async getUserReferralCode(referralCode: string) {
-        return UserModel.findOne({ 
-            where: { referralCode: referralCode.toUpperCase() },
+        return ReferralCodeModel.findOne({ 
+            where: { 
+                code: referralCode.toUpperCase() 
+            },
             include: [{ 
-                model: WalletModel, 
-                as: 'wallet', 
-                attributes: ['id', 'balance', 'matricule', 'status', 'currency'] 
+                model: UserModel, 
+                as: 'owner', 
+                required: true,
+                include: [{
+                    model: WalletModel, 
+                    as: 'wallet', 
+                    attributes: ['id', 'balance', 'matricule', 'currency']
+                }]
             }]
         });
     }
@@ -318,22 +329,31 @@ class UserService {
     }
 
     async saveOrUpdateTokenExpoUser(tokenCreate: any) {
-        const token = await TokenModel.findOne({
-            where: {
-                userId: tokenCreate.userId,
-                tokenType: tokenCreate.tokenType
+        try {
+            if (!tokenCreate.userId || !tokenCreate.tokenType) {
+                throw new Error('userId et tokenType requises');
             }
-        });
 
-        if (!token) {
-            return await TokenModel.create(tokenCreate);
-        }
+            const token = await TokenModel.findOne({
+                where: {
+                    userId: tokenCreate.userId,
+                    tokenType: tokenCreate.tokenType
+                }
+            });
+            if (!token) {
+                return await TokenModel.create(tokenCreate);
+            }
 
-        if (token.token != tokenCreate.token) {
-            token.token = tokenCreate.token;
-            await token.save();
+            if (token.token !== tokenCreate.token) {
+                token.token = tokenCreate.token;
+                await token.save();
+            }
+
+            return await token.reload();
+        } catch (error) {
+            console.error('Erreur saveOrUpdateTokenExpoUser:', error);
+            throw error;
         }
-        return await token.reload();
     }
 
     async getMeWithKyc(id: number): Promise<UserModel> {
@@ -385,11 +405,32 @@ class UserService {
         const user = await UserModel.findByPk(id, {
             attributes: { exclude: ['password'] },
             include: [
-                { model: KycDocumentModel, as: 'kycDocuments' },
-                { model: MerchantModel, as: 'merchant' },
-                { model: WalletModel, as: 'wallet', attributes: ['id', 'balance', 'currency', 'status', 'matricule'] },
-                { model: TransactionModel, as: 'transactions', attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'], order: [['createdAt', 'DESC']] },
-                { model: RoleModel, as: 'roles', attributes: ['id', 'name'], through: { attributes: [] }}
+                { 
+                    model: KycDocumentModel, 
+                    as: 'kycDocuments' 
+                },
+                { 
+                    model: MerchantModel, 
+                    as: 'merchant' 
+                },
+                { 
+                    model: WalletModel, 
+                    as: 'wallet', 
+                    attributes: ['id', 'balance', 'currency', 'matricule'] 
+                },
+                { 
+                    model: TransactionModel, 
+                    as: 'transactions', 
+                    attributes: ['id', 'amount', 'type', 'status', 'receiverId', 'createdAt'], 
+                    order: [['createdAt', 'DESC']],
+                    limit: 10
+                },
+                { 
+                    model: RoleModel, 
+                    as: 'roles', 
+                    attributes: ['id', 'name'], 
+                    through: { attributes: [] }
+                }
             ]
         });
 
@@ -447,13 +488,20 @@ class UserService {
         return merchants;
     }
 
-    async getMerchantByUserId(userId: number) {
+    async getMerchantByUserId(userId?: number, merchantId?: number) {
         /*const cacheKey = `merchantByUserId:${userId}`;
         const cached = await redisClient.get(cacheKey);
         if (cached) return JSON.parse(cached);*/
+        const where: Record<string, any> = {};
+        if (merchantId) {
+            where.id = merchantId;
+        }
+        if (userId) {
+            where.userId = userId;
+        }
 
         const merchant = await MerchantModel.findOne({
-            where: { userId },
+            where,
             include: [{ 
                 model: UserModel,
                 as: 'user',

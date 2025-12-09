@@ -35,8 +35,6 @@ export interface UserCreate {
     region?: string;
     city?: string;
     district?: string;
-    referralCode?: string | undefined;
-    referredBy?: number | undefined | null;
 }
 
 export interface UserUpdate {

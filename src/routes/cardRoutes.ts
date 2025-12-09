@@ -67,6 +67,42 @@ router.post(
 
 /**
  * @swagger
+ * /cards/onboarding/send-request-admin:
+ *   post:
+ *     summary: Faire une demande de vérification des documents pour création de carte carte virtuelle côté `ADMIN`
+ *     tags: [Virtual Cards]
+ *     description: documentType `NATIONALID` `RECEIPT` `PASSPORT`
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               documentType:
+ *                 type: string
+ *                 enum: [NATIONALID, RECEIPT, PASSPORT]
+ *                 description: Type de document
+ *               userId:
+ *                 type: number  
+ *                 description: ID de l'utilisateur                 
+ *     responses:
+ *       201:
+ *         description: Demande envoyée, vérification en attente
+ */
+router.post(
+    '/onboarding/send-request-admin',
+    authMiddleware,
+    checkKYC,
+    hasRole(['CUSTOMER']),
+    checkCountry(['Cameroon']),
+    cardController.askCreatingCardByAdmin
+)
+
+/**
+ * @swagger
  * /cards/onboarding/requests/admin:
  *   get:
  *     summary: Récupérer côté ADMIN toutes les demandes de vérification de documents pour création de CV

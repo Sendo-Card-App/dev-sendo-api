@@ -59,7 +59,7 @@ class DestinataireController {
             const configCadSendo = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
             const configTransferFees = await configService.getConfigByName('TRANSFER_FEES')
             //const amountToCAD = Number(amount) / Number(configCadSendo!.value)
-            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo)
+            const feesToXAF = Number(configTransferFees!.value) * Number(configCadSendo!.value)
 
             const transactionToCreate: TransactionCreate = {
                 amount: Number(amount),
@@ -70,7 +70,7 @@ class DestinataireController {
                 receiverType: 'Destinataire',
                 currency: typesCurrency['0'],
                 totalAmount: Number(amount) + feesToXAF,
-                description: 'Transfert CA-CAM',
+                description: 'Transfert mobile CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: payload.provider,
                 sendoFees: feesToXAF,
@@ -152,7 +152,7 @@ class DestinataireController {
                 accountNumber,
                 currency: typesCurrency['3'],
                 totalAmount: troisChiffresApresVirgule(Number(amountToCAD)) + Number(configTransferFees!.value),
-                description: 'Transfert CA-CAM',
+                description: 'Transfert bancaire CA-CAM',
                 method: typesMethodTransaction['1'],
                 provider: 'BANK',
                 sendoFees: Number(configTransferFees!.value)
@@ -221,7 +221,7 @@ class DestinataireController {
                 receiverType: 'Destinataire',
                 currency: typesCurrency['0'],
                 totalAmount: Number(amount) + feesToXAF,
-                description: 'Transfert CA-CAM',
+                description: 'Transfert mobile CA-CAM',
                 method: typesMethodTransaction['0'],
                 provider: destinataire.provider,
                 sendoFees: feesToXAF,

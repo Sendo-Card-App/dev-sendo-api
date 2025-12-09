@@ -21,6 +21,8 @@ import walletService from './walletService';
 import { TransactionCreate } from '../types/Transaction';
 import { typesCurrency, typesMethodTransaction, typesTransaction } from '@utils/constants';
 import transactionService from './transactionService';
+import { sendGlobalEmail } from './emailService';
+import notificationService from './notificationService';
 
 
 class MobileMoneyService {
@@ -249,10 +251,17 @@ class MobileMoneyService {
                     where(fn('LENGTH', col('usedBy')), '>', 0)
                 ]
             },
-            include: [{
-                model: WalletModel,
-                as: 'wallet'
-            }]
+            include: [
+                {
+                    model: WalletModel,
+                    as: 'wallet'
+                },
+                {
+                    model: UserModel,
+                    as: 'owner',
+                    attributes: ['id', 'email', 'firstName', 'lastName']
+                }
+            ]
         });
 
         for (const ref of referrals) {
@@ -286,11 +295,25 @@ class MobileMoneyService {
                 currency: typesCurrency['0'],
                 totalAmount: Number(config.value),
                 method: typesMethodTransaction['3'],
-                description: "Gain parrainage",
+                description: "Gain de parrainage",
                 receiverId: response.referral.userId,
                 receiverType: 'User'
             }
             await transactionService.createTransaction(transactionToRefferer)
+            await sendGlobalEmail(
+                response.referral.owner?.email || '',
+                'Nouveau gain de parrainage',
+                `<p>Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille. Continuez à parrainer pour plus de récompenses !<p>`
+            );
+            const tokenReferral = await notificationService.getTokenExpo(response.referral.userId)
+            await notificationService.save({
+                title: 'Sendo',
+                content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille. Continuez à parrainer pour plus de récompenses !`,
+                userId: response.referral.userId,
+                status: 'SENDED',
+                token: tokenReferral?.token ?? '',
+                type: 'MARKETING'
+            })
 
             await walletService.creditWallet(user.wallet.matricule, Number(config.value));
             const transactionToReceiver: TransactionCreate = {
@@ -301,11 +324,25 @@ class MobileMoneyService {
                 currency: typesCurrency['0'],
                 totalAmount: Number(config.value),
                 method: typesMethodTransaction['3'],
-                description: "Gain parrainage",
+                description: "Gain de parrainage",
                 receiverId: user.id,
                 receiverType: 'User'
             }
             await transactionService.createTransaction(transactionToReceiver)
+            await sendGlobalEmail(
+                user.email,
+                'Gain de parrainage',
+                `<p>Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille.<p>`
+            );
+            const tokenReceiver = await notificationService.getTokenExpo(user.id)
+            await notificationService.save({
+                title: 'Sendo',
+                content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille.`,
+                userId: user.id,
+                status: 'SENDED',
+                token: tokenReceiver?.token ?? '',
+                type: 'MARKETING'
+            })
 
             // On met à jour la propriété isUsed du code de parrainage
             await response.referral.update({

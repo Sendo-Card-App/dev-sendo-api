@@ -9,6 +9,7 @@ import configService from "@services/configService";
 import { getLibelleRequest, getLibelleStatutRequest } from "@utils/functions";
 import { sendEmailWithAttachments, sendGlobalEmail } from "@services/emailService";
 import logger from "@config/logger";
+import mobileMoneyService from "@services/mobileMoneyService";
 
 
 class RequestController {
@@ -49,7 +50,7 @@ class RequestController {
                     type: typesTransaction['3'],
                     amount: 0,
                     status: typesStatusTransaction['1'],
-                    currency: req.user.country === "Cameroon" ? 'XAF' : 'CAD',
+                    currency: 'XAF',
                     totalAmount,
                     description: "Demande de NIU",
                     receiverId: req.user!.id,
@@ -59,6 +60,9 @@ class RequestController {
                     sendoFees: Number(config.value)
                 }
                 await transactionService.createTransaction(transaction)
+
+                // On envoie le gain si nécessaire
+                await mobileMoneyService.sendGiftForReferralCode(req.user)
             }
 
             logger.info("Demande créée", {

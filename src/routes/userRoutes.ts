@@ -391,6 +391,44 @@ router.put(
 
 /**
  * @swagger
+ * /users/{id}/kyc/niu:
+ *   post:
+ *     summary: Enregistrer le numéro NIU d'un utilisateur
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: false
+ *       content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 numberIdentification:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         $ref: '#/components/responses/User'
+ *       404:
+ *         description: Utilisateur non trouvé
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post(
+    '/:id/kyc/niu', 
+    authMiddleware,  
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'CARD_MANAGER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CUSTOMER_ADVISER', 'TECHNICAL_DIRECTOR']),
+    userController.saveNIUkycUser
+);
+
+/**
+ * @swagger
  * /users/update-password/{id}:
  *   put:
  *     summary: Mettre à jour le mot de passe d'un utilisateur

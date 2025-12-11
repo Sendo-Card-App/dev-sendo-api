@@ -14,6 +14,7 @@ import { ReferralCodeModel, TokenModel } from '@models/index.model';
 import notificationService from './notificationService';
 import MerchantModel from '@models/merchant.model';
 import redisClient from '@config/cache';
+import logger from '@config/logger';
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -341,7 +342,7 @@ class UserService {
                 }
             });
             if (!token) {
-                return await TokenModel.create(tokenCreate);
+                return TokenModel.create(tokenCreate);
             }
 
             if (token.token !== tokenCreate.token) {
@@ -352,7 +353,25 @@ class UserService {
             return await token.reload();
         } catch (error) {
             console.error('Erreur saveOrUpdateTokenExpoUser:', error);
+            logger.error('Erreur saveOrUpdateTokenExpoUser:', { error });
             throw error;
+        }
+    }
+
+    async saveNumberIdentificationUser(userId: number, numberIdentification: string) {
+        const kycModels = await KycDocumentModel.findAll({
+            where: { 
+                userId,
+                type: 'ID_PROOF' 
+            }
+        })
+
+        for (const kyc of kycModels) {
+            try {
+                await kyc.update({ taxIdNumber: numberIdentification });
+            } catch (error) {
+                console.log('error updating KYC document:', error);
+            }
         }
     }
 

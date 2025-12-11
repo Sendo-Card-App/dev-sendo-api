@@ -196,6 +196,42 @@ class UserController {
     }
   }
 
+  async saveNIUkycUser(req: Request, res: Response) {
+    const { numberIdentification } = req.body
+    
+    try {
+      if (!numberIdentification) {
+        return sendError(res, 400, 'Veuillez fournir le numéro d\'identification unique (NIU)', {});
+      }
+      if (!req.user) {
+        return sendError(res, 400, 'Utilisateur non authentifié', {});
+      }
+
+      const user = await userService.getMeWithKyc(parseInt(req.params.id));
+      if (!user) {
+        return sendError(res, 404, 'Utilisateur non trouvé', {});
+      }
+      if (user.country != 'Cameroon') {
+        return sendError(res, 401, "Le numéro d'identification unique (NIU) n'est requis que pour les utilisateurs du Cameroun", {});
+      }
+      if (!user.kycDocuments || user.kycDocuments.length < 2) {
+        return sendError(res, 400, "Veuillez d'abord télécharger les documents KYC avant d'ajouter le NIU", {});
+      }
+
+      await userService.saveNumberIdentificationUser(user.id, numberIdentification);
+
+      logger.info("Numéro d'identification unique (NIU) ajouté à l'utilisateur : ", {
+        user: `User ID : ${user.id} - ${user.firstname} ${user.lastname}`,
+        NIU: `${numberIdentification}`,
+        admin: req.user ? `Admin ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}` : 'Utilisateur non trouvé'
+      });
+
+      sendResponse(res, 200, 'Numéro d\'identification unique (NIU) ajouté avec succès', {});
+    } catch (error: any) {
+      sendError(res, 500, 'Erreur serveur', [error.message]);
+    }
+  }
+
   async updatePassword(req: Request, res: Response) {
     try {
       const updatedUserPassword = await userService.updatePassword(parseInt(req.params.id), req.body);

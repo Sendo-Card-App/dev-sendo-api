@@ -101,22 +101,22 @@ class RequestController {
         const { id } = req.params
         const { status, reason } = req.body
         try {
-            const file = req.file as Express.Multer.File;
-            if (!id || !status) throw new Error('Veuillez fournir tous les paramètres')
+            //const file = req.file as Express.Multer.File;
+            //if (!id || !status) throw new Error('Veuillez fournir tous les paramètres')
             if (!req.user) throw new Error('Utilisateur non authentifié');
 
             const update: UpdateStatusRequest = {
                 status: status as TypesStatusDemande,
                 reviewedById: req.user.id
             }
-            if (update.status === typesStatusDemande['0']) {
+            /*if (update.status === typesStatusDemande['0']) {
                 if (!file) throw new Error('Aucun document fourni');
-            }
+            }*/
 
             const request = await requestService.updateStatusRequest(
                 parseInt(id), 
                 update,
-                file ? file.path : undefined,
+                undefined,
                 reason ? reason : undefined
             )
             
@@ -136,7 +136,7 @@ class RequestController {
                 )
 
                 if (request.type === typesDemande['0'] && request.status === typesStatusDemande['0']) {
-                    if (!request.url) throw new Error('URL du fichier manquante');
+                    //if (!request.url) throw new Error('URL du fichier manquante');
 
                     // Envoyer l'email avec la pièce jointe locale
                     await sendEmailWithAttachments(
@@ -144,8 +144,7 @@ class RequestController {
                         'Réponse à la demande',
                         `<h4>Votre demande a été traitée avec succès. Voici les détails :</h4>
                         <p>Demande :</p> <b>${getLibelleRequest(request.type)}</b>
-                        <p>Status :</p> <b>${getLibelleStatutRequest(request.type, request.status)}</b>
-                        <p>Télécharger le document :</p> <a href="${request.url}" download>Télécharger</a>`,
+                        <p>Status :</p> <b>${getLibelleStatutRequest(request.type, request.status)}</b>`,
                     );
                 }
             }

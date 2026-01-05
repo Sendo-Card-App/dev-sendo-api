@@ -25,12 +25,12 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
 
     if (!user) return sendError(res, 404, 'Utilisateur introuvable');
 
-    const requiredDocsForIndividuals = user.country === "Cameroon" ? ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'SELFIE'] : ['ID_PROOF', 'ID_PROOF', 'SELFIE'];
-    const approvedDocs = user.kycDocuments || [];
-    const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
-    const hasValidSelfie = approvedDocs.some((doc: { type: string; }) => doc.type === 'SELFIE');
-
     if (!user.merchant) {
+      const requiredDocsForIndividuals = user.country === "Cameroon" ? ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'SELFIE'] : ['ID_PROOF', 'ID_PROOF', 'SELFIE'];
+      const approvedDocs = user.kycDocuments || [];
+      const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
+      const hasValidSelfie = approvedDocs.some((doc: { type: string; }) => doc.type === 'SELFIE');
+
       const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
       const hasEnoughDocs = user.country === "Cameroon" ? approvedDocs.length >= 4 : approvedDocs.length === 3;
       const numberDocsRequired = user.country === "Cameroon" ? (4 - approvedDocs.length) : (3 - approvedDocs.length);
@@ -67,6 +67,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
         lastDocumentDate: approvedDocs[approvedDocs.length - 1]?.updatedAt
       };
     } else {
+      const requiredDocsForIndividuals = user.merchant.typeAccount === "Particulier" ? ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'SELFIE'] : ['ID_PROOF', 'ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE', 'RCCM', 'ARTICLES_ASSOCIATION_PROOF'];
       const approvedDocs = user.kycDocuments || [];
       const hasValidID = approvedDocs.some((doc: { type: string; }) => doc.type === 'ID_PROOF');
       const hasValidAddress = approvedDocs.some((doc: { type: string; }) => doc.type === 'ADDRESS_PROOF');
@@ -74,7 +75,7 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
       const hasValidRCCM = approvedDocs.some((doc: { type: string; }) => doc.type === 'RCCM');
       const hasValidArticles = approvedDocs.some((doc: { type: string; }) => doc.type === 'ARTICLES_ASSOCIATION_PROOF');
       const hasValidSelfie = approvedDocs.some((doc: { type: string; }) => doc.type === 'SELFIE');
-      const hasEnoughDocs = approvedDocs.length >= 6;
+      const hasEnoughDocs = user.merchant.typeAccount === "Particulier" ? approvedDocs.length >= 4 : approvedDocs.length >= 6;
       const numberDocsRequired = 6 - approvedDocs.length;
 
       if (
@@ -88,8 +89,8 @@ export async function checkKYC(req: Request, res: Response, next: NextFunction) 
       ) {
         return sendError(res, 403, 'Documents KYC manquants', {
           required: {
-            minimumDocuments: 6,
-            mandatoryTypes: ['ID_PROOF', 'ADDRESS_PROOF', 'NIU_PROOF', 'SELFIE', 'RCCM', 'ARTICLES_ASSOCIATION_PROOF']
+            minimumDocuments: user.merchant.typeAccount === "Particulier" ? 4 : 6,
+            mandatoryTypes: requiredDocsForIndividuals
           },
           currentStatus: {
             documents: approvedDocs.map((d: any) => d.type),

@@ -193,7 +193,7 @@ class CardService {
         };
 
         const partySession = await this.getPartySession(userId)
-        if (partySession && partySession.status !== 'REFUSED_TIMEOUT') {
+        if (partySession && partySession.status !== 'REFUSED_TIMEOUT' && partySession.status !== 'REFUSED') {
             throw new Error("Vous avez déjà une demande en cours...")
         }
 

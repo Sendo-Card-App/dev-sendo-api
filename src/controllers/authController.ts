@@ -50,11 +50,11 @@ class AuthController {
         lastname: lastname.trim() || lastname,
         email: email.trim().toLowerCase() || email,
         phone,
-        address,
+        address: address.trim() || address,
         password,
         country,
         dateOfBirth,
-        placeOfBirth
+        placeOfBirth: placeOfBirth.trim() || placeOfBirth
       });
 
       if (user) {

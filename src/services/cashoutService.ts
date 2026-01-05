@@ -1,4 +1,4 @@
-import { ajouterPrefixe237, detectMoneyTransferType, mapNeeroStatusToSendo, roundToPreviousMultipleOfFive } from "@utils/functions";
+import { ajouterPrefixe237, detectMoneyTransferType, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive } from "@utils/functions";
 import mobileMoneyService from "./mobileMoneyService";
 import neeroService, { CashOutPayload } from "./neeroService";
 import transactionService from "./transactionService";
@@ -33,7 +33,7 @@ class CashoutService {
             const amountToDecrement = Number(transaction.totalAmount) / Number(configCadReal!.value)
             const amountToSend = Number(transaction.amount)
             const payload: CashOutPayload = {
-                amount: roundToPreviousMultipleOfFive(amountToSend),
+                amount: roundToNextMultipleOfFive(amountToSend),
                 currencyCode: 'XAF',
                 confirm: true,
                 paymentType: detectMoneyTransferType(phone).transferType,

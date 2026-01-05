@@ -379,7 +379,6 @@ class WebhookController {
                 sessionId: event.data.object.sessionKey,
                 status: event.data.object.newStatus
             })
-
         } else if (event.type == "cardManagement.onlineTransactions") {
             // Webhook pour les cartes virtuelles
             const amountNum = Number(event.data.object.totalAmount)
@@ -566,20 +565,6 @@ class WebhookController {
                         }
                     } 
                 } else if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
-                    await sendEmailWithHTML(
-                        virtualCard?.user?.email ?? '',
-                        'Paiement sur la carte',
-                        `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échoué sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
-                    )
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échoué sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
-                        userId: virtualCard!.userId,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'PAYMENT_FAILED'
-                    })
-
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
@@ -622,6 +607,20 @@ class WebhookController {
                             true, 
                             req.user!.id
                         )
+
+                        await sendEmailWithHTML(
+                            virtualCard?.user?.email ?? '',
+                            'Paiement sur la carte',
+                            `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
+                        )
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
+                            userId: virtualCard!.userId,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'PAYMENT_FAILED'
+                        })
                     } else if (
                         rejectFeesCard &&
                         balanceObject.balance &&
@@ -721,6 +720,20 @@ class WebhookController {
                             }
                         }
 
+                        await sendEmailWithHTML(
+                            virtualCard?.user?.email ?? '',
+                            'Paiement sur la carte',
+                            `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.</p>`
+                        )
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.`,
+                            userId: virtualCard!.userId,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'PAYMENT_FAILED'
+                        })
+
                         // Si le nombre de paiement rejeté passe à 3 on bloque la carte
                         const newVirtualCard = await virtualCard?.reload();
                         if (newVirtualCard && newVirtualCard.paymentRejectNumber === 3) {
@@ -772,7 +785,7 @@ class WebhookController {
                                     method: typesMethodTransaction['2'],
                                     transactionReference: cashin.id,
                                     virtualCardId: virtualCard!.id,
-                                    description: `Dépot des fonds de la carte sur le portefeuille`,
+                                    description: `Dépôt des fonds de la carte sur le portefeuille`,
                                     receiverId: req.user!.id,
                                     receiverType: 'User'
                                 }

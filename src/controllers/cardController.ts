@@ -318,6 +318,7 @@ class CardController {
             } else if (session.status === 'VERIFIED') {
                 submit = session
             }
+            console.log('submit : ', submit)
 
             // Update du status PartyCard
             const update: PartySessionUpdate = {

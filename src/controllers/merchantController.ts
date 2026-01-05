@@ -9,7 +9,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
 import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
-import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo } from "@utils/functions";
+import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo, roundToPreviousMultipleOfFive } from "@utils/functions";
 import transactionService from "@services/transactionService";
 import configService from "@services/configService";
 import neeroService, { CashOutPayload } from "@services/neeroService";
@@ -417,7 +417,7 @@ class MerchantController {
                 )
 
                 payload = {
-                    amount: total,
+                    amount: roundToPreviousMultipleOfFive(total),
                     currencyCode: 'XAF',
                     confirm: true,
                     paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,
@@ -426,7 +426,7 @@ class MerchantController {
                 }
             } else {
                 payload = {
-                    amount: total,
+                    amount: roundToPreviousMultipleOfFive(total),
                     currencyCode: 'XAF',
                     confirm: true,
                     paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,

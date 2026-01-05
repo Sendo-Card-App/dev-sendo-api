@@ -294,7 +294,7 @@ router.post(
 router.get(
     '/:walletId',
     authMiddleware, 
-    checkKYC, 
+    //checkKYC, 
     hasRole(['CUSTOMER', 'MERCHANT']),
     walletController.getUserByWallet
 );

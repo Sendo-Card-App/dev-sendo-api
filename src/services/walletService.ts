@@ -175,7 +175,7 @@ class WalletService {
             // 4. Enregistrement de la transaction côté initiateur
             const transactionCreate: TransactionCreate = {
                 userId: merchant.userId,
-                type: typesTransaction['4'],
+                type: typesTransaction['11'],
                 amount: Number(amount),
                 receiverId: toWallet?.user?.id || 0,
                 receiverType: 'User',

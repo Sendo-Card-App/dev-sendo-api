@@ -13,6 +13,11 @@ import CardTransactionDebtsModel from '@models/card-transaction-debts.model';
 import notificationService from './notificationService';
 import { Op } from 'sequelize';
 import redisClient from '@config/cache';
+import logger from '@config/logger';
+import configService from './configService';
+import walletService from './walletService';
+import { TransactionCreate } from '../types/Transaction';
+import transactionService from './transactionService';
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -213,18 +218,18 @@ class CardService {
     async getOnboardingSessionUser(userId: number) {
         try {
             const partySession = await this.getPartySession(userId)
-            if (!partySession) {
+            /*if (!partySession) {
                 throw new Error("Cet utilisateur n'a pas encore créé une demande de vérification de documents")
-            }
+            }*/
 
-            const onboardingSession = await neeroService.getOnboardingSession(partySession.sessionId ?? '')
+            const onboardingSession = await neeroService.getOnboardingSession(partySession?.sessionId ?? '')
             
             return {
                 onboardingSession: onboardingSession, 
-                user: partySession.user
+                user: partySession?.user
             }
         } catch (error: any) {
-            throw new Error(`Une erreur est survenue : ${error.message}`)
+            throw new Error(`${error.message}`)
         }
     }
 
@@ -321,7 +326,8 @@ class CardService {
                     model: CardTransactionDebtsModel, 
                     as: 'debts' 
                 }
-            ]
+            ],
+            order: [['createdAt', 'DESC']]
         });
 
         return result;
@@ -476,6 +482,90 @@ class CardService {
                 userId: card.userId
             }
         })
+    }
+
+    async createCard(card: VirtualCardModel, user: UserModel) {
+        // S'il a déjà créé au moins une carte, on applique les frais sur sa prochaine création
+        const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
+        if (config && user && user.wallet!.balance < Number(config!.value)) {
+            throw new Error("Veuillez recharger votre portefeuille")
+        }
+
+        if (user && user.numberOfCardsCreated >= 1) {
+            if (config && user.wallet && config.value > 0) {
+                await walletService.debitWallet(
+                    user?.wallet?.matricule, 
+                    Number(config.value)
+                )
+                const transaction: TransactionCreate = {
+                    amount: Number(config.value),
+                    userId: user.id,
+                    type: 'PAYMENT',
+                    description: 'Frais de création de carte',
+                    status: 'COMPLETED',
+                    currency: 'XAF',
+                    totalAmount: Number(config.value),
+                    receiverId: user.id,
+                    receiverType: 'User'
+                }
+                await transactionService.createTransaction(transaction)
+            }
+        } else {
+            // On détermine d'abord si la première création de carte est gratuitre
+            const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
+            if (configFirstCreating && configFirstCreating.value === 0) {
+                if (config && user?.wallet && Number(config.value) > 0) {
+                    await walletService.debitWallet(
+                        user?.wallet?.matricule, 
+                        Number(config.value)
+                    )
+                    const transaction: TransactionCreate = {
+                        amount: Number(config.value),
+                        userId: user.id,
+                        type: 'PAYMENT',
+                        description: 'Frais de création de carte',
+                        status: 'COMPLETED',
+                        currency: 'XAF',
+                        totalAmount: Number(config.value),
+                        receiverId: user.id,
+                        receiverType: 'User'
+                    }
+                    await transactionService.createTransaction(transaction)
+                }
+            }
+        }
+
+        const payload: CreateCardPayload = {
+            partyId: card.partyId,
+            cardName: card.cardName
+        }
+        const newCard = await this.createVirtualCard(payload);
+
+        // Enregistrer les informations de la carte dans la BD
+        const cardModel: CreateCardModel = {
+            cardName: card.cardName,
+            cardId: card.cardId,
+            last4Digits: card.last4Digits,
+            partyId: card.partyId,
+            status: 'PRE_ACTIVE',
+            userId: user.id,
+            expirationDate: card.expirationDate
+        }
+        const virtualCard = await this.saveVirtualCard(cardModel)
+
+        if (user) {
+            user.numberOfCardsCreated = user.numberOfCardsCreated + 1;
+            await user.save();
+        }
+
+        await this.createPaymentMethod(virtualCard.cardId, virtualCard.userId, virtualCard.id)
+
+        logger.info("Nouvelle carte virtuelle créée", {
+            card: `${virtualCard.cardName} - ${virtualCard.cardId}`,
+            user: `User ID : ${user.id} - ${user.firstname} ${user.lastname}`
+        });
+    
+        return newCard;
     }
 }
 

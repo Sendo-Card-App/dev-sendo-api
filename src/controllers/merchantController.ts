@@ -9,7 +9,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
 import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
-import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo, roundToPreviousMultipleOfFive } from "@utils/functions";
+import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive } from "@utils/functions";
 import transactionService from "@services/transactionService";
 import configService from "@services/configService";
 import neeroService, { CashOutPayload } from "@services/neeroService";
@@ -309,13 +309,13 @@ class MerchantController {
     }
 
     async requestWithdraw(req: Request, res: Response) {
-        const { amountToWithdraw, idMerchant, phone } = req.body
+        const { amountToWithdraw, idMerchant, phone, isFromBalance } = req.body
         try {
             if (!req.user) {
                 sendError(res, 401, "Utilisateur non authentifié", {});
                 return
             }
-            if (!amountToWithdraw || !phone) {
+            if (!amountToWithdraw || !phone || !idMerchant) {
                 sendError(res, 400, "Veuillez fournir tous les paramètres", {});
                 return
             }
@@ -333,7 +333,8 @@ class MerchantController {
             const result = await merchantService.saveRequestWithdraw(
                 Number(idMerchant), 
                 Number(amountToWithdraw), 
-                phone
+                ajouterPrefixe237(phone),
+                isFromBalance
             )
 
             logger.info("Requête de retrait d'argent AGENT créée", {
@@ -342,6 +343,33 @@ class MerchantController {
             });
 
             sendResponse(res, 200, 'Requête de retrait enregistrée', result);
+        } catch (error: any) {
+            sendError(res, 500, "Erreur serveur", [error.message]);
+        }
+    }
+
+    async rejectPaymentRequestWithdraw(req: Request, res: Response) {
+        const { idRequestWithdraw } = req.params
+        try {
+            if (!req.user) {
+                sendError(res, 401, "Utilisateur non authentifié", {});
+                return
+            }
+            if (!idRequestWithdraw) {
+                sendError(res, 400, "Veuillez fournir l'ID de la requête de retrait à initier", {});
+                return
+            }
+
+            const result = await merchantService.updateStatusRequestWithdraw(Number(idRequestWithdraw))
+
+            await sendGlobalEmail(
+                result.partner!.user!.email,
+                'Retrait marchand',
+                `<p>${result.partner!.user!.firstname}, votre demande de retrait de ${result.amount} XAF a été rejetée</p>`,
+                'AGENT'
+            )
+
+            sendResponse(res, 200, 'Demande de retrait rejeté', result)
         } catch (error: any) {
             sendError(res, 500, "Erreur serveur", [error.message]);
         }
@@ -365,6 +393,12 @@ class MerchantController {
                 return
             }
 
+            const merchant = await merchantService.getMerchantById(requestWithdraw.partnerId);
+            if (!merchant) {
+                sendError(res, 404, "Marchand introuvable", {});
+                return
+            }
+
             const result = await merchantService.retirerCommissionProche(
                 requestWithdraw.id, 
                 requestWithdraw.partnerId, 
@@ -377,21 +411,23 @@ class MerchantController {
             const percentage = Number(configPourcentage?.value ?? 0);
             const fixedFee = Number(configFees?.value ?? 0);
             const fees = Math.ceil(amountNum * (percentage / 100) + fixedFee);
-            const total = amountNum - fees;
+
+            //if (!result.isFromBalance) await merchant.decrement('balance', { by: fees });
 
             const transactionToCreate: TransactionCreate = {
-                amount: result.amount,
+                amount: amountNum,
                 type: typesTransaction['1'],
                 status: 'PENDING',
                 userId: requestWithdraw.partner!.userId,
                 currency: typesCurrency['0'],
-                totalAmount: total,
-                method: typesMethodTransaction['0'],
+                totalAmount: roundToNextMultipleOfFive(amountNum - fees),
+                method: typesMethodTransaction['4'],
                 provider: detectOtherMoneyTransferType(result.phone),
                 description: "Retrait marchant",
                 receiverId: requestWithdraw.partner!.userId,
                 receiverType: 'User',
-                sendoFees: fees
+                sendoFees: fees,
+                accountNumber: result.phone
             }
             const transaction = await transactionService.createTransaction(transactionToCreate)
 
@@ -417,7 +453,7 @@ class MerchantController {
                 )
 
                 payload = {
-                    amount: roundToPreviousMultipleOfFive(total),
+                    amount: roundToNextMultipleOfFive(transaction.totalAmount),
                     currencyCode: 'XAF',
                     confirm: true,
                     paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,
@@ -426,7 +462,7 @@ class MerchantController {
                 }
             } else {
                 payload = {
-                    amount: roundToPreviousMultipleOfFive(total),
+                    amount: roundToNextMultipleOfFive(transaction.totalAmount),
                     currencyCode: 'XAF',
                     confirm: true,
                     paymentType: detectMoneyTransferType(ajouterPrefixe237(result.phone)).transferType,
@@ -451,7 +487,7 @@ class MerchantController {
             if (
                 newTransaction.type === 'WITHDRAWAL' && 
                 newTransaction.status === 'COMPLETED' &&
-                newTransaction.method === 'MOBILE_MONEY'
+                newTransaction.method === 'AGENT'
             ) {
                 requestWithdraw.status = 'VALIDATED';
                 await requestWithdraw.save()
@@ -466,7 +502,7 @@ class MerchantController {
 
             logger.info("Débit neero initié", {
                 admin: `${req.user?.firstname} ${req.user?.lastname}`,
-                amount: amountNum,
+                amountWithFees: `${transaction.totalAmount} XAF`,
                 provider: detectOtherMoneyTransferType(result.phone)
             });
             

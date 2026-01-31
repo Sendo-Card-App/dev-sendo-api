@@ -700,6 +700,8 @@ router.get(
  *                 type: number
  *               idMerchant:
  *                 type: number
+ *               isFromBalance:
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Demande de retrait enregistrée avec succès
@@ -750,6 +752,39 @@ router.post(
     authMiddleware, 
     hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
     merchantController.initPaymentRequestWithdraw
+)
+
+/**
+ * @swagger
+ * /merchant/reject/withdrawal-request/{idRequestWithdraw}:
+ *   put:
+ *     summary: Rejeter le paiement d'une demande de retrait mobile money d'un marchand
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: idRequestWithdraw
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID de la demande de retrait
+ *     responses:
+ *       200:
+ *         description: Transaction mobile rejetée avec succès
+ *         $ref: '#/components/responses/TransactionMobileMoney'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.put(
+    '/reject/withdrawal-request/:idRequestWithdraw',
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    merchantController.rejectPaymentRequestWithdraw
 )
 
 /**

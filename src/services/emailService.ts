@@ -159,7 +159,7 @@ export const sendEmailVerificationKYC = async (user: UserModel) => {
 
     // Mapping des types reconnus pour l'affichage
     const typeLabels: Record<string, string> = {
-        'ID_PROOF_RECTO': "Pièce d'identité recto",
+        'ID_PROOF': "Pièce d'identité",
         'ID_PROOF_VERSO': "Pièce d'identité verso",
         'NIU_PROOF': "Document NIU",
         'ADDRESS_PROOF': "Plan de localisation",

@@ -534,6 +534,23 @@ class MerchantController {
             sendError(res, 500, "Erreur serveur", [error.message]);
         }
     }
+
+    async getCommissionByAmount(req: Request, res: Response) {
+        const { amount } = req.body
+        try {
+            const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
+            let commission: number | null = null;
+            if (palier.commission && palier.commission.typeCommission === 'POURCENTAGE') {
+                commission = (palier.commission.montantCommission * amount) / 100
+            } else if (palier.commission && palier.commission.typeCommission === 'FIXE') {
+                commission = palier.commission.montantCommission
+            }
+
+            sendResponse(res, 200, "Frais retournés", { fees: commission })
+        } catch (error: any) {
+            sendError(res, 500, "Erreur récupération de la commission", [error.message]);
+        }
+    }
 }
 
 export default new MerchantController();

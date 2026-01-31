@@ -425,6 +425,10 @@ class MerchantService {
         const newRequest = await requestWithdraw.save()
         return newRequest;
     }
+
+    async getCommissionByAmount(amount: number) {
+        
+    }
 }
 
 export default new MerchantService();

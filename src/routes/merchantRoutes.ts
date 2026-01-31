@@ -833,4 +833,34 @@ router.get(
     merchantController.getAllRequestWithdraw
 );
 
+/**
+ * @swagger
+ * /merchant/fees-amount:
+ *   post:
+ *     summary: Récupérer les frais sur un montant lors du Sendo-Sendo (CAM-CA)
+ *     tags: [Merchant]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Frais récupérés avec succès
+ *       500:
+ *         description: Erreur serveur
+ */
+router.post(
+    '/fees-amount',
+    authMiddleware,
+    hasRole(['CUSTOMER']),
+    merchantController.getCommissionByAmount
+);
+
 export default router;

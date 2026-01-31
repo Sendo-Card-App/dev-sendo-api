@@ -343,7 +343,7 @@ router.post(
     '/request-withdrawal',
     authMiddleware, 
     verifyPasscode, 
-    checkKYC,
+    //checkKYC,
     hasRole(['CUSTOMER']), 
     walletController.requestWithdraw
 )

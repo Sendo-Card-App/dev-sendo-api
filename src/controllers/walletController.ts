@@ -5,7 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { generateAlphaNumeriqueString, generateMatriculeWallet } from "@utils/functions";
 import { Request, Response } from "express";
 import logger from "@config/logger";
-import { successTransferFunds } from "@services/emailService";
+import { sendGlobalEmail, successTransferFunds } from "@services/emailService";
 import { typesCurrency } from "@utils/constants";
 import notificationService from "@services/notificationService";
 import TransactionModel from "@models/transaction.model";
@@ -260,6 +260,57 @@ class WalletController {
             sendResponse(res, 200, 'Wallet avec user retourné', wallet)
         } catch (error: any) {
             sendError(res, 500, "Erreur lors de la récupération du user", [error.message]);
+        }
+    }
+
+    async requestWithdraw(req: Request, res: Response) {
+        const { 
+            amount, 
+            emailInterac, 
+            questionInterac, 
+            responseInterac,
+            matriculeWallet 
+        } = req.body
+        try {
+            if (
+                !amount || 
+                !emailInterac || 
+                !questionInterac || 
+                !responseInterac ||
+                !matriculeWallet
+            ) {
+                sendError(res, 400, "Veuillez fournir tous les paramètres")
+                return
+            }
+
+            const operation = await walletService.requestWithdrawByInterac(
+                matriculeWallet,
+                Number(amount),
+                emailInterac,
+                questionInterac,
+                responseInterac
+            )
+
+            const tokenReceiver = await notificationService.getTokenExpo(operation.user!.id)
+            await notificationService.save({
+                type: 'SUCCESS_WITHDRAWAL_WALLET',
+                userId: operation.user!.id,
+                content: `${operation.user?.firstname} le transfert vers votre compte Interac de la somme de ${amount} CAD a été enregistré avec succès. Délai estimé entre 30min à 2h selon votre banque.`,
+                title: 'Sendo',
+                status: 'SENDED',
+                token: tokenReceiver?.token ?? ''
+            })
+
+            await sendGlobalEmail(
+                operation.user.email,
+                'Dépôt bancaire Interac - Sendo',
+                `<p>${operation.user?.firstname} le transfert vers votre compte Interac de la somme de ${amount} CAD a été enregistré avec succès. Délai estimé entre 30min à 2h selon votre banque.</p>
+                `
+            );
+
+            sendResponse(res, 200, "Demande de retrait enregistré", operation.transaction)
+        } catch (error: any) {
+            sendError(res, 500, "Erreur lors de la demande", [error.message])
         }
     }
 }

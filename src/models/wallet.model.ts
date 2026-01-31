@@ -16,6 +16,7 @@ import {
 } from '@utils/constants';
 import { generateMatriculeWallet } from '@utils/functions';
 import sequelize from '@config/db';
+import WalletHistoryModel from './wallet-history.model';
 
 class WalletModel extends Model<
   InferAttributes<WalletModel>,
@@ -32,6 +33,7 @@ class WalletModel extends Model<
 
   // Relations
   declare user?: NonAttribute<UserModel>;
+  declare walletHistories?: NonAttribute<WalletHistoryModel[]>;
 }
 
 WalletModel.init(

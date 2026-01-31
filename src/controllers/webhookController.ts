@@ -6,7 +6,7 @@ import transactionService from "@services/transactionService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
 import { TransactionCreate } from "../types/Transaction";
 import { sendError, sendResponse } from "@utils/apiResponse";
-import { arrondiSuperieur, checkSignatureNeero, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
+import { ajouterPrefixe237, arrondiSuperieur, checkSignatureNeero, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
 import { Request, Response } from "express";
 import configService from "@services/configService";
 import neeroService, { CashInPayload } from "@services/neeroService";
@@ -20,6 +20,7 @@ import debtService from "@services/debtService";
 import { PaginatedData } from "../types/BaseEntity";
 import ConfigModel from "@models/config.model";
 import mobileMoneyService from "@services/mobileMoneyService";
+import merchantService from "@services/merchantService";
 
 const WEBHOOK_SECRET = process.env.NEERO_WEBHOOK_KEY || ''
 
@@ -87,39 +88,54 @@ class WebhookController {
                     transaction.status === 'PENDING' &&
                     transaction.method === 'MOBILE_MONEY'
                 ) {
-                    if (transaction.description !== "Retrait marchant") {
-                        // On débite le montant chez le user
-                        await walletService.debitWallet(
-                            transaction.user?.wallet?.matricule ?? '',
-                            transaction.totalAmount
-                        )
-                        
-                        transaction.status = 'COMPLETED'
-                        await transaction.save()
-                        
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
-                            userId: transaction?.user?.id ?? 0,
-                            status: 'SENDED',
-                            token: token?.token ?? '',
-                            type: 'SUCCESS_WITHDRAWAL_WALLET'
-                        })
-                        await sendEmailWithHTML(
-                            transaction?.user?.email ?? '',
-                            'Retrait SENDO réussi',
-                            `<p>Votre retrait de ${transaction.amount} XAF du portefeuille s'est effectué avec succès</p>`
-                        )
+                    // On débite le montant chez le user
+                    await walletService.debitWallet(
+                        transaction.user?.wallet?.matricule ?? '',
+                        transaction.totalAmount
+                    )
+                    
+                    transaction.status = 'COMPLETED'
+                    await transaction.save()
+                    
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
+                        userId: transaction?.user?.id ?? 0,
+                        status: 'SENDED',
+                        token: token?.token ?? '',
+                        type: 'SUCCESS_WITHDRAWAL_WALLET'
+                    })
+                    await sendEmailWithHTML(
+                        transaction?.user?.email ?? '',
+                        'Retrait SENDO réussi',
+                        `<p>Votre retrait de ${transaction.amount} XAF du portefeuille s'est effectué avec succès</p>`
+                    )
 
-                        // On envoie le gain si nécessaire
-                        await mobileMoneyService.sendGiftForReferralCode(transaction.user!)
-                    } else {
-                        await sendEmailWithHTML(
-                            transaction.user!.email,
-                            'Retrait marchand',
-                            `<p>Votre demande de retrait de ${transaction.amount} XAF a été validé et déposé sur votre compte mobile money</p>`,
-                        )
+                    // On envoie le gain si nécessaire
+                    await mobileMoneyService.sendGiftForReferralCode(transaction.user!)
+                } else if (
+                    transaction?.type === 'WITHDRAWAL' && 
+                    transaction.status === 'PENDING' &&
+                    transaction.method === 'AGENT'
+                ) {
+                    const requestWithdraw = await merchantService.getRequestWithdrawByParams(
+                        ajouterPrefixe237(transaction.accountNumber ?? ''), 
+                        transaction.amount
+                    );
+                    
+                    if (requestWithdraw) {
+                        requestWithdraw.status = 'VALIDATED';
+                        await requestWithdraw.save();
                     }
+
+                    transaction.status = 'COMPLETED';
+                    await transaction.save();
+
+                    await sendEmailWithHTML(
+                        transaction.user!.email,
+                        'Retrait marchand',
+                        `<p>Votre demande de retrait de ${transaction.amount} XAF a été validé et déposé sur votre compte mobile money</p>`,
+                    )
                 } else if (
                     transaction?.type === 'TRANSFER' && 
                     transaction.status === 'PENDING' &&
@@ -175,10 +191,10 @@ class WebhookController {
                     const amountNum = Number(transaction.amount)
                     const virtualCard = await cardService.getVirtualCard(undefined, undefined, transaction.userId)
 
-                    await walletService.debitWallet(
+                    /*await walletService.debitWallet(
                         matricule,
                         amountNum + Number(fees)
-                    )
+                    )*/
                     
                     // On met à jour le status de la carte
                     if (virtualCard && virtualCard.status === 'PRE_ACTIVE') {
@@ -275,41 +291,37 @@ class WebhookController {
                 mapNeeroStatusToSendo(event.data.object.newStatus) === "FAILED" ||
                 mapNeeroStatusToSendo(event.data.object.status) === "FAILED"
             ) {
-                if (transaction && transaction.status === 'PENDING') {
+                if (
+                    transaction && 
+                    transaction.status === 'PENDING' &&
+                    transaction.type === 'PAYMENT' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    // on enregistre le reste comme dette
+                    const debt: VirtualCardDebtCreate = {
+                        amount: transaction.sendoFees,
+                        userId: transaction.userId,
+                        cardId: transaction.virtualCardId,
+                        intitule: transaction.description || 'Frais de service'
+                    }
+                    await cardService.saveDebt(debt)
+
                     transaction.status = 'FAILED';
                     await transaction.save();
-                }
-                
-                if (
-                    transaction && 
+                } else if (
+                    transaction &&
+                    transaction.type === 'WITHDRAWAL' && 
                     transaction.status === 'PENDING' &&
-                    transaction.type === 'PAYMENT' &&
-                    transaction.method === 'VIRTUAL_CARD'
+                    transaction.method === 'AGENT'
                 ) {
-                    // on enregistre le reste comme dette
-                    const debt: VirtualCardDebtCreate = {
-                        amount: transaction.sendoFees,
-                        userId: transaction.userId,
-                        cardId: transaction.virtualCardId,
-                        intitule: transaction.description || 'Frais de service'
+                    const requestWithdraw = await merchantService.getRequestWithdrawByParams(
+                        ajouterPrefixe237(transaction.accountNumber ?? ''), 
+                        transaction.amount
+                    );
+                    if (requestWithdraw && requestWithdraw.status !== 'VALIDATED') {
+                        requestWithdraw.status = 'FAILED';
+                        await requestWithdraw.save();
                     }
-                    await cardService.saveDebt(debt)
-                }
-
-                if (
-                    transaction && 
-                    transaction.status === 'PENDING' &&
-                    transaction.type === 'PAYMENT' &&
-                    transaction.method === 'VIRTUAL_CARD'
-                ) {
-                    // on enregistre le reste comme dette
-                    const debt: VirtualCardDebtCreate = {
-                        amount: transaction.sendoFees,
-                        userId: transaction.userId,
-                        cardId: transaction.virtualCardId,
-                        intitule: transaction.description || 'Frais de service'
-                    }
-                    await cardService.saveDebt(debt)
                 }
 
                 const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
@@ -564,7 +576,8 @@ class WebhookController {
                             await cardService.saveDebt(debt)
                         }
                     } 
-                } else if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
+                }
+                if (event.data.object.status == 'FAILED') {
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet

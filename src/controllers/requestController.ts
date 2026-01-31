@@ -50,7 +50,7 @@ class RequestController {
                     type: typesTransaction['3'],
                     amount: 0,
                     status: typesStatusTransaction['1'],
-                    currency: 'XAF',
+                    currency: req.user.country === "Cameroon" ? 'XAF' : 'CAD',
                     totalAmount,
                     description: "Demande de NIU",
                     receiverId: req.user!.id,

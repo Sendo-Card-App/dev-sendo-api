@@ -9,6 +9,7 @@ import cardService from "./cardService";
 import MerchantModel from "@models/merchant.model";
 import merchantService from "./merchantService";
 import configService from "./configService";
+import WalletHistoryModel from "@models/wallet-history.model";
 
 class WalletService {
     constructor() {
@@ -84,21 +85,80 @@ class WalletService {
             let total: number = 0;
             let configFeesValue: number | null = null;
             let amountToIncrement: number = 0;
-            if (fromWallet.currency === 'CAD' && toWallet.currency === 'XAF') {
-                const feesConfig = await configService.getConfigByName('SENDO_TO_SENDO_TRANSFER_FEES')
-                if (!feesConfig) throw new Error('Configuration des frais introuvable');
-                const cadSendoValue = await configService.getConfigByName('CAD_SENDO_VALUE')
-                if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
 
+            const feesConfig = await configService.getConfigByName('SENDO_TO_SENDO_TRANSFER_FEES')
+            if (!feesConfig) throw new Error('Configuration des frais introuvable');
+            const cadSendoValue = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
+            if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
+
+            if (fromWallet.currency === 'CAD' && toWallet.currency === 'XAF') {
                 configFeesValue = amount * (Number(feesConfig.value) / 100)
-                total = amount + configFeesValue
-                amountToIncrement = amount * Number(cadSendoValue.value)
+                total = Math.ceil(amount + configFeesValue)
+                amountToIncrement = Math.ceil(amount * Number(cadSendoValue.value))
+
+                // Enregistrer l'historique des mouvements sur les wallets
+                await WalletHistoryModel.create({
+                    previousValue: fromWallet.balance,
+                    newValue: fromWallet.balance - total,
+                    walletId: fromWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CA-CAM"
+                }, { transaction })
+                await WalletHistoryModel.create({
+                    previousValue: toWallet.balance,
+                    newValue: toWallet.balance + amountToIncrement,
+                    walletId: toWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CA-CAM"
+                }, { transaction })
             } else if (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') {
-                throw new Error('Transfert de XAF vers CAD non autorisé');
+                const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
+                let commission: number | null = null;
+                if (palier.commission && palier.commission.typeCommission === 'POURCENTAGE') {
+                    commission = (palier.commission.montantCommission * amount) / 100
+                } else if (palier.commission && palier.commission.typeCommission === 'FIXE') {
+                    commission = palier.commission.montantCommission
+                }
+
+                configFeesValue = Number(commission)
+                total = Math.ceil(amount + configFeesValue)
+                amountToIncrement = Math.ceil(amount / Number(cadSendoValue.value))
+
+                // Enregistrer l'historique des mouvements sur les wallets
+                await WalletHistoryModel.create({
+                    previousValue: fromWallet.balance,
+                    newValue: fromWallet.balance - total,
+                    walletId: fromWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA"
+                }, { transaction })
+                await WalletHistoryModel.create({
+                    previousValue: toWallet.balance,
+                    newValue: toWallet.balance + amountToIncrement,
+                    walletId: toWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA"
+                }, { transaction })
             } else {
                 configFeesValue = 0
                 total = amount
                 amountToIncrement = amount
+
+                // Enregistrer l'historique des mouvements sur les wallets
+                await WalletHistoryModel.create({
+                    previousValue: fromWallet.balance,
+                    newValue: fromWallet.balance - total,
+                    walletId: fromWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CAM"
+                }, { transaction })
+                await WalletHistoryModel.create({
+                    previousValue: toWallet.balance,
+                    newValue: toWallet.balance + amountToIncrement,
+                    walletId: toWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CAM"
+                }, { transaction })
             }  
 
             // 4. Mise à jour atomique
@@ -267,6 +327,61 @@ class WalletService {
             await transaction.commit();
             return newWallet;
 
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async requestWithdrawByInterac(
+        matricule: string,
+        amount: number,
+        emailInterac: string, 
+        questionInterac: string, 
+        responseInterac: string
+    ) {
+        const transaction = await sequelize.transaction();
+        try {
+            const feesConfig = await configService.getConfigByName('SENDO_WITHDRAW_INTERAC_FEES')
+            if (!feesConfig) throw new Error('Configuration des frais introuvable');
+            const total = Number(feesConfig.value) + amount
+
+            const wallet = await WalletModel.findOne({
+                where: { matricule },
+                transaction,
+                include: [{ model: UserModel, as: 'user' }]
+            });
+            
+            // 2. Validations initiales
+            if (!wallet) throw new Error('Portefeuille introuvable');
+            if (wallet.user?.country !== "Canada" || wallet.currency === 'XAF') throw new Error("Vous n'avez pas accès à cette fonctionnalité")
+            if (wallet.balance < total) throw new Error("Vous ne possédez pas la somme totale")
+
+            const transactionCreate: TransactionCreate = {
+                userId: wallet.userId,
+                type: typesTransaction['1'],
+                amount: Number(amount),
+                receiverId: wallet.userId,
+                receiverType: 'User',
+                status: typesStatusTransaction['0'],
+                currency: wallet.currency,
+                totalAmount: total,
+                sendoFees: Number(feesConfig.value),
+                description: "Retrait portefeuille par Interac",
+                provider: typesMethodTransaction['3'],
+                method: typesMethodTransaction['5'],
+                transactionReference: emailInterac,
+                accountNumber: responseInterac,
+                bankName: questionInterac
+            }
+            const transact = await transactionService.createTransaction(transactionCreate, { transaction });
+
+            await transaction.commit();
+
+            return {
+                transaction: transact,
+                user: wallet.user
+            };
         } catch (error) {
             await transaction.rollback();
             throw error;

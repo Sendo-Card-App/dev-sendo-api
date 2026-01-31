@@ -274,6 +274,11 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_TO_SENDO_TRANSFER_FEES',
         value: 1,
         description: "Frais SENDO appliqués lors d'un transfert SENDO vers SENDO (%)"
+    },
+    {
+        name: 'SENDO_WITHDRAW_INTERAC_FEES',
+        value: 2,
+        description: "Frais Sendo appliqués lors d'un retrait du portefeuille par INTERAC (CAD)"
     }
 ]
 
@@ -325,7 +330,8 @@ export const typesConfig = [
     'SENDO_UNLOCK_CARD_FEES',
     'SENDO_VIEW_DETAILS_CARD_FEES',
     'SENDO_VALUE_CAD_CA_CAM',
-    'SENDO_TO_SENDO_TRANSFER_FEES'
+    'SENDO_TO_SENDO_TRANSFER_FEES',
+    'SENDO_WITHDRAW_INTERAC_FEES'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

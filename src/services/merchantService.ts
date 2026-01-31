@@ -8,11 +8,10 @@ import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import { Op } from "sequelize";
 import transactionService from "./transactionService";
-import { generateAlphaNumeriqueString, getUTCBoundaries } from "@utils/functions";
+import { ajouterPrefixe237, generateAlphaNumeriqueString, getUTCBoundaries } from "@utils/functions";
 import TransactionModel from "@models/transaction.model";
 import PartnerWithdrawalsModel from "@models/partner-withdrawals.model";
 import redisClient from '@config/cache';
-import { NumberContextImpl } from "twilio/lib/rest/pricing/v2/number";
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -111,16 +110,17 @@ class MerchantService {
         return paliers;
     }
 
-    async findPalierByMontant(montant: number) {
+    async findPalierByMontant(montant: number, description?: string) {
         /*const cacheKey = `palierByMontant:${montant}`;
         const cached = await redisClient.get(cacheKey);
         if (cached) return JSON.parse(cached);*/
+        const whereClause: Record<string, any> = {};
+        whereClause.montantMin = { [Op.lte]: montant }
+        whereClause.montantMax = { [Op.gte]: montant }
+        if (description) whereClause.description = description
 
         const palier = await PalierModel.findOne({
-            where: {
-                montantMin: { [Op.lte]: montant },
-                montantMax: { [Op.gte]: montant }
-            },
+            where: whereClause,
             include: [{ model: CommissionModel, as: 'commission' }]
         });
         if (!palier) throw new Error(`Aucun palier trouvé pour le montant ${montant}`);
@@ -183,27 +183,36 @@ class MerchantService {
         startDate?: string,
         endDate?: string
     ) {
-        const where: Record<string, any> = { partnerId: idMerchant };
+        const where: Record<string, any> = { };
+
+        const includeOptions: any = {
+            model: TransactionModel,
+            as: 'transaction',
+            include: [{
+                model: UserModel,
+                as: 'user',
+                attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+            }]
+        };
 
         if (startDate || endDate) {
             where.createdAt = {};
             if (startDate) {
                 const { start } = getUTCBoundaries(startDate);
                 where.createdAt[Op.gte] = start;
+                includeOptions.where = where;
+                includeOptions.required = true;
             }
             if (endDate) {
                 const { end } = getUTCBoundaries(endDate);
-                where.createdAt[Op.lte] = end;
+                where.updatedAt[Op.lte] = end;
+                includeOptions.where = where;
+                includeOptions.required = true;
             }
             if (Object.keys(where.createdAt).length === 0) {
                 delete where.createdAt;
             }
         }
-
-        const includeOptions: any = {
-            model: TransactionModel,
-            as: 'transaction'
-        };
 
         if (status) {
             includeOptions.where = { status };
@@ -212,16 +221,8 @@ class MerchantService {
 
         const result = await sequelize.transaction(async (t) => {
             const transactionsPartenaires = await TransactionPartnerFeesModel.findAndCountAll({
-                where,
-                include: [{ 
-                    model: TransactionModel, 
-                    as: 'transaction',
-                    include: [{
-                        model: UserModel,
-                        as: 'user',
-                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
-                    }]
-                }],
+                where: { partnerId: idMerchant },
+                include: [includeOptions],
                 limit,
                 offset: startIndex,
                 order: [['createdAt', 'DESC']],
@@ -229,7 +230,11 @@ class MerchantService {
             });
 
             const totalCommissionResult = await TransactionPartnerFeesModel.sum('amount', {
-                where: { ...where, isWithdrawn: false },
+                where: { 
+                    partnerId: idMerchant,
+                    ...where, 
+                    isWithdrawn: false 
+                },
                 transaction: t
             });
 
@@ -260,20 +265,32 @@ class MerchantService {
         return transaction;
     }
 
-    async saveRequestWithdraw(partnerId: number, amount: number, phone: string) {
-        const commissions = await TransactionPartnerFeesModel.findAll({
-            where: { partnerId, isWithdrawn: false },
-            order: [['createdAt', 'ASC']],
-        });
+    async saveRequestWithdraw(
+        partnerId: number, 
+        amount: number, 
+        phone: string,
+        isFromBalance: boolean = false
+    ) {
+        if (!isFromBalance) {
+            const commissions = await TransactionPartnerFeesModel.findAll({
+                where: { partnerId, isWithdrawn: false },
+                order: [['createdAt', 'ASC']],
+            });
 
-        let sommeCumulee: number = 0;
+            let sommeCumulee: number = 0;
 
-        for (const commission of commissions) {
-            sommeCumulee += commission.amount;
-        }
+            for (const commission of commissions) {
+                sommeCumulee += commission.amount;
+            }
 
-        if (sommeCumulee < amount) {
-            throw new Error("Vous ne possédez pas cette somme en commissions générées")
+            if (sommeCumulee < amount) {
+                throw new Error("Vous ne possédez pas cette somme en commissions générées")
+            }
+        } else {
+            const merchant = await MerchantModel.findByPk(partnerId);
+            if (!merchant) throw new Error("Merchant introuvable");
+            if (merchant.balance < amount) throw new Error("Solde insuffisant pour ce retrait");
+            await merchant.decrement('balance', { by: amount });
         }
 
         return await PartnerWithdrawalsModel.create({
@@ -293,46 +310,67 @@ class MerchantService {
         });
     }
 
+    async getRequestWithdrawByParams(phone: string, amount?: number) {
+        const where: Record<string, any> = {
+            status: 'PENDING',
+        };
+        if (phone) where.phone = ajouterPrefixe237(phone);
+        if (amount) where.amount = amount;
+
+        return await PartnerWithdrawalsModel.findOne({
+            where,
+            include: [{
+                model: MerchantModel,
+                as: 'partner'
+            }]
+        });
+    }
+
     async retirerCommissionProche(
         idWithdraw: number,
         partnerId: number,
         montantVoulu: number
     ) {
         const requestWithdraw = await PartnerWithdrawalsModel.findByPk(idWithdraw)
-        const commissions = await TransactionPartnerFeesModel.findAll({
-            where: { partnerId, isWithdrawn: false },
-            order: [['createdAt', 'ASC']],
-        });
 
-        let sommeCumulee: number = 0;
-        let commissionsSelectionnees = [];
+        if (requestWithdraw && !requestWithdraw.isFromBalance) {
+            const commissions = await TransactionPartnerFeesModel.findAll({
+                where: { partnerId, isWithdrawn: false },
+                order: [['createdAt', 'ASC']],
+            });
 
-        for (const commission of commissions) {
-            commissionsSelectionnees.push(commission);
-            sommeCumulee += commission.amount;
+            let sommeCumulee: number = 0;
+            let commissionsSelectionnees = [];
 
-            if (sommeCumulee >= montantVoulu) {
-                break;
+            for (const commission of commissions) {
+                commissionsSelectionnees.push(commission);
+                sommeCumulee += commission.amount;
+
+                if (sommeCumulee >= montantVoulu) {
+                    break;
+                }
             }
+
+            if (commissionsSelectionnees.length === 0) {
+                throw new Error('Aucune commission disponible pour ce retrait');
+            }
+
+            // Mise à jour de isWithdrawn en transaction
+            await sequelize.transaction(async (t) => {
+                for (const c of commissionsSelectionnees) {
+                    await c.update({ isWithdrawn: true }, { transaction: t });
+                }
+
+                if (requestWithdraw && sommeCumulee != montantVoulu) {
+                    requestWithdraw.amount = sommeCumulee
+                    await requestWithdraw.save()
+                }
+            });
+
+            return requestWithdraw!.reload();
+        } else {
+            return requestWithdraw!;
         }
-
-        if (commissionsSelectionnees.length === 0) {
-            throw new Error('Aucune commission disponible pour ce retrait');
-        }
-
-        // Mise à jour de isWithdrawn en transaction
-        await sequelize.transaction(async (t) => {
-            for (const c of commissionsSelectionnees) {
-                await c.update({ isWithdrawn: true }, { transaction: t });
-            }
-
-            if (requestWithdraw && sommeCumulee != montantVoulu) {
-                requestWithdraw.amount = sommeCumulee
-                await requestWithdraw.save()
-            }
-        });
-
-        return requestWithdraw!.reload();
     }
 
     async getAllRequestWithdraw(
@@ -361,6 +399,31 @@ class MerchantService {
         });
 
         return result;
+    }
+
+    async getMerchantById(merchantId: number) {
+        const merchant = await MerchantModel.findByPk(merchantId);
+        if (!merchant) throw new Error('Merchant not found');
+        return merchant;
+    }
+
+    async updateStatusRequestWithdraw(requestWithdrawId: number) {
+        const requestWithdraw = await PartnerWithdrawalsModel.findByPk(requestWithdrawId, {
+            include: [{
+                model: MerchantModel,
+                as: 'partner',
+                include: [{
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'phone', 'email', 'firstname', 'lastname']
+                }]
+            }]
+        })
+        if (!requestWithdraw) throw new Error("Requête de retrait introuvable")
+
+        requestWithdraw.status = "REJECTED";
+        const newRequest = await requestWithdraw.save()
+        return newRequest;
     }
 }
 

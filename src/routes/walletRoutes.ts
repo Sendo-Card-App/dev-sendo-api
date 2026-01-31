@@ -215,8 +215,8 @@ router.post(
  * @swagger
  * /wallet/withdrawal:
  *   post:
- *     summary: Recharger un montant d'un portefeuille côté `ADMIN`
- *     description: Retirer un montant d'un portefeuille côté `ADMIN`
+ *     summary: Débiter un montant d'un portefeuille côté `ADMIN`
+ *     description: Débiter un montant d'un portefeuille côté `ADMIN`
  *     tags: [Wallets]
  *     security:
  *       - BearerAuth: []
@@ -298,5 +298,54 @@ router.get(
     hasRole(['CUSTOMER', 'MERCHANT']),
     walletController.getUserByWallet
 );
+
+/**
+ * @swagger
+ * /wallet/request-withdrawal:
+ *   post:
+ *     summary: Demander un transfert de son compte vers son compte Interac
+ *     description: Demande de retrait sur un compte en CAD
+ *     tags: [Wallets]
+ *     security:
+ *       - BearerAuth: []
+ *       - PasscodeAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               matriculeWallet:
+ *                 type: string
+ *                 description: Matricule du portefeuille
+ *               amount:
+ *                 type: integer
+ *                 description: Montant de la transaction
+ *               emailInterac:
+ *                 type: string
+ *                 description: Email du compte Interac
+ *               questionInterac:
+ *                 type: string
+ *                 description: Question lié au compte Interac
+ *               responseInterac:
+ *                 type: string
+ *                 description: Réponse liée à la question du compte Interac
+ *     responses:
+ *       200:
+ *         description: Transaction enregistrée avec succès
+ *       404:
+ *         description: Portefeuille introuvable
+ *       500:
+ *         description: Erreur lors du retrait
+ */
+router.post(
+    '/request-withdrawal',
+    authMiddleware, 
+    verifyPasscode, 
+    checkKYC,
+    hasRole(['CUSTOMER']), 
+    walletController.requestWithdraw
+)
 
 export default router;

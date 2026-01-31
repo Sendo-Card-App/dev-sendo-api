@@ -35,6 +35,7 @@ import TransactionPartnerFeesModel from './transaction-partner-fees.model';
 import MerchantModel from './merchant.model';
 import PartnerWithdrawalsModel from './partner-withdrawals.model';
 import ReferralCodeModel from './referral-code.model';
+import WalletHistoryModel from './wallet-history.model';
 
 
   /** -------------------------------
@@ -270,6 +271,16 @@ import ReferralCodeModel from './referral-code.model';
     as: 'usedCodes' 
   });*/
 
+  WalletHistoryModel.belongsTo(WalletModel, {
+    foreignKey: 'walletId',
+    as: 'wallet'
+  })
+
+  WalletModel.hasMany(WalletHistoryModel, {
+    foreignKey: 'walletId',
+    as: 'wallet_histories'
+  })
+
 export {
   RoleModel,
   UserModel,
@@ -302,5 +313,6 @@ export {
   DestinataireModel,
   CodePhoneModel,
   CardTransactionDebtsModel,
-  ReferralCodeModel
+  ReferralCodeModel,
+  WalletHistoryModel
 };

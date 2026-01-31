@@ -10,6 +10,7 @@ import WebhookEventModel from '@models/event-webhook.model';
 import { Op } from 'sequelize';
 import { getUTCBoundaries } from '@utils/functions';
 import { Request } from 'express';
+import logger from '@config/logger';
 
 interface PayPalDetails {
     email: string;
@@ -344,7 +345,7 @@ class NeeroGatewayService {
      * @param payload Données du paiement cash-out
      * @returns Réponse de l'API
      */
-    public async createCashOutPayment(payload: CashOutPayload): Promise<any> {
+    public async createCashOutPayment(payload: CashOutPayload) {
         const endpoint = 'transaction-intents/cash-out';
         const url = new URL(endpoint, this.basePaymentUrl).toString();
 
@@ -355,6 +356,7 @@ class NeeroGatewayService {
                     'Authorization': this.getAuthHeader()
                 }
             });
+            
             return response.data;
         } catch (error) {
             this.errorApi(error as AxiosError)
@@ -802,6 +804,13 @@ class NeeroGatewayService {
     private errorApi(error: AxiosError) {
         const apiError = error.response?.data as NeeroApiError | undefined;
         console.log('error api', error.response)
+        logger.error('Neero API Error:', {
+            message: apiError ? apiError.title : 'Unknown error',
+            code: apiError ? apiError.code : 'N/A',
+            details: apiError ? apiError.detail : 'N/A',
+            status: error.response?.status,
+            data: error.response?.data
+        });
 
         if (axios.isAxiosError(error)) {
             return error.response?.data;

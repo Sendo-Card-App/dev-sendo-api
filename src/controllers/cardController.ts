@@ -3,7 +3,7 @@ import cardService, { PartySessionUpdate } from "../services/cardService";
 import kycService from "../services/kycService";
 import { sendError, sendResponse } from "../utils/apiResponse";
 import { CardPayload, CreateCardModel, CreateCardPayload, FreezeCardPayload, UploadDocumentsPayload } from "../types/Neero";
-import { canInitiateTransaction, DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, validateAndTruncateCardName } from "@utils/functions";
+import { canInitiateTransaction, DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, roundToPreviousMultipleOfFive, validateAndTruncateCardName } from "@utils/functions";
 import configService from "@services/configService";
 import userService from "@services/userService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
@@ -350,22 +350,30 @@ class CardController {
                 return;
             }
 
-            const partySession = await cardService.getPartySession(req.user.id)
-            if (partySession) {
-                const onboardingUser = await cardService.getOnboardingSessionUser(req.user.id)
-                if (onboardingUser.onboardingSession.onboardingSessionStatus == 'UNDER_VERIFICATION') {
-                    sendError(res, 403, "Votre demande d'onboarding n'a pas encore été validé")
-                    return;
-                }
-                if (onboardingUser.onboardingSession.onboardingSessionStatus == 'VERIFIED') {
-                    sendError(res, 403, "Vous possédez déjà une carte virtuelle active")
-                    return; 
-                }
+            const virtualCard = await cardService.getVirtualCard(undefined, undefined, req.user.id)
+            const onboardingUser = await cardService.getOnboardingSessionUser(req.user.id)
+            if (
+                virtualCard &&
+                onboardingUser.onboardingSession && 
+                onboardingUser.onboardingSession.onboardingSessionStatus == 'UNDER_VERIFICATION'
+            ) {
+                sendError(res, 403, "Votre demande d'onboarding n'a pas encore été validé")
+                return;
+            }
+            /*if (onboardingUser.onboardingSession.onboardingSessionStatus == 'VERIFIED') {
+                sendError(res, 403, "Vous possédez déjà une carte virtuelle active")
+                return; 
+            }*/
+            
+            const user = await userService.getUserById(req.user.id)
+            if (virtualCard && virtualCard.status === "TERMINATED" && user) {
+                const newCard = await cardService.createCard(virtualCard, user)
+                sendResponse(res, 201, "Virtual card created", newCard)
+                return;
             }
 
             // On récupère le montant des frais de création de carte
             const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
-            const user = await userService.getUserById(req.user.id)
 
             if (config && user && user.wallet!.balance < config!.value) {
                 throw new Error("Veuillez recharger votre portefeuille")
@@ -792,22 +800,32 @@ class CardController {
 
             const checkTransaction = await neeroService.getTransactionIntentById(cashout.id)
 
+            /** Cette façon de faire est temporaire */
+            await walletService.debitWallet(
+                matriculeWallet,
+                amountNum + parseInt(`${fees}`)
+            )
+            if (virtualCard.status === 'PRE_ACTIVE') {
+                await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
+            }
+            /** ça s'arrête ici */
+
             if (
                 checkTransaction.status === "SUCCESSFUL" &&
                 newTransaction.status === 'PENDING'
             ) {
-                await walletService.debitWallet(
+                /*await walletService.debitWallet(
                     matriculeWallet,
                     amountNum + parseInt(`${fees}`)
-                )
+                )*/
 
                 newTransaction.status = 'COMPLETED'
                 await newTransaction.save()
 
                 // On met à jour le status de la carte
-                if (virtualCard.status === 'PRE_ACTIVE') {
+                /*if (virtualCard.status === 'PRE_ACTIVE') {
                     await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
-                }
+                }*/
 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(req.user.id)
@@ -1172,7 +1190,7 @@ class CardController {
             if (balance && balance.balance > 0) {
                 if (paymentMethod) {
                     payload = {
-                        amount: balance.balance,
+                        amount: roundToPreviousMultipleOfFive(Number(balance.balance)),
                         currencyCode: 'XAF',
                         confirm: true,
                         paymentType: 'NEERO_CARD_CASHOUT',
@@ -1197,22 +1215,22 @@ class CardController {
                 ) {
                     await walletService.creditWallet(
                         virtualCard?.user?.wallet?.matricule ?? '',
-                        balance.balance
+                        roundToPreviousMultipleOfFive(Number(balance.balance))
                     )
                 }
 
                 const transactionToCreate: TransactionCreate = {
-                    amount: Number(balance.balance),
+                    amount: roundToPreviousMultipleOfFive(Number(balance.balance)),
                     type: typesTransaction['1'],
                     status: mapNeeroStatusToSendo(checkTransaction.status),
                     userId: virtualCard!.user!.id,
                     currency: typesCurrency['0'],
-                    totalAmount: Number(balance.balance),
+                    totalAmount: roundToPreviousMultipleOfFive(Number(balance.balance)),
                     method: typesMethodTransaction['2'],
                     transactionReference: cashin.id,
                     sendoFees: 0,
                     virtualCardId: virtualCard?.id,
-                    description: 'Transfert des fonds sur le portefeuille',
+                    description: 'Vidange de la carte',
                     receiverId: virtualCard!.user!.id,
                     receiverType: 'User'
                 }

@@ -13,6 +13,7 @@ import UserModel from '@models/user.model';
 import kycService from '@services/kycService';
 import notificationService from '@services/notificationService';
 import cashoutService from '@services/cashoutService';
+import WalletHistoryModel from '@models/wallet-history.model';
 
 class AdminController {
     async getAllDocuments(req: Request, res: Response) {
@@ -512,7 +513,47 @@ class AdminController {
                 await notificationService.save({
                     title: 'Sendo',
                     type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} votre dépôt INTERAC sur Senso a été traité avec succès`,
+                    content: `${transaction.user?.firstname} votre dépôt INTERAC sur Sendo a été traité avec succès`,
+                    userId: transaction.user?.id ?? 0,
+                    token: token?.token ?? '',
+                    status: 'SENDED'
+                })
+            } else if (
+                transaction?.type === 'WITHDRAWAL' &&
+                transaction.method === 'INTERAC' &&
+                status == typesStatusTransaction['1'] &&
+                transaction.user &&
+                transaction.user.wallet
+            ) {
+                await walletService.debitWallet(
+                    transaction.user.wallet.matricule,
+                    transaction.totalAmount,
+                    typesMethodTransaction['5']
+                );
+
+                transaction.status = 'COMPLETED'
+                await transaction.save();
+
+                await sendGlobalEmail(
+                    transaction.user.email,
+                    'Dépôt bancaire Sendo - Interac',
+                    `<p>Votre retrait du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été débité de ${transaction.amount} CAD et votre compte Interac <b>${transaction.bankName}</b> crédité.</p>
+                    `
+                );
+
+                await WalletHistoryModel.create({
+                    previousValue: transaction.user.wallet.balance,
+                    newValue: transaction.user.wallet.balance - transaction.totalAmount,
+                    walletId: transaction.user.wallet.id,
+                    updatedBy: req.user?.id,
+                    reason: "Dépôt bancaire Sendo - Interac"
+                })
+
+                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
+                await notificationService.save({
+                    title: 'Sendo',
+                    type: 'INFORMATION',
+                    content: `${transaction.user?.firstname} Votre retrait du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été débité de ${transaction.amount} CAD et votre compte Interac ${transaction.bankName} crédité.`,
                     userId: transaction.user?.id ?? 0,
                     token: token?.token ?? '',
                     status: 'SENDED'

@@ -4,7 +4,7 @@ import KycDocumentModel from '@models/kyc-document.model';
 import cloudinary from '@config/cloudinary';
 import adminService from '@services/adminService';
 import { PaginatedData } from '../types/BaseEntity';
-import { sendEmailVerificationKYC, sendGlobalEmail } from '@services/emailService';
+import { sendEmailVerificationKYC, sendGlobalEmail, successTransferFunds } from '@services/emailService';
 import transactionService from '@services/transactionService';
 import walletService from '@services/walletService';
 import { typesKYCStatus, typesMethodTransaction, typesStatusTransaction, TypesStatusUser, TypesStatusWallet, typesTransaction } from '@utils/constants';
@@ -14,6 +14,8 @@ import kycService from '@services/kycService';
 import notificationService from '@services/notificationService';
 import cashoutService from '@services/cashoutService';
 import WalletHistoryModel from '@models/wallet-history.model';
+import WalletModel from '@models/wallet.model';
+import configService from '@services/configService';
 
 class AdminController {
     async getAllDocuments(req: Request, res: Response) {
@@ -464,7 +466,9 @@ class AdminController {
                 await walletService.creditWallet(
                     transaction.user.wallet.matricule,
                     transaction.amount,
-                    typesMethodTransaction['1']
+                    typesMethodTransaction['1'],
+                    req.user?.id,
+                    transaction.id
                 );
 
                 transaction.status = 'COMPLETED'
@@ -496,7 +500,9 @@ class AdminController {
                 await walletService.creditWallet(
                     transaction.user.wallet.matricule,
                     transaction.amount,
-                    typesMethodTransaction['5']
+                    typesMethodTransaction['5'],
+                    req.user?.id,
+                    transaction.id
                 );
 
                 transaction.status = 'COMPLETED'
@@ -528,7 +534,9 @@ class AdminController {
                 await walletService.debitWallet(
                     transaction.user.wallet.matricule,
                     transaction.totalAmount,
-                    typesMethodTransaction['5']
+                    "Dépôt bancaire Sendo - Interac",
+                    req.user?.id,
+                    transaction.id
                 );
 
                 transaction.status = 'COMPLETED'
@@ -540,14 +548,6 @@ class AdminController {
                     `<p>Votre retrait du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été débité de ${transaction.amount} CAD et votre compte Interac <b>${transaction.bankName}</b> crédité.</p>
                     `
                 );
-
-                await WalletHistoryModel.create({
-                    previousValue: transaction.user.wallet.balance,
-                    newValue: transaction.user.wallet.balance - transaction.totalAmount,
-                    walletId: transaction.user.wallet.id,
-                    updatedBy: req.user?.id,
-                    reason: "Dépôt bancaire Sendo - Interac"
-                })
 
                 const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
                 await notificationService.save({
@@ -591,6 +591,86 @@ class AdminController {
                 // Architecture de Neero
                 const destinataire = await transaction.getReceiver()
                 await cashoutService.init(destinataire!.phone || '', transaction.transactionId ||'')
+            } else if (
+                transaction.type === "WALLET_TO_WALLET" &&
+                transaction.status === "PENDING" &&
+                transaction.method === "WALLET" &&
+                transaction.provider == "WALLET" &&
+                status === typesStatusTransaction['1']
+            ) {
+                const fromWallet = await WalletModel.findOne({
+                    where: { userId: transaction.userId },
+                    include: [{ model: UserModel, as: 'user' }]
+                });
+                const toWallet = await WalletModel.findOne({
+                    where: { userId: transaction.receiverId },
+                    include: [{ model: UserModel, as: 'user' }]
+                });
+                if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
+
+                const cadSendoValue = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
+                if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
+
+                // Enregistrer l'historique des mouvements sur les wallets
+                const amountToIncrement = Math.ceil(transaction.amount / Number(cadSendoValue.value))
+
+                await fromWallet.decrement('balance', { by: transaction.totalAmount });
+                await toWallet.increment('balance', { by: amountToIncrement });
+
+                await WalletHistoryModel.create({
+                    previousValue: fromWallet.balance,
+                    newValue: fromWallet.balance - transaction.totalAmount,
+                    walletId: fromWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA",
+                    transactionId: transaction.id
+                })
+                await WalletHistoryModel.create({
+                    previousValue: toWallet.balance,
+                    newValue: toWallet.balance + amountToIncrement,
+                    walletId: toWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA",
+                    transactionId: transaction.id
+                })
+
+                transaction.status = 'COMPLETED'
+                await transaction.save();
+
+                const tokenSender = await notificationService.getTokenExpo(fromWallet.user?.id ?? 0)
+                await notificationService.save({
+                    type: 'SUCCESS_TRANSFER_FUNDS',
+                    userId: fromWallet.user?.id ?? 0,
+                    content: `Votre transfert de ${transaction.amount} ${fromWallet.currency} à ${toWallet.user?.firstname} a été effectué avec succès`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenSender?.token ?? ''
+                })
+                const tokenReceiver = await notificationService.getTokenExpo(toWallet.user?.id ?? 0)
+                await notificationService.save({
+                    type: 'SUCCESS_TRANSFER_FUNDS',
+                    userId: toWallet.user?.id ?? 0,
+                    content: `Vous avez reçu de ${fromWallet.user?.firstname} une somme de ${amountToIncrement} CAD sur votre portefeuille SENDO`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver?.token ?? ''
+                })
+
+                await successTransferFunds(
+                    fromWallet.user!, 
+                    toWallet.user?.email ?? "", 
+                    amountToIncrement,
+                    toWallet.currency,
+                )
+            } else if (status === typesStatusTransaction['3']) {
+                transaction.status = 'BLOCKED'
+                await transaction.save();
+
+                await sendGlobalEmail(
+                    transaction.user?.email ?? "",
+                    "Transaction annulée",
+                    `<p>Votre transaction <b>#${transaction.transactionId}</b> a été annulée</p>`
+                )
             }
 
             logger.info("Status de la transaction mis à jour", {

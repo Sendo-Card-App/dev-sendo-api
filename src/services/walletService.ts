@@ -77,7 +77,7 @@ class WalletService {
             
             // 2. Validations initiales
             if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
-            if (fromWallet?.user?.id !== userId) throw new Error('Ce wallet ne vous appartient pas')
+            //if (fromWallet?.user?.id !== userId) throw new Error('Ce wallet ne vous appartient pas')
             if (fromWallet.balance < amount) throw new Error('Solde insuffisant');
             if (fromWallet.currency === 'CAD' && toWallet.currency === 'CAD') throw new Error('Impossible de faire un transfert CAD vers CAD');
 
@@ -85,6 +85,8 @@ class WalletService {
             let total: number = 0;
             let configFeesValue: number | null = null;
             let amountToIncrement: number = 0;
+            let history_1: WalletHistoryModel | null = null;
+            let history_2: WalletHistoryModel | null = null;
 
             const feesConfig = await configService.getConfigByName('SENDO_TO_SENDO_TRANSFER_FEES')
             if (!feesConfig) throw new Error('Configuration des frais introuvable');
@@ -97,14 +99,14 @@ class WalletService {
                 amountToIncrement = Math.ceil(amount * Number(cadSendoValue.value))
 
                 // Enregistrer l'historique des mouvements sur les wallets
-                await WalletHistoryModel.create({
+                history_1 = await WalletHistoryModel.create({
                     previousValue: fromWallet.balance,
                     newValue: fromWallet.balance - total,
                     walletId: fromWallet.id,
                     updatedBy: fromWallet.userId,
                     reason: "Sendo-Sendo CA-CAM"
                 }, { transaction })
-                await WalletHistoryModel.create({
+                history_2 = await WalletHistoryModel.create({
                     previousValue: toWallet.balance,
                     newValue: toWallet.balance + amountToIncrement,
                     walletId: toWallet.id,
@@ -112,6 +114,7 @@ class WalletService {
                     reason: "Sendo-Sendo CA-CAM"
                 }, { transaction })
             } else if (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') {
+                if (amount > 1000000) throw new Error("Vous ne pouvez pas envoyer plus de 1000000")
                 const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
                 let commission: number | null = null;
                 if (palier.commission && palier.commission.typeCommission === 'POURCENTAGE') {
@@ -123,36 +126,20 @@ class WalletService {
                 configFeesValue = Number(commission)
                 total = Math.ceil(amount + configFeesValue)
                 amountToIncrement = Math.ceil(amount / Number(cadSendoValue.value))
-
-                // Enregistrer l'historique des mouvements sur les wallets
-                await WalletHistoryModel.create({
-                    previousValue: fromWallet.balance,
-                    newValue: fromWallet.balance - total,
-                    walletId: fromWallet.id,
-                    updatedBy: fromWallet.userId,
-                    reason: "Sendo-Sendo CAM-CA"
-                }, { transaction })
-                await WalletHistoryModel.create({
-                    previousValue: toWallet.balance,
-                    newValue: toWallet.balance + amountToIncrement,
-                    walletId: toWallet.id,
-                    updatedBy: fromWallet.userId,
-                    reason: "Sendo-Sendo CAM-CA"
-                }, { transaction })
             } else {
                 configFeesValue = 0
                 total = amount
                 amountToIncrement = amount
 
                 // Enregistrer l'historique des mouvements sur les wallets
-                await WalletHistoryModel.create({
+                history_1 = await WalletHistoryModel.create({
                     previousValue: fromWallet.balance,
                     newValue: fromWallet.balance - total,
                     walletId: fromWallet.id,
                     updatedBy: fromWallet.userId,
                     reason: "Sendo-Sendo CAM-CAM"
                 }, { transaction })
-                await WalletHistoryModel.create({
+                history_2 = await WalletHistoryModel.create({
                     previousValue: toWallet.balance,
                     newValue: toWallet.balance + amountToIncrement,
                     walletId: toWallet.id,
@@ -162,8 +149,10 @@ class WalletService {
             }  
 
             // 4. Mise à jour atomique
-            await fromWallet.decrement('balance', { by: total, transaction });
-            await toWallet.increment('balance', { by: amountToIncrement, transaction });
+            if ((fromWallet.currency !== 'XAF' && toWallet.currency !== 'CAD')) {
+                await fromWallet.decrement('balance', { by: total, transaction });
+                await toWallet.increment('balance', { by: amountToIncrement, transaction });
+            }
 
             // 5. Enregistrement de la transaction côté initiateur
             const transactionCreate: TransactionCreate = {
@@ -172,15 +161,21 @@ class WalletService {
                 amount: Number(amount),
                 receiverId: toWallet?.user?.id || 0,
                 receiverType: 'User',
-                status: typesStatusTransaction['1'],
+                status: (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') ? 'PENDING' : 'COMPLETED',
                 currency: fromWallet.currency,
                 totalAmount: total,
                 sendoFees: configFeesValue!,
-                description: "Transfert Sendo-Sendo",
+                description: description || "Transfert Sendo-Sendo",
                 provider: typesMethodTransaction['3'],
                 method: typesMethodTransaction['3']
             }
             const transac = await transactionService.createTransaction(transactionCreate, { transaction });
+            if (history_1 && history_2) {
+               history_1.transactionId = transac.id
+                history_1.save()
+                history_2.transactionId = transac.id
+                history_2.save() 
+            }
 
             // 6. On check si la carte possede des dettes
             await settleCardDebtsIfAny(toWallet!.matricule, toWallet!.userId)
@@ -279,7 +274,13 @@ class WalletService {
         })
     }
 
-    async creditWallet(matricule: string, amount: number, reason?: string) {
+    async creditWallet(
+        matricule: string, 
+        amount: number, 
+        reason?: string,
+        updatedBy?: number,
+        transactionId?: number
+    ) {
         const transaction = await sequelize.transaction();
 
         try {
@@ -287,14 +288,16 @@ class WalletService {
             let newWallet: WalletModel | null = null;
 
             if (wallet) {
-                /*if (
-                    reason === "SPONSORSHIP_FEES" || 
-                    reason === "BANK_TRANSFER" ||
-                    reason === "MOBILE_MONEY"
-                ) {
-                    newWallet = await wallet.increment('balance', { by: amount, transaction });
-                }*/
                newWallet = await wallet.increment('balance', { by: amount, transaction });
+
+               await WalletHistoryModel.create({
+                    previousValue: wallet.balance,
+                    newValue: wallet.balance + amount,
+                    walletId: wallet.id,
+                    updatedBy,
+                    reason,
+                    transactionId
+                }, { transaction })
             } else {
                 throw new Error("Portefeuille ou configuration introuvable")
             }
@@ -308,7 +311,13 @@ class WalletService {
         }
     }
 
-    async debitWallet(matricule: string, amount: number, reason?: string) {
+    async debitWallet(
+        matricule: string, 
+        amount: number, 
+        reason?: string,
+        updatedBy?: number,
+        transactionId?: number
+    ) {
         const transaction = await sequelize.transaction();
 
         try {
@@ -323,6 +332,15 @@ class WalletService {
             
             let newWallet: WalletModel | null = null;
             newWallet = await wallet.decrement('balance', { by: amount, transaction });
+
+            await WalletHistoryModel.create({
+                previousValue: wallet.balance,
+                newValue: wallet.balance - amount,
+                walletId: wallet.id,
+                updatedBy,
+                reason,
+                transactionId
+            }, { transaction })
 
             await transaction.commit();
             return newWallet;
@@ -370,11 +388,12 @@ class WalletService {
                 description: "Retrait portefeuille par Interac",
                 provider: typesMethodTransaction['3'],
                 method: typesMethodTransaction['5'],
-                transactionReference: emailInterac,
                 accountNumber: responseInterac,
                 bankName: questionInterac
             }
             const transact = await transactionService.createTransaction(transactionCreate, { transaction });
+            transact.transactionReference = `#${transact.id}-${emailInterac}`
+            await transact.save({ transaction });
 
             await transaction.commit();
 

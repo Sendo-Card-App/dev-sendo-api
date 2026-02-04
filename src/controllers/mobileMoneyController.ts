@@ -90,7 +90,9 @@ class MobileMoneyController {
                 wallet = await walletService.creditWallet(
                     matriculeWallet, 
                     parseInt(amount), 
-                    "MOBILE_MONEY"
+                    "Recharger portefeuille",
+                    req.user!.id,
+                    transaction.id
                 )
             }
 
@@ -178,7 +180,9 @@ class MobileMoneyController {
                 wallet = await walletService.debitWallet(
                     matriculeWallet, 
                     parseInt(amount), 
-                    "MOBILE_MONEY"
+                    "Retrait du portefeuille",
+                    req.user!.id,
+                    transaction.id
                 )
             }
 
@@ -227,7 +231,9 @@ class MobileMoneyController {
                 wallet = await walletService.debitWallet(
                     matricule, 
                     amount, 
-                    "MOBILE_MONEY"
+                    "Retrait du portefeuille",
+                    req.user!.id,
+                    transaction.id
                 )
             } else if (
                 verifyTx[0].status === 'SUCCESS' && 
@@ -238,7 +244,9 @@ class MobileMoneyController {
                 wallet = await walletService.creditWallet(
                     matricule, 
                     amount, 
-                    "MOBILE_MONEY"
+                    "Dépôt sur le portefeuille",
+                    req.user!.id,
+                    transaction.id
                 )
             }
 
@@ -456,10 +464,13 @@ class MobileMoneyController {
                 const wallet = await walletService.getWalletByMatricule(matriculeWallet)
                 await walletService.creditWallet(
                     wallet.matricule,
-                    new2Transaction.amount
+                    new2Transaction.amount,
+                    "Créditer le portefeuille",
+                    new2Transaction.userId,
+                    new2Transaction.id
                 )
                 
-                new2Transaction.status = mapNeeroStatusToSendo(neeroTransaction.status);
+                new2Transaction.status = "COMPLETED";
                 await new2Transaction.save()
 
                 // On check si la carte possede des dettes
@@ -623,7 +634,10 @@ class MobileMoneyController {
                 if (new2Transaction.amount > 0) {
                     await walletService.debitWallet(
                         matriculeWallet,
-                        new2Transaction.amount
+                        new2Transaction.amount,
+                        "Débiter le portefeuille",
+                        new2Transaction.userId,
+                        new2Transaction.id
                     )
 
                     new2Transaction.status = 'COMPLETED';

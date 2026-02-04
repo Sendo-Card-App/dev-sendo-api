@@ -308,9 +308,9 @@ class UserService {
         }
         
         return {
-            partnerVisaFees: partnerVisaFees?.value,
-            sendoFees: sendoFees?.value,
-            currencyValue: currencyValue?.value
+            partnerVisaFees: Number(partnerVisaFees?.value),
+            sendoFees: Number(sendoFees?.value),
+            currencyValue: Number(currencyValue?.value)
         }
     }
 

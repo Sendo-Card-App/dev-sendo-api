@@ -60,7 +60,10 @@ class CashoutService {
                 //On décrémente le solde du portefeuille
                 await walletService.debitWallet(
                     newTransaction.user?.wallet?.matricule  || '',
-                    amountToDecrement
+                    amountToDecrement,
+                    "Transfert CA-CAM",
+                    newTransaction.userId,
+                    newTransaction.id
                 )
 
                 const receiver = await transaction.getReceiver()

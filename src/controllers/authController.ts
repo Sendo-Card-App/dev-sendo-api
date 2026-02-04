@@ -97,7 +97,11 @@ class AuthController {
             config && 
             user.wallet?.matricule
           ) {
-            await successCreatingAccountWithYourRefferalCode(referrer.owner, user, config.value);
+            await successCreatingAccountWithYourRefferalCode(
+              referrer.owner, 
+              user, 
+              Number(config.value)
+            );
           }
         }
 

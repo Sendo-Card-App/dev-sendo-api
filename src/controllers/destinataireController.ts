@@ -195,7 +195,7 @@ class DestinataireController {
             }
 
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
-            if (parseInt(amount) < (configMinAmout?.value ?? 0)) {
+            if (parseInt(amount) < (Number(configMinAmout?.value) ?? 0)) {
                 sendError(res, 403, `Le montant minimum d\'envoi est de ${configMinAmout?.value} francs CFA`)
                 return
             }

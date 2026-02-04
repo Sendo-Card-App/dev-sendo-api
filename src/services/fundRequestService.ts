@@ -327,30 +327,10 @@ class FundRequestService {
             if (user.wallet.balance < data.amount) {
                 throw new Error("Le solde du portefeuille est insuffisant pour effectuer le paiement");
             }
-            await walletService.debitWallet(
-                user.wallet.matricule,
-                data.amount
-            )
 
             if (!fundRequestRecipient?.requestFund?.userId) {
                 throw new Error("L'identifiant du demandeur est introuvable");
             }
-            const demandeur = await userService.getUserById(fundRequestRecipient.requestFund.userId)
-            if (!demandeur?.wallet?.matricule) {
-                throw new Error("Le portefeuille ou le matricule de l'utilisateur est introuvable");
-            }
-
-            //On crédite le wallet du demandeur
-            await walletService.creditWallet(
-                demandeur.wallet.matricule,
-                data.amount
-            )
-
-            const statusRequest = (fundRequest && fundRequest.amount > data.amount) ? 'PARTIALLY_PAID' : 'PAID'
-            await RequestRecipientModel.update(
-                { status: statusRequest },
-                { where: { id: requestRecipientId }}
-            )
 
             const transaction = await transactionService.createTransaction({
                 amount: data.amount,
@@ -366,6 +346,34 @@ class FundRequestService {
                 method: typesMethodTransaction['3'],
                 provider: typesMethodTransaction['3']
             })
+
+            await walletService.debitWallet(
+                user.wallet.matricule,
+                data.amount,
+                "Demande de fonds",
+                user.id,
+                transaction.id
+            )
+
+            const demandeur = await userService.getUserById(fundRequestRecipient.requestFund.userId)
+            if (!demandeur?.wallet?.matricule) {
+                throw new Error("Le portefeuille ou le matricule de l'utilisateur est introuvable");
+            }
+
+            //On crédite le wallet du demandeur
+            await walletService.creditWallet(
+                demandeur.wallet.matricule,
+                data.amount,
+                "Demande de fonds",
+                demandeur.id,
+                transaction.id
+            )
+
+            const statusRequest = (fundRequest && fundRequest.amount > data.amount) ? 'PARTIALLY_PAID' : 'PAID'
+            await RequestRecipientModel.update(
+                { status: statusRequest },
+                { where: { id: requestRecipientId }}
+            )
 
             // Après la création de la transaction
             const allPaid = await RequestRecipientModel.findAll({

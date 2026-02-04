@@ -320,24 +320,6 @@ class SharedExpenseService {
                 throw new Error("Le solde du portefeuille est insuffisant pour effectuer le paiement");
             }
 
-            // On débite le wallet du payeur
-            await walletService.debitWallet(
-                matricule,
-                participant.part,
-                "MOBILE_MONEY"
-            )
-
-            // On crédite le wallet de l'initiateur
-            await walletService.creditWallet(
-                sharedExpense?.initiator?.wallet?.matricule ?? '',
-                participant.part,
-                "MOBILE_MONEY"
-            )
-            
-            // Mettre à jour le statut de paiement du participant
-            participant.paymentStatus = typesPaymentStatusSharedExpense['1'];
-            await participant.save();
-
             const transactionCreate: TransactionCreate = {
                 amount: participant.part,
                 description: 'Dépense partagée',
@@ -351,7 +333,29 @@ class SharedExpenseService {
                 receiverId: participant.userId,
                 receiverType: 'User'
             }
-            await transactionService.createTransaction(transactionCreate)
+            const transaction = await transactionService.createTransaction(transactionCreate)
+
+            // On débite le wallet du payeur
+            await walletService.debitWallet(
+                matricule,
+                participant.part,
+                "Paiement dépense partagée",
+                participant.user?.id,
+                transaction.id
+            )
+
+            // On crédite le wallet de l'initiateur
+            await walletService.creditWallet(
+                sharedExpense?.initiator?.wallet?.matricule ?? '',
+                participant.part,
+                "Paiement dépense partagée",
+                sharedExpense?.initiator?.id,
+                transaction.id
+            )
+            
+            // Mettre à jour le statut de paiement du participant
+            participant.paymentStatus = typesPaymentStatusSharedExpense['1'];
+            await participant.save();
 
             //Si tout le monde a payé, on met à jour le statut de la dépense
             const allPaid = await ParticipantSharedExpenseModel.count({

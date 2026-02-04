@@ -20,7 +20,7 @@ sequelize.sync({ force: false }).then(async () => {
   });
  
   //schedulerService.startCheckTransactionsSmobilpay();
-  schedulerService.startCheckTransactionsNeero();
+  //schedulerService.startCheckTransactionsNeero();
   schedulerService.startPenaliteChecks();
   schedulerService.startRappelsCotisation();
   schedulerService.startCheckPendingOnboardingSession();

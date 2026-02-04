@@ -3,7 +3,7 @@ import cardService, { PartySessionUpdate } from "../services/cardService";
 import kycService from "../services/kycService";
 import { sendError, sendResponse } from "../utils/apiResponse";
 import { CardPayload, CreateCardModel, CreateCardPayload, FreezeCardPayload, UploadDocumentsPayload } from "../types/Neero";
-import { canInitiateTransaction, DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, roundToPreviousMultipleOfFive, validateAndTruncateCardName } from "@utils/functions";
+import { canInitiateTransaction, DownloadedFile, mapDocumentType, mapNeeroStatusToSendo, recreateFilesFromUrls, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive, validateAndTruncateCardName } from "@utils/functions";
 import configService from "@services/configService";
 import userService from "@services/userService";
 import walletService, { settleCardDebtsIfAny } from "@services/walletService";
@@ -51,11 +51,7 @@ class CardController {
             // S'il a déjà créé au moins une carte, on applique les frais sur sa prochaine création
             const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
             if (user && user.numberOfCardsCreated >= 1) {
-                if (config && user.wallet && config.value > 0) {
-                    await walletService.debitWallet(
-                        user?.wallet?.matricule, 
-                        Number(config.value)
-                    )
+                if (config && user.wallet && Number(config.value) > 0) {
                     const transaction: TransactionCreate = {
                         amount: Number(config.value),
                         userId: user.id,
@@ -67,17 +63,20 @@ class CardController {
                         receiverId: user.id,
                         receiverType: 'User'
                     }
-                    await transactionService.createTransaction(transaction)
+                    const transactionCreated = await transactionService.createTransaction(transaction)
+                    await walletService.debitWallet(
+                        user?.wallet?.matricule, 
+                        Number(config.value),
+                        "Création de carte",
+                        user.id,
+                        transactionCreated.id
+                    )
                 }
             } else {
                 // On détermine d'abord si la première création de carte est gratuitre
                 const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
                 if (configFirstCreating && configFirstCreating.value === 0) {
-                    if (config && user?.wallet && config.value > 0) {
-                        await walletService.debitWallet(
-                            user?.wallet?.matricule, 
-                            Number(config.value)
-                        )
+                    if (config && user?.wallet && Number(config.value) > 0) {
                         const transaction: TransactionCreate = {
                             amount: Number(config.value),
                             userId: user.id,
@@ -89,7 +88,14 @@ class CardController {
                             receiverId: user.id,
                             receiverType: 'User'
                         }
-                        await transactionService.createTransaction(transaction)
+                        const transactionCreated = await transactionService.createTransaction(transaction)
+                        await walletService.debitWallet(
+                            user?.wallet?.matricule, 
+                            Number(config.value),
+                            "Création de carte",
+                            user.id,
+                            transactionCreated.id
+                        )
                     }
                 }
             }
@@ -166,11 +172,7 @@ class CardController {
             // S'il a déjà créé au moins une carte, on applique les frais sur sa prochaine création
             const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
             if (user && user.numberOfCardsCreated >= 1) {
-                if (config && user.wallet && config.value > 0) {
-                    await walletService.debitWallet(
-                        user?.wallet?.matricule, 
-                        Number(config.value)
-                    )
+                if (config && user.wallet && Number(config.value) > 0) {
                     const transaction: TransactionCreate = {
                         amount: Number(config.value),
                         userId: user.id,
@@ -182,17 +184,20 @@ class CardController {
                         receiverId: user.id,
                         receiverType: 'User'
                     }
-                    await transactionService.createTransaction(transaction)
+                    const transactionCreated = await transactionService.createTransaction(transaction)
+                    await walletService.debitWallet(
+                        user?.wallet?.matricule, 
+                        Number(config.value),
+                        "Création de carte par admin",
+                        req.user.id,
+                        transactionCreated.id
+                    )
                 }
             } else {
                 // On détermine d'abord si la première création de carte est gratuitre
                 const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
                 if (configFirstCreating && configFirstCreating.value === 0) {
-                    if (config && user?.wallet && config.value > 0) {
-                        await walletService.debitWallet(
-                            user?.wallet?.matricule, 
-                            Number(config.value)
-                        )
+                    if (config && user?.wallet && Number(config.value) > 0) {
                         const transaction: TransactionCreate = {
                             amount: Number(config.value),
                             userId: user.id,
@@ -204,7 +209,14 @@ class CardController {
                             receiverId: user.id,
                             receiverType: 'User'
                         }
-                        await transactionService.createTransaction(transaction)
+                        const transactionCreated = await transactionService.createTransaction(transaction)
+                        await walletService.debitWallet(
+                            user?.wallet?.matricule, 
+                            Number(config.value),
+                            "Création de carte par admin",
+                            req.user.id,
+                            transactionCreated.id
+                        )
                     }
                 }
             }
@@ -375,7 +387,7 @@ class CardController {
             // On récupère le montant des frais de création de carte
             const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
 
-            if (config && user && user.wallet!.balance < config!.value) {
+            if (config && user && user.wallet!.balance < Number(config!.value)) {
                 throw new Error("Veuillez recharger votre portefeuille")
             }
 
@@ -384,11 +396,7 @@ class CardController {
                 throw new Error("Erreur lors de l'initiation d'un onboarding Neero")
             }
 
-            if (config && user && user.wallet!.balance >= config!.value) {
-                await walletService.debitWallet(
-                    user.wallet!.matricule, 
-                    config.value
-                )
+            if (config && user && user.wallet!.balance >= Number(config!.value)) {
                 const transaction: TransactionCreate = {
                     amount: 0,
                     userId: user.id,
@@ -402,7 +410,14 @@ class CardController {
                     sendoFees: Number(config.value),
                     method: 'WALLET'
                 }
-                await transactionService.createTransaction(transaction)
+                const transactionCreate = await transactionService.createTransaction(transaction)
+                await walletService.debitWallet(
+                    user.wallet!.matricule, 
+                    Number(config.value),
+                    "Demande de carte",
+                    user.id,
+                    transactionCreate.id
+                )
 
                 // On envoie le gain si nécessaire
                 await mobileMoneyService.sendGiftForReferralCode(user)
@@ -448,7 +463,7 @@ class CardController {
             const config = await configService.getConfigByName('SENDO_CREATING_CARD_FEES')
             const user = await userService.getUserById(Number(userId))
 
-            if (config && user && user.wallet!.balance < config!.value) {
+            if (config && user && user.wallet!.balance < Number(config!.value)) {
                 throw new Error("Veuillez recharger votre portefeuille")
             }
 
@@ -457,11 +472,7 @@ class CardController {
                 throw new Error("Erreur lors de l'initiation d'un onboarding Neero")
             }
 
-            if (config && user && user.wallet!.balance >= config!.value) {
-                await walletService.debitWallet(
-                    user.wallet!.matricule, 
-                    config.value
-                )
+            if (config && user && user.wallet!.balance >= Number(config!.value)) {
                 const transaction: TransactionCreate = {
                     amount: 0,
                     userId: user.id,
@@ -475,7 +486,14 @@ class CardController {
                     sendoFees: Number(config.value),
                     method: 'WALLET'
                 }
-                await transactionService.createTransaction(transaction)
+                const transactionCreate = await transactionService.createTransaction(transaction)
+                await walletService.debitWallet(
+                    user.wallet!.matricule, 
+                    Number(config.value),
+                    "Demande de carte par admin",
+                    req.user.id,
+                    transactionCreate.id
+                )
 
                 // On envoie le gain si nécessaire
                 await mobileMoneyService.sendGiftForReferralCode(user)
@@ -803,7 +821,10 @@ class CardController {
             /** Cette façon de faire est temporaire */
             await walletService.debitWallet(
                 matriculeWallet,
-                amountNum + parseInt(`${fees}`)
+                amountNum + parseInt(`${fees}`),
+                "Recharge de carte",
+                transaction.userId,
+                transaction.id
             )
             if (virtualCard.status === 'PRE_ACTIVE') {
                 await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
@@ -958,7 +979,10 @@ class CardController {
             ) {
                 await walletService.creditWallet(
                     matriculeWallet,
-                    amountNum
+                    amountNum,
+                    "Débiter la carte",
+                    newTransaction.userId,
+                    newTransaction.id
                 )
                 
                 newTransaction.status = 'COMPLETED'
@@ -1069,7 +1093,7 @@ class CardController {
             if (balance && balance.balance > 0) {
                 if (paymentMethod) {
                     payload = {
-                        amount: balance.balance,
+                        amount: roundToNextMultipleOfFive(Number(balance.balance)),
                         currencyCode: 'XAF',
                         confirm: true,
                         paymentType: 'NEERO_CARD_CASHOUT',
@@ -1090,20 +1114,15 @@ class CardController {
 
                 // On retire les fonds de la carte virtuelle vers le portefeuille
                 if (
-                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                    mapNeeroStatusToSendo(checkTransaction.status) === "COMPLETED"
                 ) {
-                    await walletService.creditWallet(
-                        virtualCard?.user?.wallet?.matricule ?? '',
-                        balance.balance
-                    )
-                    
                     const transactionToCreate: TransactionCreate = {
-                        amount: balance.balance,
+                        amount: Number(balance.balance),
                         type: typesTransaction['1'],
                         status: mapNeeroStatusToSendo(checkTransaction.status),
                         userId: req.user!.id,
                         currency: typesCurrency['0'],
-                        totalAmount: balance.balance,
+                        totalAmount: Number(balance.balance),
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
                         sendoFees: 0,
@@ -1112,7 +1131,15 @@ class CardController {
                         receiverId: req.user!.id,
                         receiverType: 'User'
                     }
-                    await transactionService.createTransaction(transactionToCreate)
+                    const transaction = await transactionService.createTransaction(transactionToCreate)
+
+                    await walletService.creditWallet(
+                        virtualCard?.user?.wallet?.matricule ?? '',
+                        balance.balance,
+                        "Supprimer la carte",
+                        virtualCard?.user?.id,
+                        transaction.id
+                    )
                     
                     // Envoyer une notification
                     await notificationService.save({
@@ -1209,16 +1236,6 @@ class CardController {
 
                 const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
 
-                // On retire les fonds de la carte virtuelle vers le portefeuille
-                if (
-                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
-                ) {
-                    await walletService.creditWallet(
-                        virtualCard?.user?.wallet?.matricule ?? '',
-                        roundToPreviousMultipleOfFive(Number(balance.balance))
-                    )
-                }
-
                 const transactionToCreate: TransactionCreate = {
                     amount: roundToPreviousMultipleOfFive(Number(balance.balance)),
                     type: typesTransaction['1'],
@@ -1234,7 +1251,20 @@ class CardController {
                     receiverId: virtualCard!.user!.id,
                     receiverType: 'User'
                 }
-                await transactionService.createTransaction(transactionToCreate)
+                const transactionCreated = await transactionService.createTransaction(transactionToCreate)
+
+                // On retire les fonds de la carte virtuelle vers le portefeuille
+                if (
+                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
+                ) {
+                    await walletService.creditWallet(
+                        virtualCard?.user?.wallet?.matricule ?? '',
+                        roundToPreviousMultipleOfFive(Number(balance.balance)),
+                        "Vider la carte par admin",
+                        req.user.id,
+                        transactionCreated.id
+                    )
+                }
             }
 
             logger.info(`La carte de l'utilisateur ${req.user.id} a été vidé. Card ID : ${cardId}`);
@@ -1301,7 +1331,7 @@ class CardController {
             }
 
             const configFees = await configService.getConfigByName('SENDO_VIEW_DETAILS_CARD_FEES')
-            const fees = configFees!.value
+            const fees = Number(configFees!.value)
             let payload: CashInPayload | undefined;
             
             const newVirtualCard = await cardService.getPaymentMethodCard(virtualCard!.id)
@@ -1414,17 +1444,13 @@ class CardController {
             //Si la carte est bloquée et on veut la débloquer, on paie les frais de débloquage
             const fees = await configService.getConfigByName('SENDO_UNLOCK_CARD_FEES')
             if (virtualCard?.paymentRejectNumber === 3) {
-                await walletService.debitWallet(
-                    virtualCard.user?.wallet?.matricule ?? '',
-                    fees?.value ?? 0
-                )
                 const TransactionCreate: TransactionCreate = {
                     type: 'PAYMENT',
-                    amount: fees?.value ?? 0,
+                    amount: Number(fees?.value) ?? 0,
                     currency: typesCurrency['0'],
                     status: 'COMPLETED',
                     userId: virtualCard?.user?.id ?? 0,
-                    totalAmount: fees?.value ?? 0,
+                    totalAmount: Number(fees?.value) ?? 0,
                     description: 'Paiement des frais de débloquage de carte',
                     virtualCardId: virtualCard?.id,
                     method: 'VIRTUAL_CARD',
@@ -1432,7 +1458,14 @@ class CardController {
                     receiverId: virtualCard?.user?.id ?? 0,
                     receiverType: 'User'
                 }
-                await transactionService.createTransaction(TransactionCreate)
+                const transaction = await transactionService.createTransaction(TransactionCreate)
+                await walletService.debitWallet(
+                    virtualCard.user?.wallet?.matricule ?? '',
+                    Number(fees?.value) ?? 0,
+                    "Débloquer card par admin",
+                    req.user?.id,
+                    transaction.id
+                )
 
                 // On remet le compteur à 0
                 virtualCard.paymentRejectNumber = 0
@@ -1440,7 +1473,9 @@ class CardController {
             } else {
                 await walletService.debitWallet(
                     virtualCard?.user?.wallet?.matricule ?? '',
-                    fees?.value ?? 0
+                    Number(fees?.value) ?? 0,
+                    "Débloquer card par admin",
+                    req.user?.id
                 )
             }
 

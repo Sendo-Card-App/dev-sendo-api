@@ -77,6 +77,71 @@ class TransactionService {
         return cachedResult;
     }
 
+    async getAllTransactionsCanada(
+        limit: number,
+        startIndex: number,
+        status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'BLOCKED',
+        startDate?: string,
+        endDate?: string
+    ) {
+        const where: any = {
+            // ✅ TOUS les types Canada : TRANSFER, WITHDRAWAL, DEPOSIT
+            type: {
+                [Op.in]: ['TRANSFER', 'WITHDRAWAL', 'DEPOSIT', 'WALLET_TO_WALLET']
+            },
+            // ✅ TOUS les methods Canada : INTERAC, WALLET_TO_WALLET  
+            method: {
+                [Op.in]: ['INTERAC', 'WALLET']
+            },
+            // ✅ UNIQUEMENT provider WALLET
+            provider: 'WALLET'
+        };
+
+        // Filtre status optionnel
+        if (status) where.status = status;
+
+        // Filtre dates
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) where.createdAt[Op.gte] = getUTCBoundaries(startDate).start;
+            if (endDate) where.createdAt[Op.lte] = getUTCBoundaries(endDate).end;
+            if (Object.keys(where.createdAt).length === 0) delete where.createdAt;
+        }
+
+        const result = await TransactionModel.findAndCountAll({
+            where,
+            limit,
+            offset: startIndex,
+            order: [['createdAt', 'DESC']],
+            include: [
+                {
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                },
+                {
+                    model: VirtualCardModel,
+                    as: 'card'
+                }
+            ]
+        });
+
+        const transactionsWithReceivers = await Promise.all(
+            result.rows.map(async (transaction) => {
+                const receiver = await transaction.getReceiver();
+                return {
+                    ...transaction.toJSON(),
+                    receiver: receiver ? receiver.toJSON() : null
+                };
+            })
+        );
+
+        return {
+            count: result.count,
+            rows: transactionsWithReceivers
+        };
+    }
+
     async createTransaction(transaction: TransactionCreate, options?: { transaction: Transaction }) {
         return await TransactionModel.create(transaction, { transaction: options?.transaction });
     }

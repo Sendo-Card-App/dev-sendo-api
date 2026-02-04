@@ -32,6 +32,32 @@ class TransactionController {
         }
     }
 
+    async getTransactionsCanada(req: Request, res: Response) {
+        const { page, limit, startIndex, status, startDate, endDate } = res.locals.pagination;
+
+        try {
+            const transactions = await transactionService.getAllTransactionsCanada(
+                limit,
+                startIndex,
+                status,
+                startDate,
+                endDate
+            )
+            const totalPages = Math.ceil(transactions.count / limit);
+                  
+            const responseData: PaginatedData = {
+                page,
+                totalPages,
+                totalItems: transactions.count,
+                items: transactions.rows
+            };
+    
+            sendResponse(res, 200, 'Transactions récupérées', responseData);
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message]);
+        }
+    }
+
     async getTransaction(req: Request, res: Response) {
         const { transactionId } = req.params
         try {

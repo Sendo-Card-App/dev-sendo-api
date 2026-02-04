@@ -76,6 +76,61 @@ router.get(
 
 /**
  * @swagger
+ * /transactions/cacam:
+ *   get:
+ *     summary: Liste toutes les transactions des utilisateurs entre le Canada et le Cameroun
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, FAILED, BLOCKED] 
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de début pour filtrer les transactions (inclus)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de fin pour filtrer les transactions (inclus)
+ *     tags: [Transactions]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des transactions
+ */
+router.get(
+    '/cacam',
+    authMiddleware, 
+    paginationMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    transactionController.getTransactionsCanada
+);
+
+/**
+ * @swagger
  * /transactions/{transactionId}:
  *   get:
  *     summary: Récupérer tout le contenu d'une transaction grâce à son ID

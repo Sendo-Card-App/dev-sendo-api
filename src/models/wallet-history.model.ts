@@ -2,6 +2,7 @@ import sequelize from "@config/db";
 import { CreationOptional, DataTypes, ForeignKey, InferAttributes, InferCreationAttributes, Model, NonAttribute } from "sequelize";
 import WalletModel from "./wallet.model";
 import UserModel from "./user.model";
+import TransactionModel from "./transaction.model";
 
 class WalletHistoryModel extends Model<
   InferAttributes<WalletHistoryModel>,
@@ -11,6 +12,7 @@ class WalletHistoryModel extends Model<
     declare previousValue: number;
     declare newValue: number;
     declare walletId: ForeignKey<WalletModel['id']>;
+    declare transactionId: number | null | undefined;
     declare updatedBy: ForeignKey<UserModel['id']>;
     declare reason: string | null | undefined;
     declare createdAt: CreationOptional<Date>;
@@ -18,6 +20,7 @@ class WalletHistoryModel extends Model<
 
     // Relations
     declare wallet?: NonAttribute<WalletModel>;
+    declare transaction?: NonAttribute<TransactionModel>;
 }
 
 WalletHistoryModel.init({
@@ -30,6 +33,11 @@ WalletHistoryModel.init({
         type: DataTypes.INTEGER,
         allowNull: false,
         references: { model: WalletModel, key: "id" },
+    },
+    transactionId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        //references: { model: TransactionModel, key: "id" },
     },
     previousValue: {
         type: DataTypes.FLOAT,

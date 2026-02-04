@@ -11,7 +11,7 @@ import sequelize from '@config/db';
 
 export interface ConfigModelCreate {
   name: string;
-  value: number;
+  value: number | string;
   description: string;
 }
 
@@ -21,7 +21,7 @@ class ConfigModel extends Model<
 > {
   declare id: number;
   declare name: string;
-  declare value: number;
+  declare value: number | string;
   declare description: string;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;

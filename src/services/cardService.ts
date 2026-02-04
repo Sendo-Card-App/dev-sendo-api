@@ -492,11 +492,7 @@ class CardService {
         }
 
         if (user && user.numberOfCardsCreated >= 1) {
-            if (config && user.wallet && config.value > 0) {
-                await walletService.debitWallet(
-                    user?.wallet?.matricule, 
-                    Number(config.value)
-                )
+            if (config && user.wallet && Number(config.value) > 0) {
                 const transaction: TransactionCreate = {
                     amount: Number(config.value),
                     userId: user.id,
@@ -508,17 +504,21 @@ class CardService {
                     receiverId: user.id,
                     receiverType: 'User'
                 }
-                await transactionService.createTransaction(transaction)
+                const transactionCreate = await transactionService.createTransaction(transaction)
+                
+                await walletService.debitWallet(
+                    user?.wallet?.matricule, 
+                    Number(config.value),
+                    "Création de carte",
+                    transactionCreate.userId,
+                    transactionCreate.id
+                )
             }
         } else {
             // On détermine d'abord si la première création de carte est gratuitre
             const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
             if (configFirstCreating && configFirstCreating.value === 0) {
                 if (config && user?.wallet && Number(config.value) > 0) {
-                    await walletService.debitWallet(
-                        user?.wallet?.matricule, 
-                        Number(config.value)
-                    )
                     const transaction: TransactionCreate = {
                         amount: Number(config.value),
                         userId: user.id,
@@ -530,7 +530,15 @@ class CardService {
                         receiverId: user.id,
                         receiverType: 'User'
                     }
-                    await transactionService.createTransaction(transaction)
+                    const transactionCreate = await transactionService.createTransaction(transaction)
+
+                    await walletService.debitWallet(
+                        user?.wallet?.matricule, 
+                        Number(config.value),
+                        "Création de carte",
+                        transactionCreate.userId,
+                        transactionCreate.id
+                    )
                 }
             }
         }

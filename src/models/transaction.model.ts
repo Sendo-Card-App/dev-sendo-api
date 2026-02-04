@@ -184,7 +184,7 @@ TransactionModel.init(
       },
     },
     transactionReference: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(191),
       allowNull: true,
       unique: true
     },

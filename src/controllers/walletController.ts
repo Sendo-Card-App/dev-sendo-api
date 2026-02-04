@@ -68,31 +68,33 @@ class WalletController {
             const wallet = await walletService.transferFunds(fromWallet, toWallet, amount, description, req.user!.id)
 
             // On notifie tout le monde
-            const tokenSender = await notificationService.getTokenExpo(wallet.sender.user?.id ?? 0)
-            await notificationService.save({
-                type: 'SUCCESS_TRANSFER_FUNDS',
-                userId: wallet.sender.user?.id ?? 0,
-                content: `Votre transfert de ${amount} ${wallet.sender.currency} à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
-                title: 'Sendo',
-                status: 'SENDED',
-                token: tokenSender?.token ?? ''
-            })
-            const tokenReceiver = await notificationService.getTokenExpo(wallet.receiver.user?.id ?? 0)
-            await notificationService.save({
-                type: 'SUCCESS_TRANSFER_FUNDS',
-                userId: wallet.receiver.user?.id ?? 0,
-                content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${wallet.amountToIncrement} XAF sur votre portefeuille SENDO`,
-                title: 'Sendo',
-                status: 'SENDED',
-                token: tokenReceiver?.token ?? ''
-            })
-
-            await successTransferFunds(
-                wallet.sender.user!, 
-                wallet.receiver.user?.email ?? "", 
-                wallet.amountToIncrement,
-                wallet.receiver.currency,
-            )
+            if (wallet.transaction.status === "COMPLETED") {
+                const tokenSender = await notificationService.getTokenExpo(wallet.sender.user?.id ?? 0)
+                await notificationService.save({
+                    type: 'SUCCESS_TRANSFER_FUNDS',
+                    userId: wallet.sender.user?.id ?? 0,
+                    content: `Votre transfert de ${amount} ${wallet.sender.currency} à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenSender?.token ?? ''
+                })
+                const tokenReceiver = await notificationService.getTokenExpo(wallet.receiver.user?.id ?? 0)
+                await notificationService.save({
+                    type: 'SUCCESS_TRANSFER_FUNDS',
+                    userId: wallet.receiver.user?.id ?? 0,
+                    content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${wallet.amountToIncrement} XAF sur votre portefeuille SENDO`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver?.token ?? ''
+                })
+                
+                await successTransferFunds(
+                    wallet.sender.user!, 
+                    wallet.receiver.user?.email ?? "", 
+                    wallet.amountToIncrement,
+                    wallet.receiver.currency,
+                )
+            }
 
             logger.info("Transfert d'argent SENDO-SENDO", {
                 sender: `${wallet.sender.user?.firstname} ${wallet.sender.user?.lastname}`,
@@ -178,7 +180,6 @@ class WalletController {
             }
             
             const wallet = await walletService.getWalletByMatricule(matriculeWallet)
-            await walletService.creditWallet(wallet.matricule, Number(amount));
 
             const transaction: TransactionCreate = {
                 userId: wallet!.user!.id,
@@ -195,7 +196,15 @@ class WalletController {
                 receiverType: 'User'
             }
             const transac = await transactionService.createTransaction(transaction)
-            
+
+            await walletService.creditWallet(
+                wallet.matricule, 
+                Number(amount),
+                "Dépôt par Sendo sur le portefeuille",
+                req.user.id,
+                transac.id
+            );
+        
 
             logger.info("Recharge du wallet", {
                 userId: wallet!.user!.id,
@@ -221,7 +230,6 @@ class WalletController {
             }
             
             const wallet = await walletService.getWalletByMatricule(matriculeWallet)
-            await walletService.debitWallet(wallet.matricule, Number(amount));
 
             const transaction: TransactionCreate = {
                 userId: wallet!.user!.id,
@@ -237,6 +245,14 @@ class WalletController {
                 receiverType: 'User'
             }
             const transac = await transactionService.createTransaction(transaction)
+
+            await walletService.debitWallet(
+                wallet.matricule, 
+                Number(amount),
+                "Retrait par Sendo sur le portefeuille",
+                req.user.id,
+                transac.id
+            );
 
             logger.info("Retrait du wallet", {
                 userId: wallet!.user!.id,

@@ -279,6 +279,16 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_WITHDRAW_INTERAC_FEES',
         value: 2,
         description: "Frais Sendo appliqués lors d'un retrait du portefeuille par INTERAC (CAD)"
+    },
+    {
+        name: 'SENDO_VERSION_APP_IOS',
+        value: '1.2.0',
+        description: "Version de l'application Sendo sur iOS"
+    },
+    {
+        name: 'SENDO_VERSION_APP_ANDROID',
+        value: '1.2.7',
+        description: "Version de l'application Sendo sur android"
     }
 ]
 
@@ -331,7 +341,9 @@ export const typesConfig = [
     'SENDO_VIEW_DETAILS_CARD_FEES',
     'SENDO_VALUE_CAD_CA_CAM',
     'SENDO_TO_SENDO_TRANSFER_FEES',
-    'SENDO_WITHDRAW_INTERAC_FEES'
+    'SENDO_WITHDRAW_INTERAC_FEES',
+    'SENDO_VERSION_APP_IOS',
+    'SENDO_VERSION_APP_ANDROID',
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

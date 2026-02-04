@@ -285,8 +285,6 @@ class MobileMoneyService {
             user.wallet &&
             response.referral
         ) {
-            //On crédite les portefeuilles concernés
-            await walletService.creditWallet(response.referral.wallet!.matricule, Number(config.value));
             const transactionToRefferer: TransactionCreate = {
                 amount: Number(config.value),
                 type: typesTransaction['10'],
@@ -299,7 +297,17 @@ class MobileMoneyService {
                 receiverId: response.referral.userId,
                 receiverType: 'User'
             }
-            await transactionService.createTransaction(transactionToRefferer)
+            const transaction = await transactionService.createTransaction(transactionToRefferer)
+
+            //On crédite les portefeuilles concernés
+            await walletService.creditWallet(
+                response.referral.wallet!.matricule, 
+                Number(config.value),
+                "Gain parrainage",
+                response.referral.id,
+                transaction.id
+            );
+
             await sendGlobalEmail(
                 response.referral.owner?.email || '',
                 'Nouveau gain de parrainage',
@@ -315,7 +323,6 @@ class MobileMoneyService {
                 type: 'MARKETING'
             })
 
-            await walletService.creditWallet(user.wallet.matricule, Number(config.value));
             const transactionToReceiver: TransactionCreate = {
                 amount: Number(config.value),
                 type: typesTransaction['10'],
@@ -328,7 +335,16 @@ class MobileMoneyService {
                 receiverId: user.id,
                 receiverType: 'User'
             }
-            await transactionService.createTransaction(transactionToReceiver)
+            const newTransaction = await transactionService.createTransaction(transactionToReceiver)
+
+            await walletService.creditWallet(
+                user.wallet.matricule, 
+                Number(config.value),
+                "Gain parrainage",
+                user.id,
+                newTransaction.id
+            );
+
             await sendGlobalEmail(
                 user.email,
                 'Gain de parrainage',

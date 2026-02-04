@@ -61,7 +61,10 @@ class WebhookController {
                     // On crédite le montant chez le user
                     await walletService.creditWallet(
                         matricule,
-                        transaction.amount
+                        transaction.amount,
+                        "Dépôt sur le portefeuille",
+                        transaction.userId,
+                        transaction.id
                     )
                 
                     transaction.status = 'COMPLETED'
@@ -91,7 +94,10 @@ class WebhookController {
                     // On débite le montant chez le user
                     await walletService.debitWallet(
                         transaction.user?.wallet?.matricule ?? '',
-                        transaction.totalAmount
+                        transaction.totalAmount,
+                        "Retrait sur le portefeuille",
+                        transaction.userId,
+                        transaction.id
                     )
                     
                     transaction.status = 'COMPLETED'
@@ -165,7 +171,10 @@ class WebhookController {
                     //On décrémente le solde du portefeuille
                     await walletService.debitWallet(
                         transaction.user?.wallet?.matricule  || '',
-                        amountToDecrement
+                        amountToDecrement,
+                        "Recharge par transfert bancaire",
+                        transaction.userId,
+                        transaction.id
                     )
 
                     transaction.status = 'COMPLETED'
@@ -230,10 +239,16 @@ class WebhookController {
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
-                    if (transaction.amount > 0 && transaction.description == 'Retrait sur la carte') {
+                    if (
+                        transaction.amount > 0 && 
+                        transaction.description == 'Retrait sur la carte'
+                    ) {
                         await walletService.creditWallet(
                             matricule,
-                            amountNum
+                            amountNum,
+                            "Retrait sur la carte",
+                            transaction.userId,
+                            transaction.id
                         )
 
                         await notificationService.save({
@@ -511,10 +526,6 @@ class WebhookController {
                         const user = await userService.getUserById(virtualCard!.user!.id)
                         const result = (Number(sendoFees) - roundToPreviousMultipleOfFive(Number(balanceObject.balance || 0)))
                         if (user!.wallet!.balance > 0 && user!.wallet!.balance > result) {
-                            await walletService.debitWallet(
-                                user!.wallet!.matricule,
-                                troisChiffresApresVirgule(result)
-                            )
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
                                 amount: 0,
@@ -532,12 +543,16 @@ class WebhookController {
                                 receiverType: 'User',
                                 sendoFees: troisChiffresApresVirgule(result)
                             }
-                            await transactionService.createTransaction(transactionToCreate)
-                        } else if (user!.wallet!.balance > 0 && user!.wallet!.balance < result) {
+                            const transaction = await transactionService.createTransaction(transactionToCreate)
+
                             await walletService.debitWallet(
                                 user!.wallet!.matricule,
-                                Number(user!.wallet!.balance)
+                                troisChiffresApresVirgule(result),
+                                "Paiement dette de la carte",
+                                user?.id,
+                                transaction.id
                             )
+                        } else if (user!.wallet!.balance > 0 && user!.wallet!.balance < result) {
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
                                 amount: 0,
@@ -555,7 +570,15 @@ class WebhookController {
                                 receiverType: 'User',
                                 sendoFees: Number(user!.wallet!.balance)
                             }
-                            await transactionService.createTransaction(transactionToCreate)
+                            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+                            await walletService.debitWallet(
+                                user!.wallet!.matricule,
+                                Number(user!.wallet!.balance),
+                                "Paiement dette de la carte",
+                                user?.id,
+                                transaction.id
+                            )
 
                             // on enregistre le reste comme dette
                             const debt: VirtualCardDebtCreate = {
@@ -613,7 +636,7 @@ class WebhookController {
 
                         await cashinService.init(
                             payload, 
-                            rejectFeesCard.value, 
+                            Number(rejectFeesCard.value), 
                             event.data.object, 
                             virtualCard, 
                             token!, 
@@ -643,10 +666,6 @@ class WebhookController {
                         // On débite les frais de rejet
                         const user = await userService.getUserById(virtualCard!.user!.id)
                         if (user!.wallet!.balance > Number(rejectFeesCard!.value)) {
-                            await walletService.debitWallet(
-                                user!.wallet!.matricule,
-                                Number(rejectFeesCard!.value)
-                            )
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
                                 amount: 0,
@@ -663,14 +682,18 @@ class WebhookController {
                                 receiverType: 'User',
                                 sendoFees: Number(rejectFeesCard!.value)
                             }
-                            await transactionService.createTransaction(transactionToCreate)
+                            const transaction = await transactionService.createTransaction(transactionToCreate)
+
+                            await walletService.debitWallet(
+                                user!.wallet!.matricule,
+                                Number(rejectFeesCard!.value),
+                                "Paiement frais de rejet",
+                                transaction.userId,
+                                transaction.id
+                            )
                         } else {
                             // On rétire ce qu'il y a dans le wallet
                             if (user!.wallet!.balance > 1) {
-                                await walletService.debitWallet(
-                                    user!.wallet!.matricule,
-                                    user!.wallet!.balance
-                                )
                                 const transactionToCreate: TransactionCreate = {
                                     type: 'PAYMENT',
                                     amount: 0,
@@ -687,7 +710,15 @@ class WebhookController {
                                     receiverType: 'User',
                                     sendoFees: user!.wallet!.balance
                                 }
-                                await transactionService.createTransaction(transactionToCreate)
+                                const transaction = await transactionService.createTransaction(transactionToCreate)
+                                
+                                await walletService.debitWallet(
+                                    user!.wallet!.matricule,
+                                    user!.wallet!.balance,
+                                    "Paiement frais de rejet",
+                                    transaction.userId,
+                                    transaction.id
+                                )
 
                                 // On enregistre la dette
                                 const debt: VirtualCardDebtCreate = {

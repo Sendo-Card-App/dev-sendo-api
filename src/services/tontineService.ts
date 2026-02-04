@@ -356,8 +356,7 @@ class TontineService {
             if (!config) {
                 throw new Error("Configuration introuvable")
             }
-            const amountWallet = cotisationComplete.montant * (1 + config.value / 100)
-            await walletService.debitWallet(walletPayeur.matricule, amountWallet, 'Paiement tontine');
+            const amountWallet = cotisationComplete.montant * (1 + Number(config.value) / 100)
 
             // 5. Création de la transaction financière
             const transaction: TransactionCreate = {
@@ -374,7 +373,15 @@ class TontineService {
                 method: typesMethodTransaction['3'],
                 description: `Cotisation tontine #${data.tontineId}`
             };
-            await transactionService.createTransaction(transaction, { transaction: t});
+            const transactionCreate = await transactionService.createTransaction(transaction, { transaction: t});
+
+            await walletService.debitWallet(
+                walletPayeur.matricule, 
+                amountWallet, 
+                'Paiement tontine',
+                cotisationComplete.membre?.user?.id,
+                transactionCreate.id
+            );
 
             // 6. Mise à jour du statut de la cotisation
             cotisationComplete.statutPaiement = 'VALIDATED';
@@ -610,13 +617,8 @@ class TontineService {
                 throw new Error("Configuration introuvable")
             }
 
-            const feesSendo = montantTotal * (config.value / 100)
+            const feesSendo = montantTotal * (Number(config.value) / 100)
             const amount = montantTotal - feesSendo
-            await walletService.creditWallet(
-                beneficiaire.user.wallet.matricule,
-                amount,
-                `Distribution tontine #${tontineId}`
-            );
 
             // Mettre à jour le tour comme réussi
             await tourEnAttente.update({
@@ -635,7 +637,7 @@ class TontineService {
             });
 
             // Créer la transaction financière pour la distribution nette au bénéficiaire
-            await transactionService.createTransaction({
+            const transactionCreate = await transactionService.createTransaction({
                 amount: montantTotal,
                 userId: beneficiaire.user.id,
                 type: typesTransaction['7'],
@@ -649,6 +651,14 @@ class TontineService {
                 receiverType: 'User',
                 method: typesMethodTransaction['3']
             });
+
+            await walletService.creditWallet(
+                beneficiaire.user.wallet.matricule,
+                amount,
+                `Distribution tontine #${tontineId}`,
+                beneficiaire.user.id,
+                transactionCreate.id
+            );
 
             if (tontine?.membres) {
                 for (const membre of tontine.membres) {
@@ -1128,17 +1138,11 @@ class TontineService {
 
             const config = await configService.getConfigByName("TONTINE_FEES_TRANSACTION")
             if (!config) throw new Error("Configuration introuvable")
-            const totalAmount = penalite.montant * (1 + (config.value / 100))
-            const feesSendo = penalite.montant * (config.value / 100)
+            const totalAmount = penalite.montant * (1 + (Number(config.value) / 100))
+            const feesSendo = penalite.montant * (Number(config.value) / 100)
 
             const wallet = penalite.membre?.user?.wallet;
             if (!wallet) throw new Error('Wallet introuvable');
-
-            await walletService.debitWallet(
-                wallet.matricule, 
-                totalAmount, 
-                'Paiement pénalité'
-            );
 
             const transaction: TransactionCreate = {
                 amount: penalite.montant,
@@ -1154,7 +1158,15 @@ class TontineService {
                 receiverType: 'User',
                 method: 'WALLET'
             };
-            await transactionService.createTransaction(transaction);
+            const transactionCreate = await transactionService.createTransaction(transaction);
+            
+            await walletService.debitWallet(
+                wallet.matricule, 
+                totalAmount, 
+                'Paiement pénalité',
+                penalite.membre?.user?.id,
+                transactionCreate.id
+            );
 
             if (penalite.tontine && penalite.membre?.user?.email) {
                 await sendEmailWithHTML(

@@ -539,6 +539,9 @@ class MerchantController {
         const { amount } = req.body
         try {
             const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
+            const cadSendoValue = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
+            if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
+
             let commission: number | null = null;
             if (palier.commission && palier.commission.typeCommission === 'POURCENTAGE') {
                 commission = (palier.commission.montantCommission * amount) / 100
@@ -546,7 +549,10 @@ class MerchantController {
                 commission = palier.commission.montantCommission
             }
 
-            sendResponse(res, 200, "Frais retournés", { fees: commission })
+            sendResponse(res, 200, "Frais retournés", { 
+                feesXAF: commission,
+                feesCAD: commission! / Number(cadSendoValue.value)
+            })
         } catch (error: any) {
             sendError(res, 500, "Erreur récupération de la commission", [error.message]);
         }

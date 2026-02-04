@@ -302,10 +302,10 @@ class TransactionService {
                     transaction.status === 'PENDING' &&
                     transaction.method === 'MOBILE_MONEY'
                 ) {
-                    await walletService.creditWallet(
+                    /*await walletService.creditWallet(
                         transaction.user?.wallet?.matricule ?? '',
                         transaction.amount
-                    );
+                    );*/
                     transaction.status = 'COMPLETED';
                     await transaction.save();
 
@@ -324,10 +324,10 @@ class TransactionService {
                     transaction.status === 'PENDING' &&
                     transaction.method === 'MOBILE_MONEY'
                 ) {
-                    await walletService.debitWallet(
+                    /*await walletService.debitWallet(
                         transaction.user?.wallet?.matricule ?? '',
                         transaction.amount
-                    );
+                    );*/
                     transaction.status = 'COMPLETED';
                     await transaction.save();
 

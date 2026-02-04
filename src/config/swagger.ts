@@ -250,12 +250,12 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: 'https://api.sf-e.ca/api',
-        description: 'Serveur de production',
+        url: 'https://dev.api.sf-e.ca/api',
+        description: 'Serveur de test en production',
       },
       {
-        url: 'http://localhost:3000/api',
-        description: 'Serveur de production en local',
+        url: 'http://localhost:3001/api',
+        description: 'Serveur de test en local',
       }
     ],
     tags: [

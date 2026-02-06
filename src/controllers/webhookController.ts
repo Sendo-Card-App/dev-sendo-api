@@ -422,13 +422,13 @@ class WebhookController {
             } else {
                 exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES')
             }
-            const totalAmountWithEchangeRates = amountNum * (Number(exchangeRates!.value) / 100) // 1
+            const totalAmountWithEchangeRates = amountNum * (Number(exchangeRates?.value ?? 0) / 100) // 1
             const feesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_FEES') // 2
             const feesCardPercentage = await configService.getConfigByName('SENDO_TRANSACTION_CARD_PERCENTAGE') // 3
-            const totalAmountWithFeesCardPercentage = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentage!.value) / 100) // 3
+            const totalAmountWithFeesCardPercentage = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentage?.value ?? 0) / 100) // 3
             const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
             const token = await notificationService.getTokenExpo(virtualCard?.user?.id ?? 0)
-            const sendoFees = totalAmountWithEchangeRates + Number(feesCard!.value) + totalAmountWithFeesCardPercentage
+            const sendoFees = totalAmountWithEchangeRates + Number(feesCard?.value ?? 0) + totalAmountWithFeesCardPercentage
 
             try {
                 // On enregistre la transaction
@@ -449,6 +449,7 @@ class WebhookController {
                         provider: 'CARD',
                         receiverId: virtualCard!.userId,
                         receiverType: 'User',
+                        exchangeRates: totalAmountWithEchangeRates,
                         createdAt: event.data.object.transactionDate
                     }
                     await transactionService.createTransaction(transactionToCreate)

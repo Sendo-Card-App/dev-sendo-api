@@ -10,6 +10,7 @@ import MerchantModel from "@models/merchant.model";
 import merchantService from "./merchantService";
 import configService from "./configService";
 import WalletHistoryModel from "@models/wallet-history.model";
+import { getDescriptionTransaction } from "@utils/functions";
 
 class WalletService {
     constructor() {
@@ -77,7 +78,8 @@ class WalletService {
             
             // 2. Validations initiales
             if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
-            //if (fromWallet?.user?.id !== userId) throw new Error('Ce wallet ne vous appartient pas')
+            if (fromWallet?.user?.id !== userId) throw new Error('Ce wallet ne vous appartient pas')
+            if (fromWallet.matricule === toWallet.matricule) throw new Error("Impossible de s'envoyer de l'argent à soit même")
             if (fromWallet.balance < amount) throw new Error('Solde insuffisant');
             if (fromWallet.currency === 'CAD' && toWallet.currency === 'CAD') throw new Error('Impossible de faire un transfert CAD vers CAD');
 
@@ -94,6 +96,10 @@ class WalletService {
             if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
 
             if (fromWallet.currency === 'CAD' && toWallet.currency === 'XAF') {
+                const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CA_CAM_AVAILABILITY')
+                if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableTransfertService.value) === 0) throw new Error("Service de transfert indisponible")
+
                 configFeesValue = amount * (Number(feesConfig.value) / 100)
                 total = Math.ceil(amount + configFeesValue)
                 amountToIncrement = Math.ceil(amount * Number(cadSendoValue.value))
@@ -114,6 +120,10 @@ class WalletService {
                     reason: "Sendo-Sendo CA-CAM"
                 }, { transaction })
             } else if (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') {
+                const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CAM_CA_AVAILABILITY')
+                if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableTransfertService.value) === 0) throw new Error("Service de transfert indisponible")
+
                 if (amount > 1000000) throw new Error("Vous ne pouvez pas envoyer plus de 1000000")
                 const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
                 let commission: number | null = null;
@@ -165,7 +175,7 @@ class WalletService {
                 currency: fromWallet.currency,
                 totalAmount: total,
                 sendoFees: configFeesValue!,
-                description: description || "Transfert Sendo-Sendo",
+                description: description || getDescriptionTransaction(fromWallet.currency, toWallet.currency),
                 provider: typesMethodTransaction['3'],
                 method: typesMethodTransaction['3']
             }

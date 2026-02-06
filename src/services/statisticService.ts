@@ -949,6 +949,10 @@ class StatisticsService {
      * Statistiques sur les marchands (merchants)
      */
     static async getMerchantStatistics(startDate?: string, endDate?: string) {
+        const cacheKey = `merchantsStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         try {
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -1059,6 +1063,7 @@ class StatisticsService {
                 };
             });
 
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques marchands : ${(error as Error).message}`);
@@ -1069,6 +1074,10 @@ class StatisticsService {
      * Statistiques sur les commissions perçues par les marchands
      */
     static async getMerchantFeesStatistics(startDate?: string, endDate?: string) {
+        const cacheKey = `merchantsCommissionsStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         try {
             const whereClause: { [key: string]: any } = {};
             if (startDate) {
@@ -1175,6 +1184,7 @@ class StatisticsService {
                 };
             });
 
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques commissions marchands : ${(error as Error).message}`);
@@ -1182,6 +1192,10 @@ class StatisticsService {
     }
 
     static async getMerchantWithdrawalsStatistics(startDate?: string, endDate?: string) {
+        const cacheKey = `merchantsWithdrawalStats:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         try {
             const whereClause: { [key: string]: any } = {};
             if (startDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -1237,6 +1251,7 @@ class StatisticsService {
                 };
             });
 
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec des statistiques retraits marchands : ${(error as Error).message}`);
@@ -1244,6 +1259,10 @@ class StatisticsService {
     }
 
     static async getStatisticsForMerchant(merchantId: number, startDate?: string, endDate?: string) {
+        const cacheKey = `merchantStats:${merchantId}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);
+
         try {
             const whereClause: { [key: string]: any } = { partnerId: merchantId };
             if (startDate) whereClause.createdAt = { ...(whereClause.createdAt || {}), [Op.gte]: startDate };
@@ -1352,6 +1371,7 @@ class StatisticsService {
                 };
             });
 
+            await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
             return result;
         } catch (error) {
             throw new Error(`Échec de la récupération des statistiques du marchand : ${(error as Error).message}`);

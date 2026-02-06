@@ -9,7 +9,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
 import { TransactionCreate } from "../types/Transaction";
 import { typesCurrency, typesMethodTransaction, typesTransaction } from "@utils/constants";
-import { ajouterPrefixe237, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive } from "@utils/functions";
+import { ajouterPrefixe237, arrondiSuperieur, detectMoneyTransferType, detectOtherMoneyTransferType, mapNeeroStatusToSendo, roundToNextMultipleOfFive, roundToPreviousMultipleOfFive } from "@utils/functions";
 import transactionService from "@services/transactionService";
 import configService from "@services/configService";
 import neeroService, { CashOutPayload } from "@services/neeroService";
@@ -550,8 +550,8 @@ class MerchantController {
             }
 
             sendResponse(res, 200, "Frais retournés", { 
-                feesXAF: commission,
-                feesCAD: commission! / Number(cadSendoValue.value)
+                feesXAF: arrondiSuperieur(commission!),
+                feesCAD: arrondiSuperieur(commission! / Number(cadSendoValue.value))
             })
         } catch (error: any) {
             sendError(res, 500, "Erreur récupération de la commission", [error.message]);

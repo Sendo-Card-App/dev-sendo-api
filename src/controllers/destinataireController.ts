@@ -5,7 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTransaction } from "@utils/constants";
 import { Request, Response } from "express";
 import configService from "@services/configService";
-import { ajouterPrefixe237, detectOperator, roundToPreviousMultipleOfFive, troisChiffresApresVirgule } from "@utils/functions";
+import { ajouterPrefixe237, detectOperator, troisChiffresApresVirgule } from "@utils/functions";
 import logger from "@config/logger";
 
 class DestinataireController {
@@ -36,6 +36,13 @@ class DestinataireController {
             if (Number(amount) >= 500000) {
                 sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
                 return
+            }
+
+            const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CA_CAM_AVAILABILITY')
+            if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
+            if (Number(isAvailableTransfertService.value) === 0) {
+                sendError(res, 503, "Service de transfert indisponible")
+                return;
             }
 
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
@@ -120,6 +127,13 @@ class DestinataireController {
                 return
             }
 
+            const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CA_CAM_AVAILABILITY')
+            if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
+            if (Number(isAvailableTransfertService.value) === 0) {
+                sendError(res, 503, "Service de transfert indisponible")
+                return;
+            }
+
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')
             if (Number(amount) < Number(configMinAmout!.value)) {
                 sendError(res, 403, `Le montant minimum d\'envoi est de ${Number(configMinAmout!.value)} francs CFA`)
@@ -192,6 +206,13 @@ class DestinataireController {
             if (Number(amount) >= 500000) {
                 sendError(res, 403, 'Le montant à envoyer doit être inférieur à 500000 francs CFA')
                 return
+            }
+
+            const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CA_CAM_AVAILABILITY')
+            if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
+            if (Number(isAvailableTransfertService.value) === 0) {
+                sendError(res, 503, "Service de transfert indisponible")
+                return;
             }
 
             const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CANADA')

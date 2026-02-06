@@ -4,8 +4,6 @@ import { createApp } from './app';
 import sequelize from '@config/db';
 import schedulerService from '@services/schedulerService';
 import { migrateReferralCodes } from '@utils/functions';
-import ReferralCodeModel from '@models/referral-code.model';
-import UserModel from '@models/user.model';
 
 const prodPort = Number(process.env.PORT) || 3001;
 

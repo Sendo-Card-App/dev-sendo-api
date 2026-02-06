@@ -275,10 +275,17 @@ import WalletHistoryModel from './wallet-history.model';
     foreignKey: 'walletId',
     as: 'wallet'
   })
-
   WalletModel.hasMany(WalletHistoryModel, {
     foreignKey: 'walletId',
     as: 'wallet_histories'
+  })
+  TransactionModel.hasOne(WalletHistoryModel, {
+    foreignKey: 'transactionId',
+    as: 'walletHistory'
+  })
+  WalletHistoryModel.belongsTo(TransactionModel, {
+    foreignKey: 'transactionId',
+    as: 'walletHistory'
   })
 
 export {

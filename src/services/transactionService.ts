@@ -12,6 +12,7 @@ import notificationService from "./notificationService";
 import VirtualCardModel from "@models/virtualCard.model";
 import neeroService from "./neeroService";
 import redisClient from '@config/cache';
+import WalletHistoryModel from "@models/wallet-history.model";
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -25,9 +26,9 @@ class TransactionService {
         startDate?: string,
         endDate?: string
     ) {
-        /*const cacheKey = `allTransactions:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
+        const cacheKey = `allTransactions:${limit}:${startIndex}:${type ?? 'all'}:${status ?? 'all'}:${method ?? 'all'}:${startDate ?? 'none'}:${endDate ?? 'none'}`;
         const cached = await redisClient.get(cacheKey);
-        if (cached) return JSON.parse(cached);*/
+        if (cached) return JSON.parse(cached);
 
         const where: Record<string, any> = {};
         if (type) where.type = type;
@@ -73,8 +74,73 @@ class TransactionService {
             rows: transactionsWithReceivers
         };
 
-        //await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
+        await redisClient.set(cacheKey, JSON.stringify(cachedResult), { EX: REDIS_TTL });
         return cachedResult;
+    }
+
+    async getAllTransactionsCanada(
+        limit: number,
+        startIndex: number,
+        status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'BLOCKED',
+        startDate?: string,
+        endDate?: string
+    ) {
+        const where: any = {
+            // ✅ TOUS les types Canada : TRANSFER, WITHDRAWAL, DEPOSIT
+            type: {
+                [Op.in]: ['TRANSFER', 'WITHDRAWAL', 'DEPOSIT', 'WALLET_TO_WALLET']
+            },
+            // ✅ TOUS les methods Canada : INTERAC, WALLET_TO_WALLET  
+            method: {
+                [Op.in]: ['INTERAC', 'WALLET']
+            },
+            // ✅ UNIQUEMENT provider WALLET
+            provider: 'WALLET'
+        };
+
+        // Filtre status optionnel
+        if (status) where.status = status;
+
+        // Filtre dates
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) where.createdAt[Op.gte] = getUTCBoundaries(startDate).start;
+            if (endDate) where.createdAt[Op.lte] = getUTCBoundaries(endDate).end;
+            if (Object.keys(where.createdAt).length === 0) delete where.createdAt;
+        }
+
+        const result = await TransactionModel.findAndCountAll({
+            where,
+            limit,
+            offset: startIndex,
+            order: [['createdAt', 'DESC']],
+            include: [
+                {
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                },
+                {
+                    model: VirtualCardModel,
+                    as: 'card'
+                }
+            ]
+        });
+
+        const transactionsWithReceivers = await Promise.all(
+            result.rows.map(async (transaction) => {
+                const receiver = await transaction.getReceiver();
+                return {
+                    ...transaction.toJSON(),
+                    receiver: receiver ? receiver.toJSON() : null
+                };
+            })
+        );
+
+        return {
+            count: result.count,
+            rows: transactionsWithReceivers
+        };
     }
 
     async createTransaction(transaction: TransactionCreate, options?: { transaction: Transaction }) {
@@ -99,6 +165,10 @@ class TransactionService {
                             as: 'wallet'
                         }
                     ]
+                },
+                {
+                    model: WalletHistoryModel,
+                    as: 'walletHistory'
                 },
                 {
                     model: VirtualCardModel,
@@ -128,6 +198,10 @@ class TransactionService {
                         model: WalletModel,
                         as: 'wallet'
                     }]
+                },
+                {
+                    model: WalletHistoryModel,
+                    as: 'walletHistory'
                 },
                 {
                     model: VirtualCardModel,
@@ -166,6 +240,10 @@ class TransactionService {
                         as: 'wallet',
                         attributes: ['matricule', 'balance', 'userId', 'status']
                     }]
+                },
+                {
+                    model: WalletHistoryModel,
+                    as: 'walletHistory'
                 },
                 {
                     model: VirtualCardModel,

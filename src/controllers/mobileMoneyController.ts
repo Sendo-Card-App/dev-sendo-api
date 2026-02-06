@@ -343,6 +343,13 @@ class MobileMoneyController {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
             }
 
+            const isAvailableDepositService = await configService.getConfigByName('DEPOSIT_MOBILE_AVAILABILITY')
+            if (!isAvailableDepositService) throw new Error("Configuration introuvable")
+            if (Number(isAvailableDepositService.value) === 0) {
+                sendError(res, 503, "Service de dépôt sur le portefeuille indisponible")
+                return;
+            }
+
             // 1. Conversion du montant en nombre entier
             const amountNum = Number(amount);
 
@@ -514,6 +521,13 @@ class MobileMoneyController {
 
             if (!req.user || !req.user.id) {
                 sendError(res, 401, 'Veuillez vous connecter');
+                return;
+            }
+
+            const isAvailableWithdrawalService = await configService.getConfigByName('WITHDRAWAL_MOBILE_AVAILABILITY')
+            if (!isAvailableWithdrawalService) throw new Error("Configuration introuvable")
+            if (Number(isAvailableWithdrawalService.value) === 0) {
+                sendError(res, 503, "Service de retrait du portefeuille indisponible")
                 return;
             }
 

@@ -29,7 +29,7 @@ class CashinService {
             const checkTransaction = await neeroService.getTransactionIntentById(cashin.id)
             console.log('checkTransaction cashinService : ', checkTransaction)
 
-            const total = troisChiffresApresVirgule(Number(object.totalAmount) + arrondiSuperieur(sendoFees))
+            const total = troisChiffresApresVirgule(Number(object.totalAmount) + sendoFees)
 
             if (!isFailed) {
                 if (checkTransaction.status === "SUCCESSFUL") {

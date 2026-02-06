@@ -1,6 +1,6 @@
 import { randomInt } from 'crypto';
 import crypto from 'crypto';
-import { TypesDemande, TypesMethodTransaction, TypesStatusCard, TypesStatusDemande, typesStatusTransaction, TypesTransaction } from './constants';
+import { TypesCurrency, TypesDemande, TypesMethodTransaction, TypesStatusCard, TypesStatusDemande, typesStatusTransaction, TypesTransaction } from './constants';
 import FundRequestModel from '@models/fund-request.model';
 import { Request } from 'express';
 import axios from 'axios';
@@ -442,4 +442,14 @@ export async function migrateReferralCodes() {
   }
   
   console.log(`Migration terminée ! ${usersWithoutCode.length} codes générés`);
+}
+
+export function getDescriptionTransaction(fromCurrency: TypesCurrency, toCurrency: TypesCurrency) {
+  if (fromCurrency === 'CAD' && toCurrency === 'XAF') {
+    return "Transfert CA-CAM"
+  } else if (fromCurrency === 'XAF' && toCurrency === 'CAD') {
+    return "Transfert CAM-CA"
+  } else {
+    return "Transfert Sendo-Sendo"
+  }
 }

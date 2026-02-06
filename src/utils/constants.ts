@@ -289,6 +289,36 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_VERSION_APP_ANDROID',
         value: '1.2.7',
         description: "Version de l'application Sendo sur android"
+    },
+    {
+        name: 'DEPOSIT_MOBILE_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service des recharges par mobile money"
+    },
+    {
+        name: 'WITHDRAWAL_MOBILE_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service des retraits par mobile money"
+    },
+    {
+        name: 'DEPOSIT_CARD_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service des recharges par carte virtuelle"
+    },
+    {
+        name: 'WITHDRAWAL_CARD_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service des retraits par carte virtuelle"
+    },
+    {
+        name: 'TRANSFER_CA_CAM_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service CA-CAM"
+    },
+    {
+        name: 'TRANSFER_CAM_CA_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service CAM-CA"
     }
 ]
 
@@ -344,6 +374,12 @@ export const typesConfig = [
     'SENDO_WITHDRAW_INTERAC_FEES',
     'SENDO_VERSION_APP_IOS',
     'SENDO_VERSION_APP_ANDROID',
+    'DEPOSIT_MOBILE_AVAILABILITY',
+    'WITHDRAWAL_MOBILE_AVAILABILITY',
+    'DEPOSIT_CARD_AVAILABILITY',
+    'WITHDRAWAL_CARD_AVAILABILITY',
+    'TRANSFER_CA_CAM_AVAILABILITY',
+    'TRANSFER_CAM_CA_AVAILABILITY'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

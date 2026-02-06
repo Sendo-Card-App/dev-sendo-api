@@ -284,7 +284,7 @@ class DebtController {
                     currency: typesCurrency['0'],
                     totalAmount: debts[index].amount,
                     method: typesMethodTransaction['3'],
-                    transactionReference: debts[index].intitule,
+                    transactionReference: debts[index].intitule.substring(0, 49),
                     sendoFees: debts[index].amount,
                     virtualCardId: debts[index].card!.id,
                     description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
@@ -356,7 +356,7 @@ class DebtController {
                 currency: typesCurrency['0'],
                 totalAmount: debt.amount,
                 method: typesMethodTransaction['3'],
-                transactionReference: debt.intitule,
+                transactionReference: debt.intitule.substring(0, 49),
                 sendoFees: debt.amount,
                 virtualCardId: debt.card!.id,
                 description: `Paiement par Sendo de la dette #${debt.intitule}`,
@@ -426,7 +426,7 @@ class DebtController {
                     currency: typesCurrency['0'],
                     totalAmount: Number(partialAmount),
                     method: typesMethodTransaction['3'],
-                    transactionReference: result.intitule,
+                    transactionReference: result.intitule.substring(0, 49),
                     sendoFees: Number(partialAmount),
                     virtualCardId: result.card!.id,
                     description: `Paiement partiel par Sendo de la dette #${result.intitule}`,
@@ -440,7 +440,7 @@ class DebtController {
                     debt.user!.wallet!.matricule, 
                     Number(partialAmount),
                     "Payer dette partielle par admin",
-                    req.user?.id,
+                    req.user!.id,
                     transaction.id
                 );
 

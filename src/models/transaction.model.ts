@@ -23,6 +23,7 @@ import {
 } from '@utils/constants';
 import DestinataireModel from './destinataire.model';
 import sequelize from '@config/db';
+import WalletHistoryModel from './wallet-history.model';
 
 class TransactionModel extends Model<
   InferAttributes<TransactionModel>,
@@ -75,6 +76,7 @@ class TransactionModel extends Model<
   declare user?: NonAttribute<UserModel>;
   declare destinataire?: NonAttribute<DestinataireModel>;
   declare card?: NonAttribute<VirtualCardModel>;
+  declare walletHistory?: NonAttribute<WalletHistoryModel>;
 
   async getReceiver() {
     if (this.receiverType === 'User') {

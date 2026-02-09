@@ -552,6 +552,23 @@ class NeeroGatewayService {
         }
     }
 
+    public async getOnboardingSessionWithValidation(sessionKey: string): Promise<any> {
+        const endpoint = `party/onboarding/session/${sessionKey}`;
+        const url = new URL(endpoint, this.baseBaasUrl).toString();
+        
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': this.getAuthHeader(),
+                },
+            });
+            return response.data;
+        } catch (error) {
+            this.errorApi(error as AxiosError);
+        }
+    }
+
     public async uploadDocuments(documents: UploadDocumentsPayload, sessionId: string) {
         const endpoint = `party/onboarding/session/${sessionId}/upload-doc`;
         const url = new URL(endpoint, this.baseBaasUrl).toString();

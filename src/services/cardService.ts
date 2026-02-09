@@ -237,6 +237,10 @@ class CardService {
         return await neeroService.getAllOnboardingSession()
     }
 
+    async getOnboardingSession(sessionKey: string) {
+        return await neeroService.getOnboardingSessionWithValidation(sessionKey)
+    }
+
     async getSession(sessionId: string) {
         const session = await neeroService.getSession(sessionId)
         if (isBefore(session.expirationDateTime)) 

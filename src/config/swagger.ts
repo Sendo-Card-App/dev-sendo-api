@@ -346,6 +346,10 @@ const options: swaggerJsdoc.Options = {
       {
         name: 'Paymentology',
         description: "Test service Paymentology"
+      },
+      {
+        name: "Fonds Bloqués",
+        description: "Gestion des fonds bloqués (investissement)"
       }
     ]
   },

@@ -8,6 +8,9 @@ import cardService from "./cardService";
 import neeroService from "./neeroService";
 import notificationService from "./notificationService";
 import { typesNotification } from "@utils/constants";
+import cron from "node-cron";
+import FundSubscriptionService from "./fundSubscriptionService";
+import logger from "@config/logger";
 
 class SchedulerService {
     private smobilpayTransactionInterval: NodeJS.Timeout | null = null;
@@ -177,6 +180,26 @@ class SchedulerService {
             this.onboardingSessionInterval
         ].forEach(interval => {
             if (interval) clearInterval(interval);
+        });
+    }
+
+    startAnnualFundMaturity() {
+        // Tous les jours à 00h10
+        cron.schedule("10 0 * * *", async () => {
+            const now = new Date();
+
+            const isJanuary = now.getMonth() === 0; // Janvier
+            const isFirstDay = now.getDate() === 1;
+
+            if (!isJanuary || !isFirstDay) return;
+
+            logger.info("[CRON] 1er janvier détecté - maturation des fonds");
+
+            try {
+                await FundSubscriptionService.matureSubscriptions();
+            } catch (error) {
+                console.error("[CRON] Erreur maturation fonds :", error);
+            }
         });
     }
 }

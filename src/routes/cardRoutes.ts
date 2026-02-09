@@ -145,6 +145,32 @@ router.get(
 
 /**
  * @swagger
+ * /cards/onboarding/{sessionKey}:
+ *   get:
+ *     summary: Récupérer les informations d'une session d'onboarding chez Neero
+ *     tags: [Virtual Cards]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionKey
+ *         required: true
+ *         schema:
+ *           type: string
+ *           default: ""
+ *     responses:
+ *       200:
+ *         description: Session récupérée
+ */
+router.get(
+    '/onboarding/:sessionKey',
+    authMiddleware, 
+    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
+    cardController.getOnboardingSession
+)
+
+/**
+ * @swagger
  * /cards/onboarding/requests/user:
  *   get:
  *     summary: Récupérer côté MOBILE la demande de vérification de documents pour création de CV

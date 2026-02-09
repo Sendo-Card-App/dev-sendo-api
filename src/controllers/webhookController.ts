@@ -601,7 +601,7 @@ class WebhookController {
                         }
                     } 
                 }
-                if (event.data.object.status == 'FAILED') {
+                if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
@@ -779,9 +779,9 @@ class WebhookController {
                             type: 'PAYMENT_FAILED'
                         })
 
-                        // Si le nombre de paiement rejeté passe à 3 on bloque la carte
+                        // Si le nombre de paiement rejeté passe à 2 on supprime la carte
                         const newVirtualCard = await virtualCard?.reload();
-                        if (newVirtualCard && newVirtualCard.paymentRejectNumber === 3) {
+                        if (newVirtualCard && newVirtualCard.paymentRejectNumber >= 2) {
                             // On retire tous les fonds restant sur la carte
                             const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)
                             if (Number(balanceObject.balance) > 0) {

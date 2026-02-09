@@ -11,6 +11,7 @@ import merchantService from "./merchantService";
 import configService from "./configService";
 import WalletHistoryModel from "@models/wallet-history.model";
 import { getDescriptionTransaction } from "@utils/functions";
+import { Transaction } from "sequelize";
 
 class WalletService {
     constructor() {
@@ -159,7 +160,10 @@ class WalletService {
             }  
 
             // 4. Mise à jour atomique
-            if ((fromWallet.currency !== 'XAF' && toWallet.currency !== 'CAD')) {
+            if (
+                (fromWallet.currency !== 'XAF' && toWallet.currency !== 'CAD') ||
+                (fromWallet.currency === 'XAF' && toWallet.currency === 'XAF')
+            ) {
                 await fromWallet.decrement('balance', { by: total, transaction });
                 await toWallet.increment('balance', { by: amountToIncrement, transaction });
             }
@@ -434,16 +438,8 @@ export async function settleCardDebtsIfAny(matriculeWallet: string, userId: numb
         console.log('on paie les dettes : ', card.debts.length)
         const debitAmount = Math.min(wallet!.balance, debt.amount);
 
-        await walletClass.debitWallet(matriculeWallet, debitAmount);
-
-        if (debitAmount >= debt.amount) {
-            await cardService.deleteDebt(debt.id);
-        } else {
-            await cardService.updateDebt(debt.id, debt.amount - debitAmount);
-        }
-
         // Journaliser la transaction de règlement de dette
-        const transaction: TransactionCreate = {
+        const transactionCreate: TransactionCreate = {
             amount: 0,
             type: typesTransaction['3'], // Paiement dette
             status: 'COMPLETED',
@@ -457,7 +453,21 @@ export async function settleCardDebtsIfAny(matriculeWallet: string, userId: numb
             receiverType: 'User',
             sendoFees: debitAmount
         };
-        await transactionService.createTransaction(transaction);
+        const transaction = await transactionService.createTransaction(transactionCreate);
+
+        await walletClass.debitWallet(
+            matriculeWallet, 
+            debitAmount,
+            transaction.description,
+            debt.userId,
+            transaction.id
+        );
+
+        if (debitAmount >= debt.amount) {
+            await cardService.deleteDebt(debt.id);
+        } else {
+            await cardService.updateDebt(debt.id, debt.amount - debitAmount);
+        }
     }
 
     // Si toutes les dettes sont soldées, remettre à zéro le compteur de paiements rejetés

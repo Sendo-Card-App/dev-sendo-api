@@ -17,6 +17,7 @@ import notificationService from "@services/notificationService";
 import PaymentMethodModel from "@models/payment-method.model";
 import logger from "@config/logger";
 import mobileMoneyService from "@services/mobileMoneyService";
+import { sendEmailWithHTML } from "@services/emailService";
 
 class CardController {
     async createCard(req: Request, res: Response) {
@@ -121,6 +122,32 @@ class CardController {
             if (user) {
                 user.numberOfCardsCreated = user.numberOfCardsCreated + 1;
                 await user.save();
+
+                await sendEmailWithHTML(
+                    user.email,
+                    'Requête de carte SENDO',
+                    `<p>Bonjour ${user.firstname}, <br><br>
+                    Nous vous informons que votre demande de carte Sendo a été validée et que votre carte est désormais crée.<br><br>
+                    Afin d’éviter tout incident de paiement et des frais liés au réseau Visa, nous attirons votre attention sur les règles suivantes :<br><br>
+                    Avant tout paiement en ligne, veuillez impérativement utiliser le module “Estimateur de paiement en ligne” disponible dans l’application :<br><br>
+                    Menu → Paramètres → Estimateur de paiement en ligne<br>
+                    Ce module vous permet de vérifier si le solde de votre compte est suffisant avant de confirmer un paiement.<br><br>
+                    Ne laissez pas votre carte enregistrée sur des sites marchands si vous n’êtes pas certain de disposer des fonds nécessaires.<br>
+                    Certains marchands tentent de débiter automatiquement les cartes enregistrées.<br><br>
+                    En cas de tentative de paiement sans solde suffisant :<br><br>
+                    Le paiement sera rejeté par le réseau Visa<br><br>
+                    Des frais importants sont facturés à Sendo<br><br>
+                    Votre carte sera automatiquement supprimée sans préavis<br><br>
+                    Ces mesures sont mises en place pour garantir la sécurité du service et assurer la continuité des cartes pour l’ensemble des utilisateurs.<br><br>
+                    Nous vous recommandons donc :<br>
+                    ✔️ De toujours vérifier votre solde<br>
+                    ✔️ D’utiliser l’estimateur de paiement<br>
+                    ✔️ De supprimer votre carte des sites marchands si vous n’avez pas de fonds disponibles<br><br>
+                    Merci pour votre compréhension et votre collaboration.<br><br>
+                    Cordialement,<br>
+                    L’équipe Sendo – Support Client
+                    </p>`
+                )
             }
 
             await cardService.createPaymentMethod(virtualCard.cardId, virtualCard.userId, virtualCard.id)
@@ -1522,6 +1549,21 @@ class CardController {
             if (debts) {
                 sendResponse(res, 200, 'Dettes de la carte retournée', debts)
             }
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message])
+        }
+    }
+
+    async getOnboardingSession(req: Request, res: Response) {
+        const { sessionKey } = req.params
+        try {
+            const onboardingWithReason = await cardService.getOnboardingSession(sessionKey)
+            const onboardingInformation = await neeroService.getOnboardingSession(sessionKey)
+
+            sendResponse(res, 200, "Onboarding récupéré", {
+                onboardingWithReason,
+                onboardingInformation
+            })
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
         }

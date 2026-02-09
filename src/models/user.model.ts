@@ -26,6 +26,8 @@ import sequelize from '@config/db';
 import MerchantModel from './merchant.model';
 import ReferralCodeModel from './referral-code.model';
 import logger from '@config/logger';
+import FundSubscriptionModel from './fund-subscription.model';
+import WithdrawalFundRequestModel from './withdrawal-fund-request.model';
 
 class UserModel extends Model<
   InferAttributes<UserModel>,
@@ -89,6 +91,8 @@ class UserModel extends Model<
   declare debts?: NonAttribute<CardTransactionDebtsModel[]>;
   declare merchant?: NonAttribute<MerchantModel>;
   declare usedCodes?: NonAttribute<ReferralCodeModel[]>;
+  declare fundSubscriptions?: NonAttribute<FundSubscriptionModel[]>;
+  declare withdrawalFundRequests?: NonAttribute<WithdrawalFundRequestModel[]>;
   //declare requests?: NonAttribute<RequestModel[]>;
   declare static associations: {
     roles: Association<UserModel, RoleModel>;

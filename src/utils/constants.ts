@@ -21,7 +21,8 @@ export const typesTransaction = [
     'VIEW_CARD_DETAILS',
     'ADMIN_SENDO',
     'GAIN',
-    'AGENT_TO_CUSTOMER'
+    'AGENT_TO_CUSTOMER',
+    'FUND_SUBSCRIPTION'
 ] as const
 export type TypesTransaction = typeof typesTransaction[number];
 

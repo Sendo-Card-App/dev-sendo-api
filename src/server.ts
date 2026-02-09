@@ -22,4 +22,5 @@ sequelize.sync({ force: false }).then(async () => {
   schedulerService.startPenaliteChecks();
   schedulerService.startRappelsCotisation();
   schedulerService.startCheckPendingOnboardingSession();
+  schedulerService.startAnnualFundMaturity();
 });

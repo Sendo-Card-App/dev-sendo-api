@@ -36,6 +36,9 @@ import MerchantModel from './merchant.model';
 import PartnerWithdrawalsModel from './partner-withdrawals.model';
 import ReferralCodeModel from './referral-code.model';
 import WalletHistoryModel from './wallet-history.model';
+import FundModel from './fund.model';
+import FundSubscriptionModel from './fund-subscription.model';
+import WithdrawalFundRequestModel from './withdrawal-fund-request.model';
 
 
   /** -------------------------------
@@ -286,6 +289,33 @@ import WalletHistoryModel from './wallet-history.model';
   WalletHistoryModel.belongsTo(TransactionModel, {
     foreignKey: 'transactionId',
     as: 'walletHistory'
+  })
+
+  FundSubscriptionModel.belongsTo(FundModel, { foreignKey: "fundId", as: 'fund' });
+  FundModel.hasMany(FundSubscriptionModel, {
+    foreignKey: 'fundId',
+    as: 'fundSubscriptions'
+  })
+  FundSubscriptionModel.belongsTo(UserModel, {
+    foreignKey: 'userId',
+    as: 'user'
+  })
+  UserModel.hasMany(FundSubscriptionModel, {
+    foreignKey: 'userId',
+    as: 'fundSubscriptions'
+  })
+
+  WithdrawalFundRequestModel.belongsTo(FundSubscriptionModel, {
+    foreignKey: "subscriptionId",
+    as: 'fundSubscription'
+  });
+  WithdrawalFundRequestModel.belongsTo(UserModel, {
+    foreignKey: "userId",
+    as: 'user'
+  });
+  UserModel.hasMany(WithdrawalFundRequestModel, {
+    foreignKey: 'userId',
+    as: 'withdrawalFundRequest'
   })
 
 export {

@@ -481,7 +481,7 @@ class MobileMoneyController {
                 await new2Transaction.save()
 
                 // On check si la carte possede des dettes
-                await settleCardDebtsIfAny(wallet.matricule, new2Transaction.userId)
+                await settleCardDebtsIfAny(wallet.matricule, transaction.userId)
 
                 const token = await notificationService.getTokenExpo(req?.user?.id ?? 0)
                 await notificationService.save({

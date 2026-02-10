@@ -99,7 +99,7 @@ class FundRequestService {
 
             // 7. Envoyer une notification au participant
             for (const recipient of recipients) {
-                const tokenExpoParticipant = await notificationService.getTokenExpo(recipient.recipient?.id ?? 0);
+                const tokenExpoParticipant = await notificationService.getTokenExpo(recipient.recipient!.id);
                 if (tokenExpoParticipant) {
                     await notificationService.save({
                         title: 'Sendo',
@@ -191,7 +191,7 @@ class FundRequestService {
         requestRecipient.save();
 
         // 7. Envoyer une notification au participant
-        const tokenExpoParticipant = await notificationService.getTokenExpo(requestRecipient.recipient?.id ?? 0);
+        const tokenExpoParticipant = await notificationService.getTokenExpo(requestRecipient.recipient!.id);
         if (tokenExpoParticipant) {
             await notificationService.save({
                 title: 'Sendo',

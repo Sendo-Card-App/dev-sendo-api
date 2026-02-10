@@ -69,24 +69,28 @@ class WalletController {
 
             // On notifie tout le monde
             if (wallet.transaction.status === "COMPLETED") {
-                const tokenSender = await notificationService.getTokenExpo(wallet.sender.user?.id ?? 0)
-                await notificationService.save({
-                    type: 'SUCCESS_TRANSFER_FUNDS',
-                    userId: wallet.sender.user?.id ?? 0,
-                    content: `Votre transfert de ${amount} ${wallet.sender.currency} à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
-                    title: 'Sendo',
-                    status: 'SENDED',
-                    token: tokenSender?.token ?? ''
-                })
-                const tokenReceiver = await notificationService.getTokenExpo(wallet.receiver.user?.id ?? 0)
-                await notificationService.save({
-                    type: 'SUCCESS_TRANSFER_FUNDS',
-                    userId: wallet.receiver.user?.id ?? 0,
-                    content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${wallet.amountToIncrement} XAF sur votre portefeuille SENDO`,
-                    title: 'Sendo',
-                    status: 'SENDED',
-                    token: tokenReceiver?.token ?? ''
-                })
+                const tokenSender = await notificationService.getTokenExpo(wallet.sender.user!.id)
+                if (tokenSender) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: wallet.sender.user!.id,
+                        content: `Votre transfert de ${amount} ${wallet.sender.currency} à ${wallet.receiver.user?.firstname} a été effectué avec succès`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenSender.token
+                    })
+                }
+                const tokenReceiver = await notificationService.getTokenExpo(wallet.receiver.user!.id)
+                if (tokenReceiver) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: wallet.receiver.user!.id,
+                        content: `Vous avez reçu de ${wallet.sender.user?.firstname} une somme de ${wallet.amountToIncrement} XAF sur votre portefeuille SENDO`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenReceiver.token
+                    })
+                }
                 
                 await successTransferFunds(
                     wallet.sender.user!, 
@@ -308,14 +312,16 @@ class WalletController {
             )
 
             const tokenReceiver = await notificationService.getTokenExpo(operation.user!.id)
-            await notificationService.save({
-                type: 'SUCCESS_WITHDRAWAL_WALLET',
-                userId: operation.user!.id,
-                content: `${operation.user?.firstname} le transfert vers votre compte Interac de la somme de ${amount} CAD a été enregistré avec succès. Délai estimé entre 30min à 2h selon votre banque.`,
-                title: 'Sendo',
-                status: 'SENDED',
-                token: tokenReceiver?.token ?? ''
-            })
+            if (tokenReceiver) {
+                await notificationService.save({
+                    type: 'SUCCESS_WITHDRAWAL_WALLET',
+                    userId: operation.user!.id,
+                    content: `${operation.user?.firstname} le transfert vers votre compte Interac de la somme de ${amount} CAD a été enregistré avec succès. Délai estimé entre 30min à 2h selon votre banque.`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver.token
+                })
+            }
 
             await sendGlobalEmail(
                 operation.user.email,

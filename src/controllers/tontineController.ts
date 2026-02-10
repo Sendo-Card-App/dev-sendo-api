@@ -250,7 +250,7 @@ class TontineController {
             })
 
             //Envoyer une notification au membre de la tontine
-            const tokenExpo = await notificationService.getTokenExpo(penalite.membre?.user?.id ?? 0)
+            const tokenExpo = await notificationService.getTokenExpo(penalite.membre!.user!.id)
             if (tokenExpo && penalite.membre && penalite.membre.user && penalite.tontine) {
                 await notificationService.save({
                     title: `Sendo`,

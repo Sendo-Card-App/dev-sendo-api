@@ -55,14 +55,16 @@ class CashinService {
                     await transactionService.createTransaction(transactionToCreateFees)
 
                     // On envoie la notification
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}`,
-                        userId: virtualCard?.user?.id ?? 0,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_TRANSACTION_CARD'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `${virtualCard?.user?.firstname} un paiement de ${total} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}`,
+                            userId: virtualCard!.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_TRANSACTION_CARD'
+                        })
+                    }
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
@@ -100,14 +102,16 @@ class CashinService {
                     await cardService.saveDebt(debt)
 
                     // On envoie la notification
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.`,
-                        userId: virtualCard.userId,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_TRANSACTION_CARD'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.`,
+                            userId: virtualCard.userId,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_TRANSACTION_CARD'
+                        })
+                    }
                     await sendEmailWithHTML(
                         virtualCard?.user?.email ?? '',
                         'Paiement sur la carte',
@@ -166,14 +170,16 @@ class CashinService {
 
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Des frais de rejet de ${checkTransaction.totalAmount} XAF viennent d'être prélevés sur votre carte **** **** **** ${virtualCard?.last4Digits} pour la transaction #${object.reference}`,
-                        userId: virtualCard!.user!.id,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'PAYMENT_FAILED'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Des frais de rejet de ${checkTransaction.totalAmount} XAF viennent d'être prélevés sur votre carte **** **** **** ${virtualCard?.last4Digits} pour la transaction #${object.reference}`,
+                            userId: virtualCard!.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'PAYMENT_FAILED'
+                        })
+                    }
                 } else {
                     const transactionToCreate: TransactionCreate = {
                         amount: 0,
@@ -200,14 +206,16 @@ class CashinService {
 
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Des frais de rejet de ${checkTransaction.totalAmount} XAF n'ont pas pû être prélevés sur votre carte **** **** **** ${virtualCard?.last4Digits} pour la transaction #${object.reference}`,
-                        userId: virtualCard!.user!.id,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'PAYMENT_FAILED'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Des frais de rejet de ${checkTransaction.totalAmount} XAF n'ont pas pû être prélevés sur votre carte **** **** **** ${virtualCard?.last4Digits} pour la transaction #${object.reference}`,
+                            userId: virtualCard!.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'PAYMENT_FAILED'
+                        })
+                    }
                 }
             }
         } catch (error: any) {

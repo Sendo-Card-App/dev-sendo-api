@@ -120,14 +120,16 @@ export default class FundSubscriptionService {
         )
 
         const token = await userService.getTokenExpoUser(user.id)
-        await notificationService.save({
-            userId: user.id,
-            token: token.token,
-            status: 'SENDED',
-            type: 'INFORMATION',
-            title: "Sendo",
-            content: `Félicitations ${user.firstname} ! Votre investissement vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain`
-        })
+        if (token) {
+            await notificationService.save({
+                userId: user.id,
+                token: token.token,
+                status: 'SENDED',
+                type: 'INFORMATION',
+                title: "Sendo",
+                content: `Félicitations ${user.firstname} ! Votre investissement vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain`
+            })
+        }
 
         await sendEmailWithHTML(
             user.email,
@@ -208,14 +210,16 @@ export default class FundSubscriptionService {
         if (sub.status !== "MATURED") throw new Error("Fonds non disponibles");
 
         const token = await userService.getTokenExpoUser(userId)
-        await notificationService.save({
-            userId,
-            token: token.token,
-            status: 'SENDED',
-            type: 'INFORMATION',
-            title: "Sendo",
-            content: "Votre demande de retrait a bien été enregistrée."
-        })
+        if (token) {
+            await notificationService.save({
+                userId,
+                token: token.token,
+                status: 'SENDED',
+                type: 'INFORMATION',
+                title: "Sendo",
+                content: "Votre demande de retrait a bien été enregistrée."
+            })
+        }
 
         await sendEmailWithHTML(
             sub.user!.email,
@@ -228,6 +232,35 @@ export default class FundSubscriptionService {
             subscriptionId,
             type,
         });
+    }
+
+    static async listRequestWithdrawal(
+        limit: number,
+        startIndex: number,
+        status?: 'PENDING' | 'APPROVED' | 'REJECTED',
+        userId?: number,
+        subscriptionId?: string
+    ) {
+        const where: Record<string, any> = {};
+        if (status) where.status = status;
+        if (userId) where.userId = userId;
+        if (subscriptionId) where.subscriptionId = subscriptionId;
+
+        return WithdrawalFundRequestModel.findAndCountAll({
+            where,
+            limit,
+            offset: startIndex,
+            order: [['createdAt', 'DESC']],
+            include: [{
+                model: FundSubscriptionModel,
+                as: 'fundSubscription',
+                include: [{
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+                }]
+            }],
+        })
     }
 
     static async processRequest(
@@ -308,14 +341,16 @@ export default class FundSubscriptionService {
                 )
 
                 const token = await userService.getTokenExpoUser(request.user!.id)
-                await notificationService.save({
-                    userId: request.user!.id,
-                    token: token.token,
-                    status: 'SENDED',
-                    type: 'INFORMATION',
-                    title: "Sendo",
-                    content: `Un montant total de ${sub.interestAmount + sub.amount} ${sub.currency} vient d'être versé sur votre portefeuille.`
-                })
+                if (token) {
+                    await notificationService.save({
+                        userId: request.user!.id,
+                        token: token.token,
+                        status: 'SENDED',
+                        type: 'INFORMATION',
+                        title: "Sendo",
+                        content: `Un montant total de ${sub.interestAmount + sub.amount} ${sub.currency} vient d'être versé sur votre portefeuille.`
+                    })
+                }
 
                 await sendEmailWithHTML(
                     sub.user!.email,
@@ -360,14 +395,16 @@ export default class FundSubscriptionService {
                 });
 
                 const token = await userService.getTokenExpoUser(request.user!.id)
-                await notificationService.save({
-                    userId: request.user!.id,
-                    token: token.token,
-                    status: 'SENDED',
-                    type: 'INFORMATION',
-                    title: "Sendo",
-                    content: `Un montant total de ${sub.interestAmount} ${sub.currency} vient d'être versé sur votre portefeuille.`
-                })
+                if (token) {
+                    await notificationService.save({
+                        userId: request.user!.id,
+                        token: token.token,
+                        status: 'SENDED',
+                        type: 'INFORMATION',
+                        title: "Sendo",
+                        content: `Un montant total de ${sub.interestAmount} ${sub.currency} vient d'être versé sur votre portefeuille.`
+                    })
+                }
 
                 await sendEmailWithHTML(
                     sub.user!.email,
@@ -383,14 +420,16 @@ export default class FundSubscriptionService {
 
         if (action === "REJECTED") {
             const token = await userService.getTokenExpoUser(request.user!.id)
-            await notificationService.save({
-                userId: request.user!.id,
-                token: token.token,
-                status: 'SENDED',
-                type: 'INFORMATION',
-                title: "Sendo",
-                content: `Votre demande de retrait sur le service Sendo Investissement vient d'être rejetée`
-            })
+            if (token) {
+                await notificationService.save({
+                    userId: request.user!.id,
+                    token: token.token,
+                    status: 'SENDED',
+                    type: 'INFORMATION',
+                    title: "Sendo",
+                    content: `Votre demande de retrait sur le service Sendo Investissement vient d'être rejetée`
+                })
+            }
 
             await sendEmailWithHTML(
                 request.user!.email,

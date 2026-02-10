@@ -97,6 +97,36 @@ export default class FundSubscriptionController {
         }
     }
 
+    static async filteredRequestsWithdrawal(req: Request, res: Response) {
+        const { limit, startIndex, page, status, userId, subscriptionId } = res.locals.pagination;
+        try {
+            if (!req.user || !req.user.id) {
+                sendError(res, 401, 'Veuillez vous connecter');
+                return;
+            }
+
+            const data = await fundSubscriptionService.listRequestWithdrawal(
+                limit, 
+                startIndex,
+                status,
+                userId
+            );
+
+            const totalPages = Math.ceil(data.count / limit);
+                              
+            const responseData: PaginatedData = {
+                page,
+                totalPages,
+                totalItems: data.count,
+                items: data.rows
+            };
+
+            sendResponse(res, 200, "Demandes de retrait récupérées", responseData)
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur de récupération', [error.message])
+        }
+    }
+
     static async process(req: Request, res: Response) {
         const { requestId, action } = req.body;
 

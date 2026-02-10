@@ -314,14 +314,16 @@ class MobileMoneyService {
                 `<p>Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille. Continuez à parrainer pour plus de récompenses !<p>`
             );
             const tokenReferral = await notificationService.getTokenExpo(response.referral.userId)
-            await notificationService.save({
-                title: 'Sendo',
-                content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille. Continuez à parrainer pour plus de récompenses !`,
-                userId: response.referral.userId,
-                status: 'SENDED',
-                token: tokenReferral?.token ?? '',
-                type: 'MARKETING'
-            })
+            if (tokenReferral) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille. Continuez à parrainer pour plus de récompenses !`,
+                    userId: response.referral.userId,
+                    status: 'SENDED',
+                    token: tokenReferral.token,
+                    type: 'MARKETING'
+                })
+            }
 
             const transactionToReceiver: TransactionCreate = {
                 amount: Number(config.value),
@@ -351,14 +353,16 @@ class MobileMoneyService {
                 `<p>Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille.<p>`
             );
             const tokenReceiver = await notificationService.getTokenExpo(user.id)
-            await notificationService.save({
-                title: 'Sendo',
-                content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille.`,
-                userId: user.id,
-                status: 'SENDED',
-                token: tokenReceiver?.token ?? '',
-                type: 'MARKETING'
-            })
+            if (tokenReceiver) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Félicitations ! Vous avez reçu un gain de parrainage de ${config.value} XAF dans votre portefeuille.`,
+                    userId: user.id,
+                    status: 'SENDED',
+                    token: tokenReceiver.token,
+                    type: 'MARKETING'
+                })
+            }
 
             // On met à jour la propriété isUsed du code de parrainage
             await response.referral.update({

@@ -157,14 +157,16 @@ class UserService {
         }
         
         const token = await notificationService.getTokenExpo(userId)
-        await notificationService.save({
-            title: 'Sendo',
-            type: 'SUCCESS_KYC_VERIFIED',
-            content: `${userExits.firstname} votre profil vient d'être mis à jour`,
-            userId,
-            token: token?.token ?? '',
-            status: 'SENDED'
-        })
+        if (token) {
+            await notificationService.save({
+                title: 'Sendo',
+                type: 'SUCCESS_KYC_VERIFIED',
+                content: `${userExits.firstname} votre profil vient d'être mis à jour`,
+                userId,
+                token: token.token,
+                status: 'SENDED'
+            })
+        }
         
         return updatedUser;
     }
@@ -197,14 +199,16 @@ class UserService {
         await user.save();
 
         const token = await notificationService.getTokenExpo(user.id)
-        await notificationService.save({
-            title: 'Sendo',
-            type: 'SUCCESS_MODIFY_PASSWORD',
-            content: `${user.firstname} votre mot de passe vient d'être changé`,
-            userId,
-            token: token?.token ?? '',
-            status: 'SENDED'
-        })
+        if (token) {
+            await notificationService.save({
+                title: 'Sendo',
+                type: 'SUCCESS_MODIFY_PASSWORD',
+                content: `${user.firstname} votre mot de passe vient d'être changé`,
+                userId,
+                token: token.token,
+                status: 'SENDED'
+            })
+        }
     
         return user;
     }    

@@ -483,15 +483,17 @@ class MobileMoneyController {
                 // On check si la carte possede des dettes
                 await settleCardDebtsIfAny(wallet.matricule, transaction.userId)
 
-                const token = await notificationService.getTokenExpo(req?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre recharge de ${new2Transaction.amount} XAF s'est effectuée avec succès`,
-                    userId: req.user!.id,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_DEPOSIT_WALLET'
-                })
+                const token = await notificationService.getTokenExpo(req?.user?.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre recharge de ${new2Transaction.amount} XAF s'est effectuée avec succès`,
+                        userId: req.user!.id,
+                        status: 'SENDED',
+                        token: token?.token ?? '',
+                        type: 'SUCCESS_DEPOSIT_WALLET'
+                    })
+                }
             }
 
             logger.info("Recharge neero initiée", {
@@ -657,15 +659,17 @@ class MobileMoneyController {
                     new2Transaction.status = 'COMPLETED';
                     await new2Transaction.save()
                 }
-                const token = await notificationService.getTokenExpo(req?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre retrait de ${new2Transaction.amount} XAF s'est effectué avec succès`,
-                    userId: req?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_WALLET'
-                })
+                const token = await notificationService.getTokenExpo(req?.user?.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre retrait de ${new2Transaction.amount} XAF s'est effectué avec succès`,
+                        userId: req?.user?.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_WITHDRAWAL_WALLET'
+                    })
+                }
 
                 // On envoie le gain si nécessaire
                 await mobileMoneyService.sendGiftForReferralCode(req.user)

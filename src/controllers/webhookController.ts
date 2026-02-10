@@ -73,14 +73,16 @@ class WebhookController {
                     // On check si la carte possede des dettes
                     await settleCardDebtsIfAny(matricule, transaction.user!.id)
                     
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Votre recharge de ${transaction.amount} XAF s'est effectuée avec succès`,
-                        userId: transaction?.user?.id ?? 0,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_DEPOSIT_WALLET'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Votre recharge de ${transaction.amount} XAF s'est effectuée avec succès`,
+                            userId: transaction?.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_DEPOSIT_WALLET'
+                        })
+                    }
                     await sendEmailWithHTML(
                         transaction?.user?.email ?? '',
                         'Recharge SENDO réussie',
@@ -103,14 +105,16 @@ class WebhookController {
                     transaction.status = 'COMPLETED'
                     await transaction.save()
                     
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
-                        userId: transaction?.user?.id ?? 0,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_WALLET'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Votre retrait de ${transaction.amount} XAF s'est effectuée avec succès`,
+                            userId: transaction?.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_WITHDRAWAL_WALLET'
+                        })
+                    }
                     await sendEmailWithHTML(
                         transaction?.user?.email ?? '',
                         'Retrait SENDO réussi',
@@ -153,14 +157,16 @@ class WebhookController {
                     await transaction.save()
                     
                     const receiver = await transaction.getReceiver()
-                    await notificationService.save({
-                        title: 'Sendo',
-                        type: 'INFORMATION',
-                        content: `${transaction.user?.firstname} votre transfert d'argent de ${amountToSend} XAF a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
-                        userId: transaction.user?.id ?? 0,
-                        token: token?.token ?? '',
-                        status: 'SENDED'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            type: 'INFORMATION',
+                            content: `${transaction.user?.firstname} votre transfert d'argent de ${amountToSend} XAF a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
+                            userId: transaction.user!.id,
+                            token: token.token,
+                            status: 'SENDED'
+                        })
+                    }
                 } else if (
                     transaction?.type === 'TRANSFER' && 
                     transaction.status === 'PENDING' &&
@@ -181,14 +187,16 @@ class WebhookController {
                     await transaction.save()
 
                     const receiver = await transaction.getReceiver()
-                    await notificationService.save({
-                        title: 'Sendo',
-                        type: 'INFORMATION',
-                        content: `${transaction.user?.firstname} votre transfert bancaire de ${amountToDecrement} ${transaction.currency} a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
-                        userId: transaction.user?.id ?? 0,
-                        token: token?.token ?? '',
-                        status: 'SENDED'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            type: 'INFORMATION',
+                            content: `${transaction.user?.firstname} votre transfert bancaire de ${amountToDecrement} ${transaction.currency} a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
+                            userId: transaction.user!.id,
+                            token: token.token,
+                            status: 'SENDED'
+                        })
+                    }
                 } else if (
                     transaction?.type === 'DEPOSIT' && 
                     transaction.status === 'PENDING' &&
@@ -215,14 +223,16 @@ class WebhookController {
     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(transaction.user!.id)
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Votre recharge de ${transaction.amount} XAF s'est effectuée avec succès`,
-                        userId: transaction.user!.id,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_DEPOSIT_CARD'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Votre recharge de ${transaction.amount} XAF s'est effectuée avec succès`,
+                            userId: transaction.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_DEPOSIT_CARD'
+                        })
+                    }
                     await sendEmailWithHTML(
                         transaction?.user?.email ?? '',
                         'Recharge de carte Sendo',
@@ -251,14 +261,16 @@ class WebhookController {
                             transaction.id
                         )
 
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `Votre retrait de ${transaction.totalAmount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
-                            userId: transaction.user!.id,
-                            status: 'SENDED',
-                            token: token?.token ?? '',
-                            type: 'SUCCESS_WITHDRAWAL_CARD'
-                        })
+                        if (token) {
+                            await notificationService.save({
+                                title: 'Sendo',
+                                content: `Votre retrait de ${transaction.totalAmount} XAF sur la carte **** **** **** ${virtualCard?.last4Digits} s'est effectué avec succès`,
+                                userId: transaction.user!.id,
+                                status: 'SENDED',
+                                token: token.token,
+                                type: 'SUCCESS_WITHDRAWAL_CARD'
+                            })
+                        }
                     } else if (
                         transaction.description.includes("Paiement par Sendo de la dette") &&
                         transaction.amount == 0
@@ -271,14 +283,16 @@ class WebhookController {
                             await debt.save();
                         }
                         
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `${transaction.description} d'un montant de ${transaction.totalAmount} XAF`,
-                            userId: transaction.user!.id,
-                            status: 'SENDED',
-                            token: token?.token ?? '',
-                            type: 'SUCCESS_WITHDRAWAL_CARD'
-                        })
+                        if (token) {
+                            await notificationService.save({
+                                title: 'Sendo',
+                                content: `${transaction.description} d'un montant de ${transaction.totalAmount} XAF`,
+                                userId: transaction.user!.id,
+                                status: 'SENDED',
+                                token: token.token,
+                                type: 'SUCCESS_WITHDRAWAL_CARD'
+                            })
+                        }
                     }
                     
                     transaction.status = 'COMPLETED'
@@ -339,15 +353,17 @@ class WebhookController {
                     }
                 }
 
-                const token = await notificationService.getTokenExpo(transaction?.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre opération n'a pas été un succès`,
-                    userId: transaction?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'ERROR'
-                })
+                const token = await notificationService.getTokenExpo(transaction!.user!.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre opération n'a pas été un succès`,
+                        userId: transaction!.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'ERROR'
+                    })
+                }
             }
 
             // Webhook pour les onboarding session
@@ -357,44 +373,50 @@ class WebhookController {
                 undefined, 
                 event.data.object.sessionKey
             )
-            const token = await notificationService.getTokenExpo(session?.user?.id ?? 0)
+            const token = await notificationService.getTokenExpo(session!.user!.id)
             if (event.data.object.newStatus === "VERIFIED") {
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `${session?.user?.firstname} votre requête de création de carte a été validée. Vous pouvez maintenant créer votre carte`,
-                    userId: session?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_ONBOARDING_PARTY'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `${session?.user?.firstname} votre requête de création de carte a été validée. Vous pouvez maintenant créer votre carte`,
+                        userId: session!.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_ONBOARDING_PARTY'
+                    })
+                }
                 await sendEmailWithHTML(
                     session?.user?.email ?? '',
                     'Requête de carte SENDO',
                     `<p>${session?.user?.firstname} votre requête de création de carte a été validée</p>`
                 )
             } else if (event.data.object.newStatus === "UNDER_VERIFICATION") {
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `${session?.user?.firstname} votre requête de création de carte est en cours de traitement`,
-                    userId: session?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'ERROR'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `${session?.user?.firstname} votre requête de création de carte est en cours de traitement`,
+                        userId: session!.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'ERROR'
+                    })
+                }
                 await sendEmailWithHTML(
                     session?.user?.email ?? '',
                     'Requête de carte SENDO',
                     `<p>${session?.user?.firstname} votre requête de création de carte est en cours de traitement</p>`
                 )
             } else if (event.data.object.newStatus === "REFUSED_TIMEOUT") {
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `${session?.user?.firstname} votre requête de création de carte a expiré faute d'envoi de documents.`,
-                    userId: session?.user?.id ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'ERROR'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `${session?.user?.firstname} votre requête de création de carte a expiré faute d'envoi de documents.`,
+                        userId: session!.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'ERROR'
+                    })
+                }
                 await sendEmailWithHTML(
                     session?.user?.email ?? '',
                     'Requête de carte SENDO',
@@ -459,14 +481,17 @@ class WebhookController {
                         'Paiement sur la carte',
                         `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
                     )
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
-                        userId: virtualCard!.userId,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_CARD'
-                    })
+                    
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'etre effectué avec succès sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
+                            userId: virtualCard!.userId,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_WITHDRAWAL_CARD'
+                        })
+                    }
 
                     const card = await cardService.getPaymentMethodCard(virtualCard?.id ?? 0)
                     let balanceObject = null;
@@ -650,14 +675,17 @@ class WebhookController {
                             'Paiement sur la carte',
                             `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}</p>`
                         )
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
-                            userId: virtualCard!.userId,
-                            status: 'SENDED',
-                            token: token?.token ?? '',
-                            type: 'PAYMENT_FAILED'
-                        })
+
+                        if (token) {
+                            await notificationService.save({
+                                title: 'Sendo',
+                                content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}`,
+                                userId: virtualCard!.userId,
+                                status: 'SENDED',
+                                token: token.token,
+                                type: 'PAYMENT_FAILED'
+                            })
+                        }
                     } else if (
                         rejectFeesCard &&
                         balanceObject.balance &&
@@ -770,14 +798,17 @@ class WebhookController {
                             'Paiement sur la carte',
                             `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.</p>`
                         )
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.`,
-                            userId: virtualCard!.userId,
-                            status: 'SENDED',
-                            token: token?.token ?? '',
-                            type: 'PAYMENT_FAILED'
-                        })
+                        
+                        if (token) {
+                            await notificationService.save({
+                                title: 'Sendo',
+                                content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.`,
+                                userId: virtualCard!.userId,
+                                status: 'SENDED',
+                                token: token.token,
+                                type: 'PAYMENT_FAILED'
+                            })
+                        }
 
                         // Si le nombre de paiement rejeté passe à 2 on supprime la carte
                         const newVirtualCard = await virtualCard?.reload();
@@ -811,14 +842,16 @@ class WebhookController {
 
                                     // Envoyer une notification
                                     const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-                                    await notificationService.save({
-                                        title: 'Sendo',
-                                        content: `Dépot de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits}`,
-                                        userId: virtualCard!.user!.id,
-                                        status: 'SENDED',
-                                        token: token?.token ?? '',
-                                        type: 'SUCCESS_DEPOSIT_CARD'
-                                    })
+                                    if (token) {
+                                        await notificationService.save({
+                                            title: 'Sendo',
+                                            content: `Dépot de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits}`,
+                                            userId: virtualCard!.user!.id,
+                                            status: 'SENDED',
+                                            token: token.token,
+                                            type: 'SUCCESS_DEPOSIT_CARD'
+                                        })
+                                    }
                                 }
                                 const transactionToCreate: TransactionCreate = {
                                     amount: Number(balanceObject.balance),
@@ -848,14 +881,16 @@ class WebhookController {
 
                             // Envoyer une notification
                             const token = await notificationService.getTokenExpo(newVirtualCard!.user!.id)
-                            await notificationService.save({
-                                title: 'Sendo',
-                                content: `${virtualCard?.user?.firstname}, votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits} a été bloquée suite à 3 paiements rejetés.`,
-                                userId: virtualCard!.user!.id,
-                                status: 'SENDED',
-                                token: token?.token ?? '',
-                                type: 'PAYMENT_FAILED'
-                            })
+                            if (token) {
+                                await notificationService.save({
+                                    title: 'Sendo',
+                                    content: `${virtualCard?.user?.firstname}, votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits} a été bloquée suite à 3 paiements rejetés.`,
+                                    userId: virtualCard!.user!.id,
+                                    status: 'SENDED',
+                                    token: token.token,
+                                    type: 'PAYMENT_FAILED'
+                                })
+                            }
 
                             await sendEmailWithHTML(
                                 virtualCard?.user?.email ?? '',

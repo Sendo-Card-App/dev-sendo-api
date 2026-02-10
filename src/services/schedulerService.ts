@@ -59,14 +59,16 @@ class SchedulerService {
                         <p>Le paiement s'élève à <b>${penalite.montant} FCFA</b></p>`
                     );
                 }
-                await notificationService.save({
-                    userId: penalite.membre?.user?.id ?? 0,
-                    type: typesNotification['1'],
-                    title: 'Sendo',
-                    content: `Cher ${penalite.membre?.user?.firstname+' '+penalite.membre?.user?.lastname}, veuillez effectuer le paiement de la pénalité créée sur la tontine ${penalite?.tontine?.nom}. Le paiement s'élève à ${penalite.montant} FCFA</p>`,
-                    status: 'SENDED',
-                    token: tokenExpo?.token ?? ''
-                });
+                if (tokenExpo) {
+                    await notificationService.save({
+                        userId: penalite.membre!.user!.id,
+                        type: typesNotification['1'],
+                        title: 'Sendo',
+                        content: `Cher ${penalite.membre?.user?.firstname+' '+penalite.membre?.user?.lastname}, veuillez effectuer le paiement de la pénalité créée sur la tontine ${penalite?.tontine?.nom}. Le paiement s'élève à ${penalite.montant} FCFA</p>`,
+                        status: 'SENDED',
+                        token: tokenExpo.token
+                    });
+                }
             }
         }, 12 * 60 * 60 * 1000); //Toutes les 12 heures
     }
@@ -108,15 +110,17 @@ class SchedulerService {
                                 this.genererContenuEmail(membre.user, tontine)
                             );
                         }
-                        const tokenExpo = await notificationService.getTokenExpo(membre?.user?.id ?? 0);
-                        await notificationService.save({
-                            userId: membre?.user?.id ?? 0,
-                            type: typesNotification['1'],
-                            title: `Sendo`,
-                            content: `Bonjour ${membre?.user?.firstname}, n'oubliez pas votre cotisation pour la tontine ${tontine.nom}. Le montant à verser est de ${tontine.montant} FCFA et la prochaine échéance : ${this.getNextDate(tontine)}`,
-                            status: 'SENDED',
-                            token: tokenExpo?.token ?? ''
-                        });
+                        const tokenExpo = await notificationService.getTokenExpo(membre?.user!.id);
+                        if (tokenExpo) {
+                            await notificationService.save({
+                                userId: membre!.user!.id,
+                                type: typesNotification['1'],
+                                title: `Sendo`,
+                                content: `Bonjour ${membre?.user?.firstname}, n'oubliez pas votre cotisation pour la tontine ${tontine.nom}. Le montant à verser est de ${tontine.montant} FCFA et la prochaine échéance : ${this.getNextDate(tontine)}`,
+                                status: 'SENDED',
+                                token: tokenExpo.token
+                            });
+                        }
                     }
                 }
 
@@ -140,15 +144,17 @@ class SchedulerService {
                         <p>Vos documents KYC pour la création de votre carte virtuelle ont été validés.</p>
                         <p>Vous pouvez maintenant créer votre première carte virtuelle SENDO</p>`
                     )
-                    const tokenExpo = await notificationService.getTokenExpo(session.user?.id ?? 0);
-                    await notificationService.save({
-                        userId: session.user?.id ?? 0,
-                        type: typesNotification['1'],
-                        title: 'Sendo',
-                        content: `Bonjour ${session.user?.firstname}, vos documents KYC pour la création de votre carte virtuelle ont été validés. Vous pouvez maintenant créer votre première carte virtuelle SENDO`,
-                        status: 'SENDED',
-                        token: tokenExpo?.token ?? ''
-                    });
+                    const tokenExpo = await notificationService.getTokenExpo(session.user?.id);
+                    if (tokenExpo) {
+                        await notificationService.save({
+                            userId: session.user!.id,
+                            type: typesNotification['1'],
+                            title: 'Sendo',
+                            content: `Bonjour ${session.user?.firstname}, vos documents KYC pour la création de votre carte virtuelle ont été validés. Vous pouvez maintenant créer votre première carte virtuelle SENDO`,
+                            status: 'SENDED',
+                            token: tokenExpo.token
+                        });
+                    }
                 }
             }
         }, 4 * 60 * 60 * 1000); // Vérifie toutes les 4 heures

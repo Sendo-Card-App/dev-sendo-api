@@ -212,14 +212,16 @@ class MerchantController {
 
             // On notifie tout le monde
             const tokenReceiver = await notificationService.getTokenExpo(transfert.receiver!.id)
-            await notificationService.save({
-                type: 'SUCCESS_TRANSFER_FUNDS',
-                userId: transfert.receiver!.id,
-                content: `Vous avez reçu de ${req.user?.firstname} une somme de ${amount} XAF sur votre portefeuille Sendo`,
-                title: 'Sendo',
-                status: 'SENDED',
-                token: tokenReceiver?.token ?? ''
-            })
+            if (tokenReceiver) {
+                await notificationService.save({
+                    type: 'SUCCESS_TRANSFER_FUNDS',
+                    userId: transfert.receiver!.id,
+                    content: `Vous avez reçu de ${req.user?.firstname} une somme de ${amount} XAF sur votre portefeuille Sendo`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver.token
+                })
+            }
 
             await successTransferFunds(
                 req.user, 

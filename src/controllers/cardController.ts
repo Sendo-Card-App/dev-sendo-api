@@ -884,14 +884,16 @@ class CardController {
 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(req.user.id)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre recharge de ${checkTransaction.amount} XAF s'est effectuée avec succès`,
-                    userId: wallet?.userId ?? 0,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_DEPOSIT_CARD'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre recharge de ${checkTransaction.amount} XAF s'est effectuée avec succès`,
+                        userId: wallet!.userId,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_DEPOSIT_CARD'
+                    })
+                }
             }
 
             logger.info("Carte virtuelle rechargée", {
@@ -1031,14 +1033,16 @@ class CardController {
 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(req.user.id)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre retrait de ${checkTransaction.amount} XAF s'est effectué avec succès`,
-                    userId: req.user.id,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_CARD'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Votre retrait de ${checkTransaction.amount} XAF s'est effectué avec succès`,
+                        userId: req.user.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_WITHDRAWAL_CARD'
+                    })
+                }
             }
 
             logger.info("Carte virtuelle débitée", {
@@ -1127,7 +1131,7 @@ class CardController {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
             }
 
-            const token = await notificationService.getTokenExpo(virtualCard?.user?.id ?? 0)
+            const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
 
             const balance = await cardService.getBalance(paymentMethod.paymentMethodId)
 
@@ -1183,14 +1187,16 @@ class CardController {
                     )
                     
                     // Envoyer une notification
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Tous les fonds de votre carte *****${virtualCard?.last4Digits} ont été déplacé sur votre portefeuille`,
-                        userId: virtualCard?.user?.id ?? 0,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_CARD'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Tous les fonds de votre carte *****${virtualCard?.last4Digits} ont été déplacé sur votre portefeuille`,
+                            userId: virtualCard!.user!.id,
+                            status: 'SENDED',
+                            token: token.token,
+                            type: 'SUCCESS_WITHDRAWAL_CARD'
+                        })
+                    }
                 }
             }
 
@@ -1203,14 +1209,16 @@ class CardController {
 
             await cardService.updateStatusCard(payloadDeleteCard.cardId, 'TERMINATED')
 
-            await notificationService.save({
-                title: 'Sendo',
-                content: `Votre carte *****${virtualCard?.last4Digits} vient d'être supprimé avec succès`,
-                userId: virtualCard?.user?.id ?? 0,
-                status: 'SENDED',
-                token: token?.token ?? '',
-                type: 'DELETE_CARD'
-            })
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Votre carte *****${virtualCard?.last4Digits} vient d'être supprimé avec succès`,
+                    userId: virtualCard!.user!.id,
+                    status: 'SENDED',
+                    token: token.token,
+                    type: 'DELETE_CARD'
+                })
+            }
 
             logger.info(`L'utilisateur ${req.user.id} a supprimé la carte virtuelle ${cardId}`);
 

@@ -131,15 +131,17 @@ class AdminController {
                 await sendEmailVerificationKYC(newUser);
             }
 
-            const token = await notificationService.getTokenExpo(user?.id ?? 0)
-            await notificationService.save({
-                title: 'Sendo',
-                type: 'SUCCESS_KYC_VERIFIED',
-                content: `${user?.firstname} votre document KYC a été traité`,
-                userId: user?.id ?? 0,
-                token: token?.token ?? '',
-                status: 'SENDED'
-            })
+            const token = await notificationService.getTokenExpo(user!.id)
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    type: 'SUCCESS_KYC_VERIFIED',
+                    content: `${user?.firstname} votre document KYC a été traité`,
+                    userId: user?.id ?? 0,
+                    token: token?.token ?? '',
+                    status: 'SENDED'
+                })
+            }
 
             logger.info("Document KYC mis à jour", {
                 document: document ? `${document.type} - ${document.status}` : 'Document non trouvé',
@@ -218,15 +220,17 @@ class AdminController {
                 user: user ? `User ID : ${user.id} - ${user.firstname} ${user.lastname}` : 'Utilisateur non trouvé'
             });
 
-            const token = await notificationService.getTokenExpo(user?.id ?? 0)
-            await notificationService.save({
-                title: 'Sendo',
-                type: 'SUCCESS_KYC_VERIFIED',
-                content: `${user?.firstname} vos documents KYC ont été traités`,
-                userId: user?.id ?? 0,
-                token: token?.token ?? '',
-                status: 'SENDED'
-            })
+            const token = await notificationService.getTokenExpo(user!.id)
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    type: 'SUCCESS_KYC_VERIFIED',
+                    content: `${user?.firstname} vos documents KYC ont été traités`,
+                    userId: user?.id ?? 0,
+                    token: token?.token ?? '',
+                    status: 'SENDED'
+                })
+            }
 
             sendResponse(res, 200, 'Documents mis à jour', results);
         } catch (error: any) {
@@ -374,15 +378,17 @@ class AdminController {
                     admin: req.user ? `Admin ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}` : 'Utilisateur non trouvé'
                 });
 
-                const token = await notificationService.getTokenExpo(user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'ENABLED_ACCOUNT',
-                    content: `${user?.firstname} le status de votre compte Neero a été modifié`,
-                    userId: user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(user.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'ENABLED_ACCOUNT',
+                        content: `${user?.firstname} le status de votre compte Neero a été modifié`,
+                        userId: user?.id ?? 0,
+                        token: token?.token ?? '',
+                        status: 'SENDED'
+                    })
+                }
 
                 sendResponse(res, 200, 'Status de l\'utilisateur mis à jour')
             }
@@ -415,15 +421,17 @@ class AdminController {
                     );
                 }
 
-                const token = await notificationService.getTokenExpo(wallet.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'ENABLED_ACCOUNT',
-                    content: `${wallet.user?.firstname} le status de votre portefeuille Neero a été modifié`,
-                    userId: wallet.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(wallet.user!.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'ENABLED_ACCOUNT',
+                        content: `${wallet.user?.firstname} le status de votre portefeuille Neero a été modifié`,
+                        userId: wallet.user?.id ?? 0,
+                        token: token?.token ?? '',
+                        status: 'SENDED'
+                    })
+                }
 
                 logger.info("Status du portefeuille mis à jour", {
                     wallet: `${wallet.matricule}`,
@@ -481,15 +489,17 @@ class AdminController {
                     `
                 );
 
-                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} votre dépôt bancaire sur SENDO a été traité avec succès`,
-                    userId: transaction.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(transaction.user.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'INFORMATION',
+                        content: `${transaction.user.firstname} votre dépôt bancaire sur SENDO a été traité avec succès`,
+                        userId: transaction.user.id,
+                        token: token.token,
+                        status: 'SENDED'
+                    })
+                }
             } else if (
                 transaction?.type === typesTransaction['0'] && 
                 transaction.method === typesMethodTransaction['5'] &&
@@ -515,15 +525,17 @@ class AdminController {
                     `
                 );
 
-                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} votre dépôt INTERAC sur Sendo a été traité avec succès`,
-                    userId: transaction.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(transaction.user.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'INFORMATION',
+                        content: `${transaction.user.firstname} votre dépôt INTERAC sur Sendo a été traité avec succès`,
+                        userId: transaction.user.id,
+                        token: token.token,
+                        status: 'SENDED'
+                    })
+                }
             } else if (
                 transaction?.type === 'WITHDRAWAL' &&
                 transaction.method === 'INTERAC' &&
@@ -549,15 +561,17 @@ class AdminController {
                     `
                 );
 
-                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} Votre retrait du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été débité de ${transaction.amount} CAD et votre compte Interac ${transaction.bankName} crédité.`,
-                    userId: transaction.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(transaction.user.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'INFORMATION',
+                        content: `${transaction.user.firstname} Votre retrait du portefeuille Sendo par Interac a été traité avec succès. Votre portefeuille a été débité de ${transaction.amount} CAD et votre compte Interac ${transaction.bankName} crédité.`,
+                        userId: transaction.user.id,
+                        token: token.token,
+                        status: 'SENDED'
+                    })
+                }
             } else if (
                 transaction?.type === typesTransaction['2'] && 
                 transaction.method === typesMethodTransaction['0'] &&
@@ -573,15 +587,17 @@ class AdminController {
                     transaction.transactionReference ?? ''
                 )
 
-                const token = await notificationService.getTokenExpo(transaction.user?.id ?? 0)
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} votre transfert d'argent a été envoyé à votre destinataire`,
-                    userId: transaction.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                const token = await notificationService.getTokenExpo(transaction.user.id)
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'INFORMATION',
+                        content: `${transaction.user.firstname} votre transfert d'argent a été envoyé à votre destinataire`,
+                        userId: transaction.user.id,
+                        token: token.token,
+                        status: 'SENDED'
+                    })
+                }
 
                 if (result && result.status === 'SUCCESS' && destinataire) {
                     transaction.status = 'COMPLETED'
@@ -637,24 +653,28 @@ class AdminController {
                 transaction.status = 'COMPLETED'
                 await transaction.save();
 
-                const tokenSender = await notificationService.getTokenExpo(fromWallet.user?.id ?? 0)
-                await notificationService.save({
-                    type: 'SUCCESS_TRANSFER_FUNDS',
-                    userId: fromWallet.user?.id ?? 0,
-                    content: `Votre transfert de ${transaction.amount} ${fromWallet.currency} à ${toWallet.user?.firstname} a été effectué avec succès`,
-                    title: 'Sendo',
-                    status: 'SENDED',
-                    token: tokenSender?.token ?? ''
-                })
-                const tokenReceiver = await notificationService.getTokenExpo(toWallet.user?.id ?? 0)
-                await notificationService.save({
-                    type: 'SUCCESS_TRANSFER_FUNDS',
-                    userId: toWallet.user?.id ?? 0,
-                    content: `Vous avez reçu de ${fromWallet.user?.firstname} une somme de ${amountToIncrement} CAD sur votre portefeuille SENDO`,
-                    title: 'Sendo',
-                    status: 'SENDED',
-                    token: tokenReceiver?.token ?? ''
-                })
+                const tokenSender = await notificationService.getTokenExpo(fromWallet.user!.id)
+                if (tokenSender) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: fromWallet.user!.id,
+                        content: `Votre transfert de ${transaction.amount} ${fromWallet.currency} à ${toWallet.user?.firstname} a été effectué avec succès`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenSender.token
+                    })
+                }
+                const tokenReceiver = await notificationService.getTokenExpo(toWallet.user!.id)
+                if (tokenReceiver) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: toWallet.user!.id,
+                        content: `Vous avez reçu de ${fromWallet.user?.firstname} une somme de ${amountToIncrement} CAD sur votre portefeuille SENDO`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenReceiver.token
+                    })
+                }
 
                 await successTransferFunds(
                     fromWallet.user!, 

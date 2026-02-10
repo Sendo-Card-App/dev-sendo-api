@@ -387,15 +387,17 @@ class TransactionService {
                     transaction.status = 'COMPLETED';
                     await transaction.save();
 
-                    const tokenExpo = await notificationService.getTokenExpo(transaction.user?.id ?? 0);
-                    await notificationService.save({
-                        userId: transaction.user?.id ?? 0,
-                        type: typesNotification['1'],
-                        title: 'Sendo',
-                        content: `Votre compte a été crédité suite à votre recharge de ${transaction.amount} XAF`,
-                        status: 'SENDED',
-                        token: tokenExpo?.token ?? ''
-                    });
+                    const tokenExpo = await notificationService.getTokenExpo(transaction.user!.id);
+                    if (tokenExpo) {
+                        await notificationService.save({
+                            userId: transaction.user!.id,
+                            type: typesNotification['1'],
+                            title: 'Sendo',
+                            content: `Votre compte a été crédité suite à votre recharge de ${transaction.amount} XAF`,
+                            status: 'SENDED',
+                            token: tokenExpo.token
+                        });
+                    }
                 } else if (
                     transaction.type === 'WITHDRAWAL' &&
                     checkTransaction.statusUpdates.some((s: any) => s.status == 'SUCCESSFUL') &&
@@ -409,15 +411,17 @@ class TransactionService {
                     transaction.status = 'COMPLETED';
                     await transaction.save();
 
-                    const tokenExpo = await notificationService.getTokenExpo(transaction.user?.id ?? 0);
-                    await notificationService.save({
-                        userId: transaction.user?.id ?? 0,
-                        type: typesNotification['1'],
-                        title: 'Sendo',
-                        content: `Votre compte a été débité suite à votre retrait de ${transaction.amount} XAF`,
-                        status: 'SENDED',
-                        token: tokenExpo?.token ?? ''
-                    });
+                    const tokenExpo = await notificationService.getTokenExpo(transaction.user!.id);
+                    if (tokenExpo) {
+                        await notificationService.save({
+                            userId: transaction.user!.id,
+                            type: typesNotification['1'],
+                            title: 'Sendo',
+                            content: `Votre compte a été débité suite à votre retrait de ${transaction.amount} XAF`,
+                            status: 'SENDED',
+                            token: tokenExpo!.token
+                        });
+                    }
                 } else if (
                     transaction.type === 'TRANSFER' &&
                     checkTransaction.statusUpdates.some((s: any) => s.status == 'SUCCESSFUL') &&
@@ -433,15 +437,17 @@ class TransactionService {
                     transaction.status = 'FAILED';
                     await transaction.save();
 
-                    const tokenExpo = await notificationService.getTokenExpo(transaction.user?.id ?? 0);
-                    await notificationService.save({
-                        userId: transaction.user?.id ?? 0,
-                        type: typesNotification['1'],
-                        title: 'Sendo',
-                        content: `Échec de la transaction de ${transaction.amount} XAF`,
-                        status: 'SENDED',
-                        token: tokenExpo?.token ?? ''
-                    });
+                    const tokenExpo = await notificationService.getTokenExpo(transaction.user!.id);
+                    if (tokenExpo) {
+                        await notificationService.save({
+                            userId: transaction.user!.id,
+                            type: typesNotification['1'],
+                            title: 'Sendo',
+                            content: `Échec de la transaction de ${transaction.amount} XAF`,
+                            status: 'SENDED',
+                            token: tokenExpo.token
+                        });
+                    }
                 }
             } catch (error) {
                 console.error(`Échec du traitement de la transaction ${transaction.id}:`, error);

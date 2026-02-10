@@ -215,6 +215,64 @@ router.post(
 );
 
 /**
+ * @swagger
+ * /fund-subscriptions/withdrawal-requests:
+ *   get:
+ *     summary: Récupérer toutes les demandes de retrait à un fond bloqué
+ *     tags: [Fonds Bloqués]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
+ *         name: subscriptionId
+ *         required: false
+ *         schema:
+ *           type: string
+ *           default: 1
+ *       - in: query
+ *         name: userId
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, APPROVED, REJECTED] 
+ *     responses:
+ *       200:
+ *         description: Liste des demandes de retrait récupérée avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/WithdrawalFundRequest'
+ */
+router.get(
+  "/withdrawal-requests", 
+  authMiddleware,
+  paginationMiddleware,
+  FundSubscriptionController.filteredRequestsWithdrawal
+);
+
+/**
  * @swagger  
  * /fund-subscriptions/withdrawals/process:
  *   post:

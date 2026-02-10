@@ -348,15 +348,17 @@ class CardService {
         })
 
         // On envoie la notification
-        const token = await notificationService.getTokenExpo(virtualCard?.user?.id ?? 0)
-        await notificationService.save({
-            title: 'Sendo',
-            content: `${virtualCard?.user?.firstname} votre carte virtuelle vient d'être ${mapStatusCard(status)}`,
-            userId: virtualCard?.user?.id ?? 0,
-            status: 'SENDED',
-            token: token?.token ?? '',
-            type: 'MESSAGE'
-        })
+        const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
+        if (token) {
+            await notificationService.save({
+                title: 'Sendo',
+                content: `${virtualCard?.user?.firstname} votre carte virtuelle vient d'être ${mapStatusCard(status)}`,
+                userId: virtualCard!.user!.id,
+                status: 'SENDED',
+                token: token.token,
+                type: 'MESSAGE'
+            })
+        }
 
         return VirtualCardModel.update({
             status

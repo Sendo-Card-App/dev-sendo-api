@@ -131,14 +131,16 @@ class DebtController {
                     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(debts[index].user!.id)
-                    await notificationService.save({
-                        title: 'Sendo',
-                        content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${checkTransaction.amount} XAF`,
-                        userId: debts[index].user!.id,
-                        status: 'SENDED',
-                        token: token?.token ?? '',
-                        type: 'SUCCESS_WITHDRAWAL_CARD'
-                    })
+                    if (token) {
+                        await notificationService.save({
+                            title: 'Sendo',
+                            content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${checkTransaction.amount} XAF`,
+                            userId: debts[index].user!.id,
+                            status: 'SENDED',
+                            token: token?.token ?? '',
+                            type: 'SUCCESS_WITHDRAWAL_CARD'
+                        })
+                    }
                 }
     
                 logger.info("Paiement dette par Sendo", {
@@ -235,14 +237,16 @@ class DebtController {
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${checkTransaction.amount} XAF`,
-                    userId: debt.user!.id,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_CARD'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${checkTransaction.amount} XAF`,
+                        userId: debt.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_WITHDRAWAL_CARD'
+                    })
+                }
             }
     
             logger.info("Paiement dette par Sendo", {
@@ -305,14 +309,16 @@ class DebtController {
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debts[index].user!.id)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${debts[index].amount} XAF`,
-                    userId: debts[index].user!.id,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_CARD'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${debts[index].amount} XAF`,
+                        userId: debts[index].user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_WITHDRAWAL_CARD'
+                    })
+                }
     
                 logger.info("Paiement dette par Sendo", {
                     amount: debts[index].amount,
@@ -377,14 +383,16 @@ class DebtController {
             
             // Envoyer une notification
             const token = await notificationService.getTokenExpo(debt.user!.id)
-            await notificationService.save({
-                title: 'Sendo',
-                content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${debt.amount} XAF`,
-                userId: debt.user!.id,
-                status: 'SENDED',
-                token: token?.token ?? '',
-                type: 'SUCCESS_WITHDRAWAL_CARD'
-            })  
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Paiement par Sendo de la dette #${debt.intitule} d'un montant de ${debt.amount} XAF`,
+                    userId: debt.user!.id,
+                    status: 'SENDED',
+                    token: token?.token ?? '',
+                    type: 'SUCCESS_WITHDRAWAL_CARD'
+                })
+            }  
     
             logger.info("Paiement dette par Sendo", {
                 amount: debt.amount,
@@ -463,14 +471,16 @@ class DebtController {
 
             // Notification
             const token = await notificationService.getTokenExpo(req.user.id);
-            await notificationService.save({
-                title: 'Sendo',
-                content: `Paiement partiel par Sendo de ${Number(partialAmount)} XAF de la dette #${result.intitule} XAF effectué avec succès`,
-                userId: result.user!.id,
-                status: 'SENDED',
-                token: token?.token ?? '',
-                type: 'SUCCESS_WITHDRAWAL_WALLET'
-            });
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Paiement partiel par Sendo de ${Number(partialAmount)} XAF de la dette #${result.intitule} XAF effectué avec succès`,
+                    userId: result.user!.id,
+                    status: 'SENDED',
+                    token: token.token,
+                    type: 'SUCCESS_WITHDRAWAL_WALLET'
+                });
+            }
 
             sendResponse(res, 200, "Paiement partiel effectué avec succès", {});
 
@@ -558,14 +568,16 @@ class DebtController {
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Paiement partiel par Sendo de la dette #${debt.intitule} d'un montant de ${amountNum} XAF`,
-                    userId: debt.user!.id,
-                    status: 'SENDED',
-                    token: token?.token ?? '',
-                    type: 'SUCCESS_WITHDRAWAL_CARD'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Paiement partiel par Sendo de la dette #${debt.intitule} d'un montant de ${amountNum} XAF`,
+                        userId: debt.user!.id,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_WITHDRAWAL_CARD'
+                    })
+                }
             }
     
             logger.info("Paiement dette par Sendo", {

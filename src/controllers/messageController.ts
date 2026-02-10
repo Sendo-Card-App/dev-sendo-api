@@ -50,14 +50,16 @@ class MessageController {
 
             if (messageSaved.conversation?.adminId === messageSaved.userId) {
                 const tokenUser = await notificationService.getTokenExpo(messageSaved.conversation.userId)
-                await notificationService.save({
-                    title: 'Sendo',
-                    userId: messageSaved.conversation.userId,
-                    type: 'MESSAGE',
-                    content: `${messageSaved.content}`,
-                    status: 'SENDED',
-                    token: tokenUser?.token ?? ''
-                })
+                if (tokenUser) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        userId: messageSaved.conversation.userId,
+                        type: 'MESSAGE',
+                        content: `${messageSaved.content}`,
+                        status: 'SENDED',
+                        token: tokenUser.token
+                    })
+                }
 
                 if (messageSaved.conversation?.user?.email) {
                     sendEmailWithHTML(

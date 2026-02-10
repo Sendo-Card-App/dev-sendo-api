@@ -67,14 +67,16 @@ class CashoutService {
                 )
 
                 const receiver = await transaction.getReceiver()
-                await notificationService.save({
-                    title: 'Sendo',
-                    type: 'INFORMATION',
-                    content: `${transaction.user?.firstname} votre transfert d'argent de ${amountToSend} XAF a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
-                    userId: transaction.user?.id ?? 0,
-                    token: token?.token ?? '',
-                    status: 'SENDED'
-                })
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        type: 'INFORMATION',
+                        content: `${transaction.user?.firstname} votre transfert d'argent de ${amountToSend} XAF a été envoyé à votre destinataire ${receiver?.firstname} ${receiver?.lastname}`,
+                        userId: transaction.user!.id,
+                        token: token.token,
+                        status: 'SENDED'
+                    })
+                }
             }
         } catch (error: any) {
             throw new Error(error)

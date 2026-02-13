@@ -3,6 +3,23 @@ import UserModel from "@models/user.model";
 import { sendGlobalEmail } from "@services/emailService";
 import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
+import Queue from 'bull';
+
+const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
+
+export const emailQueue = new Queue('email marketing', {
+  redis: { host: 'localhost', port: REDIS_TTL }
+});
+
+emailQueue.process(async (job) => {
+  const { email, firstname, subject, text } = job.data;
+  await sendGlobalEmail(
+    email,
+    subject,
+    `<p>Bonjour ${firstname},<br>${text}</p>`,
+    'INFORMATION'
+  );
+});
 
 const sender = {
   address: process.env.EMAIL_FROM || '',
@@ -47,22 +64,25 @@ class EmailController {
       }
 
       const allUsers = await UserModel.findAll({
-        attributes: ['email', 'firstname'],
+        attributes: ['email', 'firstname', 'lastname'],
         where: { status: 'ACTIVE' }
       })
 
-      for (const user of allUsers) {
-        await sendGlobalEmail(
-          user.email,
-          subject,
-          `<p>Bonjour ${user.firstname},<br> ${text}</p>`,
-          'INFORMATION'
+      const jobs = allUsers.map(user => 
+        emailQueue.add(
+          'sendEmail', 
+          { 
+            email: user.email, 
+            firstname: user.firstname, 
+            subject, 
+            text 
+          }
         )
-      }
+      );
+      await Promise.all(jobs); // Optionnel: attendre confirmation
 
-      sendResponse(res, 200, 'Email marketing sent successfully');
+      sendResponse(res, 200, `Jobs enfilés pour ${allUsers.length} utilisateurs`);
     } catch (error: any) {
-      console.error('Error sending email:', error);
       sendError(res, 500, 'Failed to send email marketing', [error.message]);
     }
   }

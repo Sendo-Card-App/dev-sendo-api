@@ -98,7 +98,7 @@ export default class FundSubscriptionController {
     }
 
     static async filteredRequestsWithdrawal(req: Request, res: Response) {
-        const { limit, startIndex, page, status, userId, subscriptionId } = res.locals.pagination;
+        const { limit, startIndex, page, status, userId } = res.locals.pagination;
         try {
             if (!req.user || !req.user.id) {
                 sendError(res, 401, 'Veuillez vous connecter');

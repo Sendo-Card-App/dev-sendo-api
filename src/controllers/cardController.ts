@@ -1172,7 +1172,7 @@ class CardController {
                         transactionReference: cashin.id,
                         sendoFees: 0,
                         virtualCardId: virtualCard?.id,
-                        description: 'Retrait de carte virtuelle',
+                        description: 'Retrait sur la carte',
                         receiverId: req.user!.id,
                         receiverType: 'User'
                     }

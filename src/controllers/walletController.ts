@@ -209,6 +209,24 @@ class WalletController {
                 transac.id
             );
         
+            const tokenReceiver = await notificationService.getTokenExpo(wallet.userId)
+            if (tokenReceiver) {
+                await notificationService.save({
+                    type: 'SUCCESS_DEPOSIT_WALLET',
+                    userId: wallet.userId,
+                    content: `Sendo vient de vous créditer la somme de ${Number(amount)} ${wallet.currency}`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver.token
+                })
+            }
+
+            await sendGlobalEmail(
+                wallet.user!.email,
+                'Dépôt par Sendo',
+                `<p>${wallet.user?.firstname} Sendo vient de vous créditer la somme de ${Number(amount)} ${wallet.currency}.</p>
+                `
+            );
 
             logger.info("Recharge du wallet", {
                 userId: wallet!.user!.id,
@@ -256,6 +274,25 @@ class WalletController {
                 "Retrait par Sendo sur le portefeuille",
                 req.user.id,
                 transac.id
+            );
+
+            const tokenReceiver = await notificationService.getTokenExpo(wallet.userId)
+            if (tokenReceiver) {
+                await notificationService.save({
+                    type: 'SUCCESS_WITHDRAWAL_WALLET',
+                    userId: wallet.userId,
+                    content: `Sendo vient de vous retirer la somme de ${Number(amount)} ${wallet.currency}`,
+                    title: 'Sendo',
+                    status: 'SENDED',
+                    token: tokenReceiver.token
+                })
+            }
+
+            await sendGlobalEmail(
+                wallet.user!.email,
+                'Retrait par Sendo',
+                `<p>${wallet.user?.firstname} Sendo vient de vous retirer la somme de ${Number(amount)} ${wallet.currency}.</p>
+                `
             );
 
             logger.info("Retrait du wallet", {

@@ -320,6 +320,11 @@ export const configs: ConfigModelCreate[] = [
         name: 'TRANSFER_CAM_CA_AVAILABILITY',
         value: 1,
         description: "Disponibilité du service CAM-CA"
+    },
+    {
+        name: 'SENDO_VALUE_CAD_CAM_CA',
+        value: 500,
+        description: "Valeur Sendo du CAD pour les transactions CAM-CA (XAF)"
     }
 ]
 
@@ -371,6 +376,7 @@ export const typesConfig = [
     'SENDO_UNLOCK_CARD_FEES',
     'SENDO_VIEW_DETAILS_CARD_FEES',
     'SENDO_VALUE_CAD_CA_CAM',
+    'SENDO_VALUE_CAD_CAM_CA',
     'SENDO_TO_SENDO_TRANSFER_FEES',
     'SENDO_WITHDRAW_INTERAC_FEES',
     'SENDO_VERSION_APP_IOS',

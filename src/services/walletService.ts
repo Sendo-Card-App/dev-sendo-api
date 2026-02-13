@@ -93,8 +93,10 @@ class WalletService {
 
             const feesConfig = await configService.getConfigByName('SENDO_TO_SENDO_TRANSFER_FEES')
             if (!feesConfig) throw new Error('Configuration des frais introuvable');
-            const cadSendoValue = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
-            if (!cadSendoValue) throw new Error('Configuration CAD value introuvable');
+            const SENDO_VALUE_CAD_CA_CAM = await configService.getConfigByName('SENDO_VALUE_CAD_CA_CAM')
+            if (!SENDO_VALUE_CAD_CA_CAM) throw new Error('Configuration CAD value introuvable');
+            const SENDO_VALUE_CAD_CAM_CA = await configService.getConfigByName('SENDO_VALUE_CAD_CAM_CA')
+            if (!SENDO_VALUE_CAD_CAM_CA) throw new Error('Configuration CAD value introuvable');
 
             if (fromWallet.currency === 'CAD' && toWallet.currency === 'XAF') {
                 const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CA_CAM_AVAILABILITY')
@@ -103,7 +105,7 @@ class WalletService {
 
                 configFeesValue = amount * (Number(feesConfig.value) / 100)
                 total = Math.ceil(amount + configFeesValue)
-                amountToIncrement = Math.ceil(amount * Number(cadSendoValue.value))
+                amountToIncrement = Math.ceil(amount * Number(SENDO_VALUE_CAD_CA_CAM.value))
 
                 // Enregistrer l'historique des mouvements sur les wallets
                 history_1 = await WalletHistoryModel.create({
@@ -136,7 +138,7 @@ class WalletService {
 
                 configFeesValue = Number(commission)
                 total = Math.ceil(amount + configFeesValue)
-                amountToIncrement = Math.ceil(amount / Number(cadSendoValue.value))
+                amountToIncrement = Math.ceil(amount / Number(SENDO_VALUE_CAD_CAM_CA.value))
             } else {
                 configFeesValue = 0
                 total = amount
@@ -181,7 +183,8 @@ class WalletService {
                 sendoFees: configFeesValue!,
                 description: description || getDescriptionTransaction(fromWallet.currency, toWallet.currency),
                 provider: typesMethodTransaction['3'],
-                method: typesMethodTransaction['3']
+                method: typesMethodTransaction['3'],
+                bankName: getDescriptionTransaction(fromWallet.currency, toWallet.currency)
             }
             const transac = await transactionService.createTransaction(transactionCreate, { transaction });
             if (history_1 && history_2) {

@@ -37,7 +37,7 @@ export default class FundSubscriptionService {
         }
     }
 
-    static calculateProratedCommission(
+    /*static calculateProratedCommission(
         annualCommission: number,
         investmentDate: Date
     ): number {
@@ -45,7 +45,7 @@ export default class FundSubscriptionService {
         const monthsRemaining = 12 - (month - 1);
         const commission = annualCommission * (monthsRemaining / 12);
         return Number(commission.toFixed(2));
-    }
+    }*/
 
     static async getUserTotal(userId: number, currency: "XAF" | "CAD") {
         const total = await FundSubscriptionModel.sum("amount", {
@@ -56,6 +56,34 @@ export default class FundSubscriptionService {
             },
         });
         return total || 0;
+    }
+
+    static calculateProratedCommission(
+        annualCommission: number,
+        investmentDate: Date
+    ): number {
+
+        const year = investmentDate.getFullYear();
+
+        // 31 décembre de l'année en cours
+        const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+
+        // Nombre total de jours dans l'année (gestion années bissextiles)
+        const startOfYear = new Date(year, 0, 1);
+        const totalDaysInYear =
+            (endOfYear.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24) + 1;
+
+        // Nombre de jours restants depuis la date d'investissement
+        const daysRemaining =
+            (endOfYear.getTime() - investmentDate.getTime()) / (1000 * 60 * 60 * 24);
+
+        // Sécurité
+        if (daysRemaining <= 0) return 0;
+
+        const commission =
+            annualCommission * (daysRemaining / totalDaysInYear);
+
+        return Number(commission.toFixed(4)); // précision financière
     }
 
     static async validateLimits(
@@ -72,11 +100,43 @@ export default class FundSubscriptionService {
             throw new Error("Plafond CAD dépassé");
     }
 
+    static async checkSamePlanSameYear(
+        userId: number,
+        fundId: string,
+        investmentDate: Date
+    ) {
+        const year = investmentDate.getFullYear();
+
+        const startOfYear = new Date(year, 0, 1);
+        const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+
+        const existingSubscription =
+            await FundSubscriptionModel.findOne({
+                where: {
+                    userId,
+                    fundId,
+                    status: {
+                        [Op.in]: ["ACTIVE", "MATURED"],
+                    },
+                    startDate: {
+                        [Op.between]: [startOfYear, endOfYear],
+                    },
+                },
+            });
+
+        if (existingSubscription) {
+            throw new Error(
+                "Vous avez déjà souscrit à ce plan pour cette année"
+            );
+        }
+    }
+
     static async subscribe(
         userId: number,
         fundId: string,
         currency: "XAF" | "CAD"
     ) {
+        // 1️⃣ récupération du fonds
         const fund = await FundModel.findByPk(fundId);
         if (!fund) throw new Error("Fonds introuvable");
 
@@ -87,9 +147,16 @@ export default class FundSubscriptionService {
         if (Number(user.wallet!.balance) < amount) throw new Error("Solde insuffisant")
 
         const now = new Date();
+        // 2️⃣ période Jan → Juin
         this.checkSubscriptionPeriod(now);
+
+        // 3️⃣ interdiction même plan / même année
+        await this.checkSamePlanSameYear(userId, fundId, now);
+
+        // 4️⃣ plafond global 1M
         await this.validateLimits(userId, currency, amount);
 
+         // 5️⃣ commission au jour près
         const commissionRate = this.calculateProratedCommission(
             fund.annualCommission,
             now
@@ -127,14 +194,14 @@ export default class FundSubscriptionService {
                 status: 'SENDED',
                 type: 'INFORMATION',
                 title: "Sendo",
-                content: `Félicitations ${user.firstname} ! Votre investissement vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain`
+                content: `Félicitations ${user.firstname} ! Votre investissement #${fund.name} de ${amount} ${currency} vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain`
             })
         }
 
         await sendEmailWithHTML(
             user.email,
             "Sendo investissement",
-            `<p>Félicitations ${user.firstname} ! Votre investissement vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain</p>`
+            `<p>Félicitations ${user.firstname} ! Votre investissement #${fund.name} de ${amount} ${currency} vient d'être enregistré, vous recevrez vos intérêtes le 1er janvier prochain</p>`
         )
 
         return FundSubscriptionModel.create({
@@ -198,16 +265,32 @@ export default class FundSubscriptionService {
         subscriptionId: string,
         type: "INTEREST_ONLY" | "FULL_WITHDRAWAL"
     ) {
+        const request = await WithdrawalFundRequestModel.findOne({
+            where: {
+                userId,
+                subscriptionId
+            }
+        })
+        if (request) throw new Error("Une demande existe déjà")
+
         const sub = await FundSubscriptionModel.findByPk(subscriptionId, {
-            include: [{
-                model: UserModel,
-                as: 'user'
-            }] 
+            include: [
+                {
+                    model: UserModel,
+                    as: 'user'
+                },
+                {
+                    model: FundModel,
+                    as: 'fund'
+                }
+            ] 
         });
 
         if (!sub) throw new Error("Souscription invalide");
         if (sub.userId !== userId) throw new Error("Souscription invalide");
         if (sub.status !== "MATURED") throw new Error("Fonds non disponibles");
+
+        const currency = sub.user?.country === "Canada" ? 'CAD' : 'XAF';
 
         const token = await userService.getTokenExpoUser(userId)
         if (token) {
@@ -217,14 +300,14 @@ export default class FundSubscriptionService {
                 status: 'SENDED',
                 type: 'INFORMATION',
                 title: "Sendo",
-                content: "Votre demande de retrait a bien été enregistrée."
+                content: `Votre demande de retrait sur l'investissement #${sub.fund?.name} de ${sub.amount} ${currency} a bien été enregistrée.`
             })
         }
 
         await sendEmailWithHTML(
             sub.user!.email,
             "Sendo investissement",
-            `<p>${sub.user!.firstname} Votre demande de retrait a bien été enregistrée.</p>`
+            `<p>${sub.user!.firstname}, votre demande de retrait sur l'investissement #${sub.fund?.name} de ${sub.amount} ${currency} a bien été enregistrée.</p>`
         )
 
         return WithdrawalFundRequestModel.create({

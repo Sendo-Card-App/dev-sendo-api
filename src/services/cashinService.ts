@@ -20,8 +20,7 @@ class CashinService {
         virtualCard: VirtualCardModel, 
         token: TokenModel,
         isFailed: boolean,
-        userId?: number,
-        transaction?: TransactionModel
+        userId?: number
     ) {
         try {
             const cashin = await neeroService.createCashInPayment(cashinPayload)

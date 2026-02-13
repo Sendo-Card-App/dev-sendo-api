@@ -21,6 +21,7 @@ import { PaginatedData } from "../types/BaseEntity";
 import ConfigModel from "@models/config.model";
 import mobileMoneyService from "@services/mobileMoneyService";
 import merchantService from "@services/merchantService";
+import VirtualCardModel from "@models/virtualCard.model";
 
 const WEBHOOK_SECRET = process.env.NEERO_WEBHOOK_KEY || ''
 
@@ -625,13 +626,15 @@ class WebhookController {
                             await cardService.saveDebt(debt)
                         }
                     } 
-                }
-                if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
+                } else if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
+                    let newVirtualCard: VirtualCardModel | null = null;
                     
                     // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
                     let paymentMethod: PaymentMethodModel | null = null;
                     if (virtualCard) {
+                        virtualCard.paymentRejectNumber = virtualCard.paymentRejectNumber + 1;
+                        newVirtualCard = await virtualCard.save();
                         paymentMethod = await cardService.getPaymentMethod(undefined, undefined, virtualCard.id)
                     }
                     if (!paymentMethod) {
@@ -649,7 +652,7 @@ class WebhookController {
                         rejectFeesCard && 
                         balanceObject.balance &&
                         (Number(balanceObject.balance) >= Number(rejectFeesCard.value)) &&
-                        virtualCard
+                        newVirtualCard
                     ) {
                         const payload: CashInPayload = {
                             amount: roundToNextMultipleOfFive(Number(rejectFeesCard.value)),
@@ -664,7 +667,7 @@ class WebhookController {
                             payload, 
                             Number(rejectFeesCard.value), 
                             event.data.object, 
-                            virtualCard, 
+                            newVirtualCard, 
                             token!, 
                             true, 
                             req.user!.id
@@ -720,6 +723,12 @@ class WebhookController {
                                 transaction.userId,
                                 transaction.id
                             )
+
+                            // On incrémente le nombre de paiement rejeté sur la carte
+                            if (newVirtualCard) {
+                                newVirtualCard.paymentRejectNumber = 0;
+                                await newVirtualCard.save();
+                            }
                         } else {
                             // On rétire ce qu'il y a dans le wallet
                             if (user!.wallet!.balance > 1) {
@@ -785,12 +794,6 @@ class WebhookController {
                                 }
                                 await cardService.saveDebt(debt)
                             }
-                            
-                            // On incrémente le nombre de paiement rejeté sur la carte
-                            if (virtualCard) {
-                                virtualCard.paymentRejectNumber = virtualCard.paymentRejectNumber + 1;
-                                await virtualCard.save();
-                            }
                         }
 
                         await sendEmailWithHTML(
@@ -811,7 +814,6 @@ class WebhookController {
                         }
 
                         // Si le nombre de paiement rejeté passe à 2 on supprime la carte
-                        const newVirtualCard = await virtualCard?.reload();
                         if (newVirtualCard && newVirtualCard.paymentRejectNumber >= 2) {
                             // On retire tous les fonds restant sur la carte
                             const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)

@@ -326,9 +326,6 @@ class UserService {
             },
             attributes: ['token', 'tokenType', 'deviceId', 'userId']
         })
-        if (!token) {
-            throw new Error("Token Expo introuvable")
-        }
 
         return token
     }

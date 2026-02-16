@@ -26,8 +26,8 @@ export function createApp() {
       'Access-Control-Allow-Origin',
       'Access-Control-Allow-Methods'
     ],
-    credentials: true,
-    optionsSuccessStatus: 200 
+    //credentials: true,
+    //optionsSuccessStatus: 200 
   }));
 
   app.use(express.json({ limit: '10mb' }));

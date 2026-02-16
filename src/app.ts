@@ -23,8 +23,8 @@ export function createApp() {
       'Content-Type',
       'Authorization',
       'X-Passcode',
-      //'Access-Control-Allow-Origin',
-      //'Access-Control-Allow-Methods'
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Methods'
     ],
     credentials: true,
     optionsSuccessStatus: 200 

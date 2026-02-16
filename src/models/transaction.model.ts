@@ -105,7 +105,8 @@ TransactionModel.init(
     },
     amount: {
       type: DataTypes.FLOAT,
-      allowNull: false
+      allowNull: false,
+      defaultValue: 0
     },
     exchangeRates: {
       type: DataTypes.FLOAT,

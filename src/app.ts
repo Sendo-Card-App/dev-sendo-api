@@ -23,15 +23,16 @@ export function createApp() {
       'Content-Type',
       'Authorization',
       'X-Passcode',
-      'Access-Control-Allow-Origin',
-      'Access-Control-Allow-Methods'
-    ]
+      //'Access-Control-Allow-Origin',
+      //'Access-Control-Allow-Methods'
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200 
   }));
 
-  app.use(bodyParser.json({ limit: '5mb' }));
-  app.use(bodyParser.urlencoded({ limit: '5mb', extended: true }));
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-  app.use(express.json());
   app.use(requestLogger);
   app.use(responseFormatter);
 

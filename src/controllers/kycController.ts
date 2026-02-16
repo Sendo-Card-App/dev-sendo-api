@@ -250,13 +250,13 @@ class KycController {
 
     async updateKYC(req: Request, res: Response) {
         const { publicId } = req.params
+        const file = req.file as Express.Multer.File;
         
         try {
             if (!publicId) {
                 sendError(res, 403, 'publicId manquant')
             }
 
-            const file = req.file as Express.Multer.File;
             if (!file) {
                 throw new Error("Fichier manquant")
             }
@@ -270,7 +270,9 @@ class KycController {
             }
             
             // On supprime le fichier uploadé sur le cloud
-            await cloudinary.uploader.destroy(doc.publicId)
+            if (file) {  // Supprimez SEULEMENT si fichier uploadé
+                await cloudinary.uploader.destroy(file.filename);
+            }
 
             await doc.update({
                 url: file.path,
@@ -285,7 +287,9 @@ class KycController {
             sendResponse(res, 200, 'KYC mis à jour avec succès', doc);
         } catch (error: any) {
             // On supprime le fichier uploadé sur le cloud
-            await cloudinary.uploader.destroy(publicId)
+            if (file) {  // Supprimez SEULEMENT si fichier uploadé
+                await cloudinary.uploader.destroy(file.filename);
+            }
 
             sendError(res, 500, 'Erreur mise à jour KYC', [error.message]);
         }

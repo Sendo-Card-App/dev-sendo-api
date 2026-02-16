@@ -379,6 +379,7 @@ export default class FundSubscriptionService {
         });
 
         if (!request) throw new Error("Demande introuvable");
+        const user = request.user;
 
         request.status = action;
         request.processedAt = new Date();
@@ -397,8 +398,8 @@ export default class FundSubscriptionService {
                     receiverType: "User",
                     amount: sub.amount,
                     totalAmount: sub.amount,
-                    currency: request.fundSubscription!.currency,
-                    description: `Capital d'investissement : ${request.fundSubscription?.fund?.name}`,
+                    currency: sub.currency,
+                    description: `Capital d'investissement : ${sub.fund?.name}`,
                 })
                 await walletService.creditWallet(
                     request.user!.wallet!.matricule,
@@ -442,7 +443,7 @@ export default class FundSubscriptionService {
                 }
 
                 await sendEmailWithHTML(
-                    sub.user!.email,
+                    request.user!.email,
                     "Sendo investissement",
                     `<p>Un montant total de ${sub.interestAmount + sub.amount} ${sub.currency} vient d'être versé sur votre portefeuille. Ceci représente votre capital investi plus les intérêts générés au cours de l'année précédente.</p>`
                 )
@@ -496,7 +497,7 @@ export default class FundSubscriptionService {
                 }
 
                 await sendEmailWithHTML(
-                    sub.user!.email,
+                    user!.email,
                     "Sendo investissement",
                     `<p>Un montant total de ${sub.interestAmount + sub.amount} ${sub.currency} vient d'être versé sur votre portefeuille. Ceci représente les intérêts générés au cours de l'année précédente.</p>`
                 )
@@ -508,10 +509,10 @@ export default class FundSubscriptionService {
         }
 
         if (action === "REJECTED") {
-            const token = await userService.getTokenExpoUser(request.user!.id)
+            const token = await userService.getTokenExpoUser(user!.id)
             if (token) {
                 await notificationService.save({
-                    userId: request.user!.id,
+                    userId: user!.id,
                     token: token.token,
                     status: 'SENDED',
                     type: 'INFORMATION',
@@ -521,7 +522,7 @@ export default class FundSubscriptionService {
             }
 
             await sendEmailWithHTML(
-                request.user!.email,
+                user!.email,
                 "Sendo investissement",
                 `<p>${request.user!.firstname}, votre demande de retrait sur le service <b>Sendo Investissement</b> vient d'être rejetée</p>`
             )

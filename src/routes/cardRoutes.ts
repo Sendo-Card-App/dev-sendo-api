@@ -337,6 +337,11 @@ router.post(
  *           default: 10
  *         description: Nombre d'éléments par page
  *       - in: query
+ *         name: search
+ *         required: false
+ *         type: string
+ *         default: "John Doe"
+ *       - in: query
  *         name: status
  *         required: false
  *         schema:

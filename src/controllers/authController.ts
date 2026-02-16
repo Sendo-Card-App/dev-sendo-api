@@ -305,13 +305,14 @@ class AuthController {
   }
 
   async logout(req: Request, res: Response) {
-    const { deviceId } = req.body;
-    if (!req.user) {
-      return sendError(res, 401, 'Utilisateur non authentifié');
-    }
-    const userId = req.user.id;
+    const { deviceId } = req.body;  
   
     try {
+      if (!req.user) {
+        return sendError(res, 401, 'Utilisateur non authentifié');
+      }
+      const userId = req.user.id;
+
       const response = await TokenModel.destroy({ 
         where: { 
           userId, 
@@ -346,9 +347,11 @@ class AuthController {
   }
 
   async sendEmailAccount(req: Request, res: Response) {
-    const { email } = req.body;
-    if (!email) sendError(res, 400, 'Email manquant');
+    const { email }: { email: string} = req.body;
+    
     try {
+      if (!email) sendError(res, 400, 'Email manquant');
+
       const user = await userService.getUserByEmail(email)
       if (!user) {
         sendError(res, 404, 'Utilisateur introuvable');
@@ -425,11 +428,11 @@ class AuthController {
   }
 
   async forgotPassword(req: Request, res: Response) {
-    const { email } = req.body;
+    const { email }: { email: string} = req.body;
 
     try {
-      const user = await UserModel.findOne({ where: { email } });
-      if (!user) return sendResponse(res, 200, 'Si l\'email existe, un lien sera envoyé');
+      const user = await UserModel.findOne({ where: { email: email.trim() } });
+      if (!user) return sendError(res, 404, "Ce compte n'existe pas")
 
       const code = generateNumericCode(6)
       await CodePhoneModel.create({
@@ -451,11 +454,11 @@ class AuthController {
   }
 
   async forgotPasswordAdmin(req: Request, res: Response) {
-    const { email } = req.body;
+    const { email }: { email: string} = req.body;
 
     try {
-      const user = await UserModel.findOne({ where: { email } });
-      if (!user) return sendResponse(res, 200, 'Si l\'email existe, un lien sera envoyé');
+      const user = await UserModel.findOne({ where: { email: email.trim() } });
+      if (!user) return sendError(res, 404, "Ce compte n'existe pas")
 
       const resetToken = generateVerificationToken();
       await TokenModel.create({

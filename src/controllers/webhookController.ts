@@ -628,31 +628,36 @@ class WebhookController {
                     } 
                 } else if (mapNeeroStatusToSendo(event.data.object.status) === 'FAILED') {
                     const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
-                    let newVirtualCard: VirtualCardModel | null = null;
-                    
-                    // On vérifie d'abord si la carte possède les fonds pour payer les frais de rejet
-                    let paymentMethod: PaymentMethodModel | null = null;
-                    if (virtualCard) {
-                        virtualCard.paymentRejectNumber = virtualCard.paymentRejectNumber + 1;
-                        newVirtualCard = await virtualCard.save();
-                        paymentMethod = await cardService.getPaymentMethod(undefined, undefined, virtualCard.id)
+                    if (!virtualCard) throw new Error("Carte introuvable");
+
+                    // On enregistre tout d'abord la dette
+                    const debt: VirtualCardDebtCreate = {
+                        amount: Number(rejectFeesCard!.value),
+                        userId: virtualCard.user!.id,
+                        cardId: virtualCard.id,
+                        intitule: event.data.object.reference || 'Frais de rejet du partenaire'
                     }
-                    if (!paymentMethod) {
-                        throw new Error("Carte ou portefeuille Sendo introuvable")
-                    }
+                    const dette = await cardService.saveDebt(debt)
+    
+                    virtualCard.paymentRejectNumber! += 1;
+                    await virtualCard.save();
+
+                    const paymentMethod = await cardService.getPaymentMethod(undefined, undefined, virtualCard.id)
+                    if (!paymentMethod) return;
+                    const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)
+
+                    // Vérifier dès maintenant si suppression nécessaire (après incrémentation)
+                    const shouldTerminateCard = virtualCard.paymentRejectNumber >= 2;
 
                     const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
-                    if (!paymentMethodMerchant) {
-                        throw new Error("Erreur lors de la récupération de la source")
-                    }
+                    if (!paymentMethodMerchant) return;
 
-                    const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)
                     // S'il a assez de fonds pour payer, on paie
                     if (
                         rejectFeesCard && 
                         balanceObject.balance &&
                         (Number(balanceObject.balance) >= Number(rejectFeesCard.value)) &&
-                        newVirtualCard
+                        virtualCard
                     ) {
                         const payload: CashInPayload = {
                             amount: roundToNextMultipleOfFive(Number(rejectFeesCard.value)),
@@ -667,11 +672,14 @@ class WebhookController {
                             payload, 
                             Number(rejectFeesCard.value), 
                             event.data.object, 
-                            newVirtualCard, 
+                            virtualCard, 
                             token!, 
                             true, 
                             req.user!.id
                         )
+
+                        // On supprime la dette
+                        await dette.destroy();
 
                         await sendEmailWithHTML(
                             virtualCard?.user?.email ?? '',
@@ -697,7 +705,7 @@ class WebhookController {
                         // ensuite on vérifie si le wallet possède de l'argent
                         // On débite les frais de rejet
                         const user = await userService.getUserById(virtualCard!.user!.id)
-                        if (user!.wallet!.balance > Number(rejectFeesCard!.value)) {
+                        if (Number(user!.wallet!.balance) > Number(rejectFeesCard!.value)) {
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
                                 amount: 0,
@@ -724,11 +732,12 @@ class WebhookController {
                                 transaction.id
                             )
 
-                            // On incrémente le nombre de paiement rejeté sur la carte
-                            if (newVirtualCard) {
-                                newVirtualCard.paymentRejectNumber = 0;
-                                await newVirtualCard.save();
-                            }
+                            // On supprime la dette
+                            await dette.destroy();
+
+                            // On remet le paymentRejectNumber de la carte à 0
+                            virtualCard.paymentRejectNumber = 0;
+                            await virtualCard.save();
                         } else {
                             // On rétire ce qu'il y a dans le wallet
                             if (user!.wallet!.balance > 1) {
@@ -758,14 +767,9 @@ class WebhookController {
                                     transaction.id
                                 )
 
-                                // On enregistre la dette
-                                const debt: VirtualCardDebtCreate = {
-                                    amount: Number(rejectFeesCard!.value) - user!.wallet!.balance,
-                                    userId: virtualCard?.user?.id ?? 0,
-                                    cardId: virtualCard?.id ?? 0,
-                                    intitule: event.data.object.reference || 'Frais de rejet du partenaire'
-                                }
-                                await cardService.saveDebt(debt)
+                                // On met à jour la dette
+                                dette.amount = user!.wallet!.balance
+                                await dette.save();
                             } else {
                                 const transactionToCreate: TransactionCreate = {
                                     type: 'PAYMENT',
@@ -784,15 +788,15 @@ class WebhookController {
                                     sendoFees: Number(rejectFeesCard!.value)
                                 }
                                 await transactionService.createTransaction(transactionToCreate)
-                                
-                                // sinon on enregistre la dette
-                                const debt: VirtualCardDebtCreate = {
-                                    amount: Number(rejectFeesCard!.value),
-                                    userId: virtualCard?.user?.id ?? 0,
-                                    cardId: virtualCard?.id ?? 0,
-                                    intitule: event.data.object.reference || 'Frais de rejet du partenaire'
-                                }
-                                await cardService.saveDebt(debt)
+                            }
+
+                            if (shouldTerminateCard) {
+                                await cardService.handleCardTermination(
+                                    virtualCard, 
+                                    event.data.object,
+                                    paymentMethod,
+                                    paymentMethodMerchant
+                                );
                             }
                         }
 
@@ -811,94 +815,6 @@ class WebhookController {
                                 token: token.token,
                                 type: 'PAYMENT_FAILED'
                             })
-                        }
-
-                        // Si le nombre de paiement rejeté passe à 2 on supprime la carte
-                        if (newVirtualCard && newVirtualCard.paymentRejectNumber >= 2) {
-                            // On retire tous les fonds restant sur la carte
-                            const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)
-                            if (Number(balanceObject.balance) > 0) {
-                                const cashinPayload: CashInPayload = {
-                                    amount: Number(balanceObject.balance),
-                                    currencyCode: 'XAF',
-                                    confirm: true,
-                                    paymentType: 'NEERO_CARD_CASHOUT',
-                                    sourcePaymentMethodId: paymentMethod.paymentMethodId,
-                                    destinationPaymentMethodId: paymentMethodMerchant.paymentMethodId
-                                }
-
-                                const cashin = await neeroService.createCashInPayment(cashinPayload)
-
-                                const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-                                
-                                const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
-
-                                if (
-                                    checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")
-                                ) {
-                                    await sendEmailWithHTML(
-                                        virtualCard?.user?.email ?? '',
-                                        'Vidange des fonds de la carte',
-                                        `<p>Dépot de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits}</p>`
-                                    )
-
-                                    // Envoyer une notification
-                                    const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-                                    if (token) {
-                                        await notificationService.save({
-                                            title: 'Sendo',
-                                            content: `Dépot de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits}`,
-                                            userId: virtualCard!.user!.id,
-                                            status: 'SENDED',
-                                            token: token.token,
-                                            type: 'SUCCESS_DEPOSIT_CARD'
-                                        })
-                                    }
-                                }
-                                const transactionToCreate: TransactionCreate = {
-                                    amount: Number(balanceObject.balance),
-                                    type: typesTransaction['0'],
-                                    status: mapNeeroStatusToSendo(checkTransaction.status),
-                                    userId: req.user!.id,
-                                    currency: typesCurrency['0'],
-                                    totalAmount: Number(balanceObject.balance),
-                                    method: typesMethodTransaction['2'],
-                                    transactionReference: cashin.id,
-                                    virtualCardId: virtualCard!.id,
-                                    description: `Dépôt des fonds de la carte sur le portefeuille`,
-                                    receiverId: req.user!.id,
-                                    receiverType: 'User'
-                                }
-                                await transactionService.createTransaction(transactionToCreate)
-                            }
-                            
-                            // On supprime définitivement la carte
-                            const payload: CardPayload = {
-                                cardId: newVirtualCard.cardId,
-                                cardCategory: 'VIRTUAL'
-                            }
-                            await cardService.deleteCard(payload)
-
-                            await cardService.updateStatusCard(newVirtualCard.cardId, 'TERMINATED')
-
-                            // Envoyer une notification
-                            const token = await notificationService.getTokenExpo(newVirtualCard!.user!.id)
-                            if (token) {
-                                await notificationService.save({
-                                    title: 'Sendo',
-                                    content: `${virtualCard?.user?.firstname}, votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits} a été bloquée suite à 3 paiements rejetés.`,
-                                    userId: virtualCard!.user!.id,
-                                    status: 'SENDED',
-                                    token: token.token,
-                                    type: 'PAYMENT_FAILED'
-                                })
-                            }
-
-                            await sendEmailWithHTML(
-                                virtualCard?.user?.email ?? '',
-                                'Carte virtuelle bloquée',
-                                `<p>${virtualCard?.user?.firstname}, votre carte virtuelle **** **** **** ${newVirtualCard.last4Digits} a été supprimé suite à 3 paiements rejetés.</p>`
-                            )
                         }
                     }
                 }

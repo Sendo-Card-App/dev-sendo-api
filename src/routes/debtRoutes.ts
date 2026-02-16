@@ -215,11 +215,11 @@ router.post(
  *           application/json:
  *             schema:
  *               type: object
- *             properties:
- *               userId:
- *                 type: number
- *               partialAmount:
- *                 type: number
+ *               properties:
+ *                 userId:
+ *                   type: number
+ *                 partialAmount:
+ *                   type: number
  *     responses:
  *       200:
  *         description: La requête a été initiée avec succès

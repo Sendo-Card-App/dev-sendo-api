@@ -1,10 +1,10 @@
-import { enleverPrefixe237, formaterDateISO, getCodeRegionCameroun, isBefore, mapStatusCard } from '../utils/functions';
-import neeroService, { PaymentMethodCardPayload, PaymentMethodCreate } from './neeroService';
+import { enleverPrefixe237, formaterDateISO, getCodeRegionCameroun, isBefore, mapNeeroStatusToSendo, mapStatusCard } from '../utils/functions';
+import neeroService, { CashInPayload, PaymentMethodCardPayload, PaymentMethodCreate } from './neeroService';
 import { CardPayload, CreateCardModel, CreateCardPayload, CreateCardResponse, CreateOnboardingSessionResponse, FreezeCardPayload, PartyObject, UploadDocumentsPayload, UploadDocumentsResponse } from '../types/Neero';
 import PartyCard from '@models/party-card.model';
 import userService from './userService';
 import VirtualCardModel from '@models/virtualCard.model';
-import { typesStatusCard, TypesStatusCard } from '@utils/constants';
+import { typesCurrency, typesMethodTransaction, typesStatusCard, TypesStatusCard, typesTransaction } from '@utils/constants';
 import UserModel from '@models/user.model';
 import PaymentMethodModel from '@models/payment-method.model';
 import WalletModel from '@models/wallet.model';
@@ -18,6 +18,7 @@ import configService from './configService';
 import walletService from './walletService';
 import { TransactionCreate } from '../types/Transaction';
 import transactionService from './transactionService';
+import { sendEmailWithHTML } from './emailService';
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
 
@@ -283,10 +284,10 @@ class CardService {
         if (search) {
             include[0].where = {
                 [Op.or]: [
-                    { firstname: { [Op.iLike]: `%${search}%` } },
-                    { lastname: { [Op.iLike]: `%${search}%` } },
-                    { email: { [Op.iLike]: `%${search}%` } },
-                    { phone: { [Op.iLike]: `%${search}%` } }
+                    { firstname: { [Op.like]: `%${search}%` } },
+                    { lastname: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } },
+                    { phone: { [Op.like]: `%${search}%` } }
                 ]
             };
         }
@@ -601,6 +602,96 @@ class CardService {
     
         return newCard;
     }
+
+    async handleCardTermination(
+        virtualCard: VirtualCardModel, 
+        eventData: any,
+        paymentMethod: PaymentMethodModel,
+        paymentMethodMerchant: PaymentMethodModel
+    ) {
+        // Vidange des fonds restants
+        const balanceObject = await this.getBalance(paymentMethod.paymentMethodId);
+        if (Number(balanceObject.balance) > 0) {
+            const cashinPayload: CashInPayload = {
+                amount: Number(balanceObject.balance),
+                currencyCode: 'XAF',
+                confirm: true,
+                paymentType: 'NEERO_CARD_CASHOUT',
+                sourcePaymentMethodId: paymentMethod.paymentMethodId,
+                destinationPaymentMethodId: paymentMethodMerchant.paymentMethodId
+            };
+
+            const cashin = await neeroService.createCashInPayment(cashinPayload);
+            const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id);
+            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id);
+
+            // Transaction réussie → notifications
+            if (checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")) {
+                await sendEmailWithHTML(
+                    virtualCard.user!.email,
+                    'Vidange des fonds de la carte',
+                    `<p>Dépôt de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte **** **** **** ${virtualCard.last4Digits}</p>`
+                );
+
+                const token = await notificationService.getTokenExpo(virtualCard.userId);
+                if (token) {
+                    await notificationService.save({
+                        title: 'Sendo',
+                        content: `Dépôt de ${Number(balanceObject.balance)} XAF sur votre portefeuille représentant le solde total de votre carte **** **** **** ${virtualCard.last4Digits}`,
+                        userId: virtualCard.userId,
+                        status: 'SENDED',
+                        token: token.token,
+                        type: 'SUCCESS_DEPOSIT_CARD'
+                    });
+                }
+            }
+
+            // Enregistrer transaction
+            const transactionToCreate: TransactionCreate = {
+                amount: Number(balanceObject.balance),
+                type: typesTransaction['0'],
+                status: mapNeeroStatusToSendo(checkTransaction.status),
+                userId: virtualCard.userId,
+                currency: typesCurrency['0'],
+                totalAmount: Number(balanceObject.balance),
+                method: typesMethodTransaction['2'],
+                transactionReference: cashin.id,
+                virtualCardId: virtualCard.id,
+                description: `Dépôt des fonds de la carte sur le portefeuille`,
+                receiverId: virtualCard.userId,
+                receiverType: 'User'
+            };
+            await transactionService.createTransaction(transactionToCreate);
+        }
+        
+        // Suppression définitive
+        const payload: CardPayload = {
+            cardId: virtualCard.cardId,
+            cardCategory: 'VIRTUAL'
+        };
+        await this.deleteCard(payload);
+        await this.updateStatusCard(virtualCard.cardId, 'TERMINATED');
+
+        // Notifications finales
+        const token = await notificationService.getTokenExpo(virtualCard.userId);
+        if (token) {
+            await notificationService.save({
+                title: 'Sendo',
+                content: `Votre carte virtuelle **** **** **** ${virtualCard.last4Digits} a été bloquée suite à ${virtualCard.paymentRejectNumber} paiements rejetés.`,
+                userId: virtualCard.userId,
+                status: 'SENDED',
+                token: token.token,
+                type: 'PAYMENT_FAILED'
+            });
+        }
+
+        await sendEmailWithHTML(
+            virtualCard.user!.email,
+            'Carte virtuelle bloquée',
+            `<p>Votre carte virtuelle **** **** **** ${virtualCard.last4Digits} a été supprimée suite à ${virtualCard.paymentRejectNumber} paiements rejetés.</p>`
+        );
+    }
+
 }
 
 export default new CardService();

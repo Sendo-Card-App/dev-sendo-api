@@ -13,6 +13,7 @@ import { typesCurrency, typesMethodTransaction, typesStatusTransaction, typesTra
 import { TransactionCreate } from "../types/Transaction";
 import walletService from "@services/walletService";
 import sequelize from "@config/db";
+import { Result } from "express-validator";
 
 
 class DebtController {
@@ -283,12 +284,12 @@ class DebtController {
                 const transactionToCreate: TransactionCreate = {
                     amount: 0,
                     type: typesTransaction['1'],
-                    status: 'COMPLETED',
+                    status: 'PENDING',
                     userId: debts[index].user!.id,
                     currency: typesCurrency['0'],
                     totalAmount: debts[index].amount,
                     method: typesMethodTransaction['3'],
-                    transactionReference: debts[index].intitule.substring(0, 49),
+                    transactionReference: `ID Dette : #${debts[index].id}`,
                     sendoFees: debts[index].amount,
                     virtualCardId: debts[index].card!.id,
                     description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
@@ -304,6 +305,9 @@ class DebtController {
                     req.user.id,
                     transaction.id
                 )
+
+                transaction.status = 'COMPLETED';
+                await transaction.save()
                 
                 await debts[index].destroy();
                 
@@ -337,6 +341,7 @@ class DebtController {
 
     async payOneDebtFromWallet(req: Request, res: Response) {
         const { userId, idDebt } = req.params;
+        const result = await sequelize.transaction()
         try {
             if (!idDebt) {
                 throw new Error("Veuillez fournir l'ID de la dette");
@@ -357,20 +362,21 @@ class DebtController {
             const transactionToCreate: TransactionCreate = {
                 amount: 0,
                 type: typesTransaction['1'],
-                status: 'COMPLETED',
+                status: 'PENDING',
                 userId: debt.user!.id,
                 currency: typesCurrency['0'],
-                totalAmount: debt.amount,
+                totalAmount: Number(debt.amount),
                 method: typesMethodTransaction['3'],
-                transactionReference: debt.intitule.substring(0, 49),
-                sendoFees: debt.amount,
+                transactionReference: `ID Dette : #${debt.id}`,
+                sendoFees: Number(debt.amount),
                 virtualCardId: debt.card!.id,
                 description: `Paiement par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
-                receiverType: 'User'
+                receiverType: 'User',
+                provider: 'WALLET'
             }
-            const transaction = await transactionService.createTransaction(transactionToCreate)
-
+            const transaction = await transactionService.createTransaction(transactionToCreate, { transaction: result })
+            
             await walletService.debitWallet(
                 debt.user!.wallet!.matricule,
                 debt.amount,
@@ -378,8 +384,11 @@ class DebtController {
                 req.user.id,
                 transaction.id
             )
+
+            transaction.status = 'COMPLETED';
+            await transaction.save({ transaction: result });
             
-            await debt.destroy();
+            await debt.destroy({ transaction: result });
             
             // Envoyer une notification
             const token = await notificationService.getTokenExpo(debt.user!.id)
@@ -393,6 +402,8 @@ class DebtController {
                     type: 'SUCCESS_WITHDRAWAL_CARD'
                 })
             }  
+
+            await result.commit();
     
             logger.info("Paiement dette par Sendo", {
                 amount: debt.amount,
@@ -403,6 +414,8 @@ class DebtController {
             
             sendResponse(res, 200, 'La requête a été initiée avec succès', {})
         } catch (error: any) {
+            await result.rollback();
+            console.error("Erreur lors du paiement de la dette : ", error)
             sendError(res, 500, 'Erreur serveur', [error.message])
         }
     }
@@ -421,51 +434,55 @@ class DebtController {
             return;
         }
 
+        const result = await sequelize.transaction()
         try {
-            const result = await sequelize.transaction(async (t) => {
-                const debt = await debtService.getOneDebtUser(Number(idDebt), Number(userId));
-                if (!debt) throw new Error("Dette non trouvée");
 
-                const transactionToCreate: TransactionCreate = {
-                    amount: 0,
-                    type: typesTransaction['1'],
-                    status: 'COMPLETED',
-                    userId: result.user!.id,
-                    currency: typesCurrency['0'],
-                    totalAmount: Number(partialAmount),
-                    method: typesMethodTransaction['3'],
-                    transactionReference: result.intitule.substring(0, 49),
-                    sendoFees: Number(partialAmount),
-                    virtualCardId: result.card!.id,
-                    description: `Paiement partiel par Sendo de la dette #${result.intitule}`,
-                    receiverId: result.user!.id,
-                    receiverType: 'User'
-                }
-                const transaction = await transactionService.createTransaction(transactionToCreate, { transaction: t })
+            const debt = await debtService.getOneDebtUser(Number(idDebt), Number(userId));
+            if (!debt) throw new Error("Dette non trouvée");
 
-                // Débit wallet et mise à jour dette
-                await walletService.debitWallet(
-                    debt.user!.wallet!.matricule, 
-                    Number(partialAmount),
-                    "Payer dette partielle par admin",
-                    req.user!.id,
-                    transaction.id
-                );
+            const transactionToCreate: TransactionCreate = {
+                amount: 0,
+                type: typesTransaction['1'],
+                status: 'PENDING',
+                userId: debt.user!.id,
+                currency: typesCurrency['0'],
+                totalAmount: Number(partialAmount),
+                method: typesMethodTransaction['3'],
+                transactionReference: `ID Dette : #${debt.id}`,
+                sendoFees: Number(partialAmount),
+                virtualCardId: debt.card!.id,
+                description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
+                receiverId: debt.user!.id,
+                receiverType: 'User'
+            }
+            const transaction = await transactionService.createTransaction(transactionToCreate, { transaction: result })
 
-                debt.amount -= Number(partialAmount);
-                if (debt.amount <= 0) {
-                    await debt.destroy({ transaction: t });
-                } else {
-                    await debt.save({ transaction: t });
-                }
+            // Débit wallet et mise à jour dette
+            await walletService.debitWallet(
+                debt.user!.wallet!.matricule, 
+                Number(partialAmount),
+                "Payer dette partielle par admin",
+                req.user!.id,
+                transaction.id
+            );
 
-                return debt;
-            });
+            transaction.status = 'COMPLETED';
+            await transaction.save({ transaction: result });
+
+            const newAmount = debt.amount - Number(partialAmount);
+            if (newAmount <= 0) {
+                await debt.destroy({ transaction: result });
+            } else {
+                debt.amount = newAmount;
+                await debt.save({ transaction: result });
+            }
+            
+            await result.commit();
     
             logger.info("Paiement partiel dette par Sendo", {
                 amount: Number(partialAmount),
                 status: typesStatusTransaction['1'],
-                card: `${result.card!.cardName} - ${result.card!.cardId}`,
+                card: `${debt.card!.cardName} - ${debt.card!.cardId}`,
                 user: `Admin ID : ${req.user!.id} - ${req.user!.firstname} ${req.user!.lastname}`
             });
 
@@ -474,8 +491,8 @@ class DebtController {
             if (token) {
                 await notificationService.save({
                     title: 'Sendo',
-                    content: `Paiement partiel par Sendo de ${Number(partialAmount)} XAF de la dette #${result.intitule} XAF effectué avec succès`,
-                    userId: result.user!.id,
+                    content: `Paiement partiel par Sendo de ${Number(partialAmount)} XAF de la dette #${debt.intitule} XAF effectué avec succès`,
+                    userId: debt.user!.id,
                     status: 'SENDED',
                     token: token.token,
                     type: 'SUCCESS_WITHDRAWAL_WALLET'
@@ -485,6 +502,7 @@ class DebtController {
             sendResponse(res, 200, "Paiement partiel effectué avec succès", {});
 
         } catch (error: any) {
+            await result.rollback();
             sendError(res, 500, 'Erreur serveur', [error.message]);
         }
     }

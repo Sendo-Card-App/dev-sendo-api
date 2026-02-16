@@ -8,6 +8,7 @@ import cors from 'cors';
 import http from 'http';
 import socket from '@config/socket';
 import path from 'path';
+import bodyParser from 'body-parser';
 
 export function createApp() {
   const app = express();
@@ -29,6 +30,9 @@ export function createApp() {
       'Access-Control-Allow-Methods'
     ]
   }));
+
+  app.use(bodyParser.json({ limit: '5mb' }));
+  app.use(bodyParser.urlencoded({ limit: '5mb', extended: true }));
 
   app.use('/api', apiRoutes);
 

@@ -23,11 +23,11 @@ export function createApp() {
       'Content-Type',
       'Authorization',
       'X-Passcode',
-      //'Access-Control-Allow-Origin',
-      //'Access-Control-Allow-Methods'
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Methods'
     ],
-    credentials: true,
-    optionsSuccessStatus: 200 
+    //credentials: true,
+    //optionsSuccessStatus: 200 
   }));
 
   app.use(express.json({ limit: '10mb' }));

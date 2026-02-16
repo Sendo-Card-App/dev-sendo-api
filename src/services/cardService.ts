@@ -264,20 +264,40 @@ class CardService {
     async getAllVirtualCards(
         limit: number,
         startIndex: number,
-        status?: TypesStatusCard
+        status?: TypesStatusCard,
+        search?: string
     ) {
-        const where: Record<string, any> = {};
+        const where: any = {};
+        const include: any[] = [{
+            model: UserModel,
+            as: 'user',
+            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+        }];
 
+        // Filtre status
         if (status) {
             where.status = status;
+        }
+
+        // Recherche sur les champs User
+        if (search) {
+            include[0].where = {
+                [Op.or]: [
+                    { firstname: { [Op.iLike]: `%${search}%` } },
+                    { lastname: { [Op.iLike]: `%${search}%` } },
+                    { email: { [Op.iLike]: `%${search}%` } },
+                    { phone: { [Op.iLike]: `%${search}%` } }
+                ]
+            };
         }
 
         return VirtualCardModel.findAndCountAll({
             where,
             offset: startIndex,
             limit,
-            order: [['createdAt', 'DESC']]
-        })
+            order: [['createdAt', 'DESC']],
+            include
+        });
     }
 
     async getVirtualCardUser(userId: number) {

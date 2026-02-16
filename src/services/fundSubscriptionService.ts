@@ -337,11 +337,17 @@ export default class FundSubscriptionService {
             include: [{
                 model: FundSubscriptionModel,
                 as: 'fundSubscription',
-                include: [{
-                    model: UserModel,
-                    as: 'user',
-                    attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
-                }]
+                include: [
+                    {
+                        model: UserModel,
+                        as: 'user',
+                        attributes: ['id', 'firstname', 'lastname', 'phone', 'email']
+                    },
+                    {
+                        model: FundModel,
+                        as: 'fund'
+                    }
+                ]
             }],
         })
     }

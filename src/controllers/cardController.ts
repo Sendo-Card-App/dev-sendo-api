@@ -595,9 +595,9 @@ class CardController {
     }
 
     async getAllVirtualCards(req: Request, res: Response) {
-        const { status, limit, startIndex, page } = res.locals.pagination
+        const { status, limit, startIndex, page, search } = res.locals.pagination
         try {
-            const cards = await cardService.getAllVirtualCards(limit, startIndex, status)
+            const cards = await cardService.getAllVirtualCards(limit, startIndex, status, search)
 
             const totalPages = Math.ceil(cards.count / limit);
                               

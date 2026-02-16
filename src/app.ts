@@ -16,9 +16,6 @@ export function createApp() {
 
   swaggerSetup(app);
 
-  app.use(express.json());
-  app.use(responseFormatter);
-  app.use(requestLogger);
   app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -33,6 +30,10 @@ export function createApp() {
 
   app.use(bodyParser.json({ limit: '5mb' }));
   app.use(bodyParser.urlencoded({ limit: '5mb', extended: true }));
+
+  app.use(express.json());
+  app.use(requestLogger);
+  app.use(responseFormatter);
 
   app.use('/api', apiRoutes);
 

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc && cp -r src/views dist/views",
+    "build": "tsc",
     "start": "cross-env node dist/server.js",
     "test": "cross-env NODE_ENV=test jest"
   },

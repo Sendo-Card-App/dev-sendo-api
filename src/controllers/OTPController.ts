@@ -45,7 +45,8 @@ class OTPController {
             await CodePhoneModel.create({
                 userId: user.id,
                 phone: user.phone,
-                code
+                code,
+                type: 'VERIFICATION'
             })
             
             await sendGlobalEmail(
@@ -91,7 +92,8 @@ class OTPController {
             await CodePhoneModel.create({
                 userId: phoneNumber?.user?.id,
                 phone: phoneNumber?.phone,
-                code
+                code,
+                type: 'VERIFICATION'
             })
 
             //const status = await sendOTP(phone);
@@ -147,7 +149,8 @@ class OTPController {
             const codePhone = await CodePhoneModel.findOne({
                 where: { 
                     userId: user.id,
-                    phone: user.phone
+                    phone: user.phone,
+                    type: 'VERIFICATION'
                 },
                 order: [['createdAt', 'DESC']]
             })
@@ -214,7 +217,8 @@ class OTPController {
             const codePhone = await CodePhoneModel.findOne({
                 where: { 
                     userId: phoneNumber.user.id,
-                    phone: phoneNumber.phone
+                    phone: phoneNumber.phone,
+                    type: 'VERIFICATION'
                 },
                 order: [['createdAt', 'DESC']]
             })

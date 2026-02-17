@@ -7,6 +7,7 @@ class CodePhoneModel extends Model {
   declare userId: number;
   declare phone: string;
   declare code: string;
+  declare type: 'VERIFICATION' | 'RESET_PASSWORD';
   // Timestamps
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -32,6 +33,11 @@ CodePhoneModel.init(
       type: DataTypes.STRING(6),
       allowNull: false,
       unique: true,
+    },
+    type: {
+      type: DataTypes.ENUM('VERIFICATION', 'RESET_PASSWORD'),
+      allowNull: false,
+      defaultValue: 'VERIFICATION',
     },
     phone: {
       type: DataTypes.STRING(20),

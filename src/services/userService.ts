@@ -10,7 +10,7 @@ import PhoneNumberUserModel from '@models/phone-number-user.model';
 import configService from './configService';
 import { TypesCurrency, typesToken } from '@utils/constants';
 import ConfigModel from '@models/config.model';
-import { ReferralCodeModel, TokenModel } from '@models/index.model';
+import { CodePhoneModel, ReferralCodeModel, TokenModel } from '@models/index.model';
 import notificationService from './notificationService';
 import MerchantModel from '@models/merchant.model';
 import redisClient from '@config/cache';
@@ -77,6 +77,48 @@ class UserService {
                 attributes: ['id', 'name'],
                 through: { attributes: [] }
             }]
+        });
+
+        //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });
+        return result;
+    }
+
+    async getAllCodes(
+        limit: number, 
+        startIndex: number,
+        search: string,
+        type: 'VERIFICATION' | 'RESET_PASSWORD' = 'VERIFICATION'
+    ) {
+        const where: Record<string, any> = {};
+        where.type = type;
+
+        /*const cacheKey = `allCodes:${type ?? 'all'}:${search ?? 'none'}:${limit}:${startIndex}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) return JSON.parse(cached);*/
+
+        const include: any[] = [{
+            model: UserModel,
+            as: 'user',
+            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+        }];
+
+        if (search) {
+            include[0].where = {
+                [Op.or]: [
+                    { firstname: { [Op.like]: `%${search}%` } },
+                    { lastname: { [Op.like]: `%${search}%` } },
+                    { email: { [Op.like]: `%${search}%` } },
+                    { phone: { [Op.like]: `%${search}%` } }
+                ]
+            };
+        }
+
+        const result = await CodePhoneModel.findAndCountAll({
+            limit,
+            offset: startIndex,
+            where,
+            include,
+            order: [['createdAt', 'DESC']],
         });
 
         //await redisClient.set(cacheKey, JSON.stringify(result), { EX: REDIS_TTL });

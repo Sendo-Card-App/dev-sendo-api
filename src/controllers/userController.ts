@@ -347,7 +347,8 @@ class UserController {
       const codePhone = await CodePhoneModel.findOne({
         where: { 
           userId: req.user.id,
-          phone: req.user.phone
+          phone: req.user.phone,
+          type: 'RESET_PASSWORD'
         },
         order: [['createdAt', 'DESC']]
       })
@@ -544,6 +545,27 @@ class UserController {
       sendResponse(res, 200, 'Statut du marchand modifié avec succès', merchantUpdated)
     } catch (error: any) {
       sendError(res, 400, 'Erreur de la modification du statut du marchand', [error.message]);
+    }
+  }
+
+  async getAllCodes(req: Request, res: Response) {
+    const { page, limit, startIndex, search } = res.locals.pagination;
+    try {
+      const codesPhone = await userService.getAllCodes(limit, startIndex, search);
+      const totalItems = Number(codesPhone.count);
+      const limitNum = Number(limit);
+      const totalPages = Math.ceil(totalItems / limitNum);
+      
+      const responseData: PaginatedData = {
+        page,
+        totalPages,
+        totalItems: codesPhone.count,
+        items: codesPhone.rows,
+      };
+
+      sendResponse(res, 200, 'Codes utilisateurs récupérés', responseData);
+    } catch (error: any) {
+      sendError(res, 400, 'Erreur de récupération', [error.message]);
     }
   }
 }

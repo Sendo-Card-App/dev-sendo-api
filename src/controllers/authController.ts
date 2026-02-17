@@ -110,7 +110,8 @@ class AuthController {
         await CodePhoneModel.create({
           userId: user.id,
           phone: user.phone,
-          code
+          code,
+          type: 'VERIFICATION'
         });
         
         const message = referrer 
@@ -438,7 +439,8 @@ class AuthController {
       await CodePhoneModel.create({
         userId: user.id,
         phone: user.phone,
-        code
+        code,
+        type: 'RESET_PASSWORD'
       })
       
       await sendGlobalEmail(

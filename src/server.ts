@@ -7,20 +7,25 @@ import { migrateReferralCodes } from '@utils/functions';
 
 const prodPort = Number(process.env.PORT) || 3001;
 
-const { server: prodServer } = createApp();
+const { server } = createApp();
 
-sequelize.sync({ force: false }).then(async () => { 
-  await migrateReferralCodes();
+async function bootstrap() {
+  try {
+    await sequelize.sync({ force: false });
+    await migrateReferralCodes();
 
-  prodServer.listen(prodPort, () => {
-    console.log(`Test server running on http://localhost:${prodPort}`);
-    console.log(`Test API Docs on http://localhost:${prodPort}/api/docs`);
-  });
- 
-  //schedulerService.startCheckTransactionsSmobilpay();
-  //schedulerService.startCheckTransactionsNeero();
-  schedulerService.startPenaliteChecks();
-  schedulerService.startRappelsCotisation();
-  schedulerService.startCheckPendingOnboardingSession();
-  schedulerService.startAnnualFundMaturity();
-});
+    server.listen(prodPort, () => {
+      console.log(`API running on http://localhost:${prodPort}`);
+      console.log(`API Docs on http://localhost:${prodPort}/api/docs`);
+    });
+
+    schedulerService.startPenaliteChecks();
+    schedulerService.startRappelsCotisation();
+    schedulerService.startCheckPendingOnboardingSession();
+  } catch (error) {
+    console.error("❌ Erreur bootstrap serveur", error);
+    process.exit(1);
+  }
+}
+
+bootstrap();

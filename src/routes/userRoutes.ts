@@ -102,6 +102,42 @@ router.get(
 
 /**
  * @swagger
+ * /users/codes-otp:
+ *   get:
+ *     summary: Liste des codes OTP des utilisateurs
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         type: string
+ *         default: "John Doe"
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         type: integer
+ *         default: 1
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         type: integer
+ *         default: 10
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des codes des utilisateurs
+ */
+router.get(
+    '/codes-otp', 
+    paginationMiddleware, 
+    authMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER_ADVISER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'CARD_MANAGER', 'MERCHANT']),
+    userController.getAllCodes
+);
+
+/**
+ * @swagger
  * /users/me:
  *   get:
  *     summary: Récupérer tout ce qui concerne un utilisateur connecté sur la plateforme

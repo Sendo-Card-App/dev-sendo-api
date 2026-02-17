@@ -632,6 +632,10 @@ class CardController {
     async bloquerVirtualCard(req: Request, res: Response) {
         const { cardId } = req.params
         try {
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(Number(cardId))
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+
             const virtualCard = await cardService.getVirtualCard(Number(cardId))
             if (virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
@@ -672,8 +676,11 @@ class CardController {
                 return;
             }
 
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(Number(cardId))
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+
             const virtualCard = await cardService.getVirtualCard(Number(cardId), undefined, undefined)
-            console.log('card : ', virtualCard)
             if (req.user.role?.name === 'CUSTOMER' && virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
             }
@@ -687,6 +694,10 @@ class CardController {
     async debloquerVirtualCard(req: Request, res: Response) {
         const { cardId } = req.params
         try {
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(Number(cardId))
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+
             const virtualCard = await cardService.getVirtualCard(Number(cardId))
             if (virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte bloquée par SENDO, veuillez contacter le support')
@@ -738,6 +749,25 @@ class CardController {
                 return;
             }
 
+            const virtualCard = await cardService.getPaymentMethodCard(Number(idCard))
+            if (!virtualCard) {
+                throw new Error("Erreur de récupération de la méthode de paiement de la carte")
+            }
+            if (virtualCard.status === 'BLOCKED') {
+                sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
+            }
+            if (virtualCard.status === 'TERMINATED') {
+                sendError(res, 400, 'Carte supprimée')
+            }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard.cardId)
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+            if (neeroInfoCard.status === 'TERMINATED' && virtualCard.status !== 'TERMINATED') {
+                virtualCard.status = 'TERMINATED'
+                await virtualCard.save()
+            }
+
             // 1. Conversion du montant en nombre entier
             const amountNum = Number(amount);
 
@@ -767,7 +797,6 @@ class CardController {
             }
 
             // 6. On check si la carte possede des dettes
-            console.log('On check si la carte possede des dettes')
             await settleCardDebtsIfAny(req.user.wallet!.matricule, req.user.wallet!.userId)
 
             const checkBalanceWallet = await walletService.getBalanceWallet(req.user.id)
@@ -783,17 +812,6 @@ class CardController {
             let payload: CashOutPayload | undefined;
             let paymentMethod: PaymentMethodModel;
             let created: boolean;
-            
-            const virtualCard = await cardService.getPaymentMethodCard(Number(idCard))
-            if (!virtualCard) {
-                throw new Error("Erreur de récupération de la méthode de paiement de la carte")
-            }
-            if (virtualCard.status === 'BLOCKED') {
-                sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
-            }
-            if (virtualCard.status === 'TERMINATED') {
-                sendError(res, 400, 'Carte supprimée')
-            }
 
             if (virtualCard.paymentMethod) {
                 payload = {
@@ -930,6 +948,25 @@ class CardController {
                 sendError(res, 503, "Service de retrait sur la carte indisponible")
                 return;
             }
+
+            const virtualCard = await cardService.getPaymentMethodCard(Number(idCard))
+            if (!virtualCard) {
+                throw new Error("Erreur de récupération de la méthode de paiement de la carte")
+            }
+            if (virtualCard.status === 'BLOCKED') {
+                sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
+            }
+            if (virtualCard.status === 'TERMINATED') {
+                sendError(res, 400, 'Carte supprimée')
+            }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard.cardId)
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+            if (neeroInfoCard.status === 'TERMINATED' && virtualCard.status !== 'TERMINATED') {
+                virtualCard.status = 'TERMINATED'
+                await virtualCard.save()
+            }
             
             // 1. Conversion du montant en nombre entier
             const amountNum = Number(amount);
@@ -957,17 +994,6 @@ class CardController {
             if (amountNum % 50 !== 0) {
                 sendError(res, 400, "Le montant doit être un multiple de 50");
                 return;
-            }
-
-            const virtualCard = await cardService.getPaymentMethodCard(Number(idCard))
-            if (!virtualCard) {
-                throw new Error("Erreur de récupération de la méthode de paiement de la carte")
-            }
-            if (virtualCard?.status === 'BLOCKED') {
-                sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
-            }
-            if (virtualCard?.status === 'TERMINATED') {
-                sendError(res, 400, 'Carte supprimée')
             }
 
             const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_CARD_FEES')
@@ -1114,6 +1140,21 @@ class CardController {
                 sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
             }
 
+            if (virtualCard && virtualCard.status === 'BLOCKED') {
+                sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
+            }
+            if (virtualCard && virtualCard.status === 'TERMINATED') {
+                sendError(res, 400, 'Carte supprimée')
+            }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard!.cardId)
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+            if (virtualCard && neeroInfoCard.status === 'TERMINATED' && virtualCard.status !== 'TERMINATED') {
+                virtualCard.status = 'TERMINATED'
+                await virtualCard.save()
+            }
+
             const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
             if (!paymentMethodMerchant) {
                 throw new Error("Erreur lors de la récupération de la source")
@@ -1130,8 +1171,6 @@ class CardController {
             if (!paymentMethod) {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
             }
-
-            const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
 
             const balance = await cardService.getBalance(paymentMethod.paymentMethodId)
 
@@ -1187,6 +1226,7 @@ class CardController {
                     )
                     
                     // Envoyer une notification
+                    const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
                     if (token) {
                         await notificationService.save({
                             title: 'Sendo',
@@ -1209,6 +1249,7 @@ class CardController {
 
             await cardService.updateStatusCard(payloadDeleteCard.cardId, 'TERMINATED')
 
+            const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
             if (token) {
                 await notificationService.save({
                     title: 'Sendo',
@@ -1240,6 +1281,7 @@ class CardController {
             if (!virtualCard) {
                 sendError(res, 404, 'Carte introuvable')
             }
+            
             if (req.user.role?.name === 'CUSTOMER' && virtualCard?.status === 'BLOCKED') {
                 sendError(res, 400, 'Carte déjà bloquée par SENDO, veuillez contacter le support')
             }
@@ -1450,6 +1492,15 @@ class CardController {
             if (virtualCard?.status === 'TERMINATED') {
                 sendError(res, 400, "Carte supprimée");
             }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard!.cardId)
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+            if (virtualCard && neeroInfoCard.status === 'TERMINATED' && virtualCard.status !== 'TERMINATED') {
+                virtualCard.status = 'TERMINATED'
+                await virtualCard.save()
+            }
+            
             if (virtualCard?.status === 'BLOCKED' && action === 'FREEZE') {
                 sendError(res, 400, 'Carte déjà bloquée')
             }
@@ -1488,6 +1539,14 @@ class CardController {
             }
             if (virtualCard?.status === 'TERMINATED') {
                 sendError(res, 400, "Carte supprimée");
+            }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard!.cardId)
+            if (!neeroInfoCard) return;
+            if (neeroInfoCard.status === 'TERMINATED') throw new Error('Carte déjà supprimée')
+            if (virtualCard && neeroInfoCard.status === 'TERMINATED' && virtualCard.status !== 'TERMINATED') {
+                virtualCard.status = 'TERMINATED'
+                await virtualCard.save()
             }
             
             //Si la carte est bloquée et on veut la débloquer, on paie les frais de débloquage

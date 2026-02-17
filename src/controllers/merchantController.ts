@@ -553,7 +553,7 @@ class MerchantController {
 
             sendResponse(res, 200, "Frais retournés", { 
                 feesXAF: arrondiSuperieur(commission!),
-                feesCAD: arrondiSuperieur(commission! / Number(cadSendoValue.value))
+                feesCAD: commission! / Number(cadSendoValue.value)
             })
         } catch (error: any) {
             sendError(res, 500, "Erreur récupération de la commission", [error.message]);

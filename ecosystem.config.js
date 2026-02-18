@@ -14,17 +14,5 @@ module.exports = {
         NODE_ENV: "production"
       }
     },
-    {
-      name: "sendo-scheduler",
-      script: "dist/scheduler.js",
-      instances: 1,               
-      exec_mode: "fork",
-      env: {
-        NODE_ENV: "development"
-      },
-      env_production: {
-        NODE_ENV: "production"
-      }
-    }
   ]
 };

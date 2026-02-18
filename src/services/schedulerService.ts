@@ -1,4 +1,3 @@
-import cron from "node-cron";
 import { addDays, addWeeks, addMonths, isBefore } from "date-fns";
 
 import TontineModel from "@models/tontine.model";
@@ -175,16 +174,14 @@ class SchedulerService {
     async startAnnualFundMaturity() {
         await sequelize.authenticate();
 
-        cron.schedule("10 0 1 1 *", async () => {
-            logger.info("[CRON] Maturation annuelle des fonds");
+        logger.info("[CRON] Maturation annuelle des fonds");
 
-            try {
-                await FundSubscriptionService.matureSubscriptions();
-                logger.info("[CRON] Maturation terminée");
-            } catch (error: any) {
-                logger.error("[CRON] Erreur maturation fonds", error);
-            }
-        });
+        try {
+            await FundSubscriptionService.matureSubscriptions();
+            logger.info("[CRON] Maturation terminée");
+        } catch (error: any) {
+            logger.error("[CRON] Erreur maturation fonds", error);
+        }
     }
 
     /* ===============================

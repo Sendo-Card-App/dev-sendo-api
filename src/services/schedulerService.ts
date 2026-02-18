@@ -169,22 +169,6 @@ class SchedulerService {
     }
 
     /* ===============================
-       CRON ANNUEL (ISOLÉ)
-    =============================== */
-    async startAnnualFundMaturity() {
-        await sequelize.authenticate();
-
-        logger.info("[CRON] Maturation annuelle des fonds");
-
-        try {
-            await FundSubscriptionService.matureSubscriptions();
-            logger.info("[CRON] Maturation terminée");
-        } catch (error: any) {
-            logger.error("[CRON] Erreur maturation fonds", error);
-        }
-    }
-
-    /* ===============================
        UTILS
     =============================== */
     private genererContenuEmail(user: UserModel, tontine: TontineModel) {

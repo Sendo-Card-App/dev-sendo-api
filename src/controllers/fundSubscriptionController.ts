@@ -2,6 +2,7 @@ import fundSubscriptionService from "@services/fundSubscriptionService";
 import { PaginatedData } from "../types/BaseEntity";
 import { Request, Response } from 'express'
 import { sendError, sendResponse } from "@utils/apiResponse";
+import logger from "@config/logger";
 
 export default class FundSubscriptionController {
     static async listFundSubscriptions(req: Request, res: Response) {
@@ -38,6 +39,8 @@ export default class FundSubscriptionController {
                 fundId,
                 currency
             );
+
+            logger.info(`[FUND SUBSCRIPTION] Utilisateur ID: ${userId} a souscrit au fonds ID: ${fundId} avec la devise ${currency}`);
 
             sendResponse(res, 200, "Souscription réussie", subscription)
         } catch (error: any) {
@@ -91,6 +94,8 @@ export default class FundSubscriptionController {
                 type
             );
 
+            logger.info(`[FUND SUBSCRIPTION] Demande de retrait pour la souscription ID: ${subscriptionId} par l'utilisateur ID: ${userId}`);
+
             sendResponse(res, 201, "Demande envoyée", request)
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
@@ -143,7 +148,27 @@ export default class FundSubscriptionController {
                 adminId
             );
 
+            logger.info(`[FUND SUBSCRIPTION] Demande de retrait ID: ${requestId} a été ${action} par l'administrateur ID: ${adminId}`);
+
             sendResponse(res, 200, "Traitement effectué", result)
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message])
+        }
+    }
+
+    static async transformSubscriptionToMatured(req: Request, res: Response) {
+        try {
+            if (!req.user || !req.user.id) {
+                sendError(res, 401, 'Veuillez vous connecter');
+                return;
+            }
+            const adminId = req.user.id;
+
+            await fundSubscriptionService.matureSubscriptions();
+
+            logger.info("[FUND SUBSCRIPTION] Transformation des souscriptions arrivées à maturité effectuée par l'administrateur ID: " + adminId);
+
+            sendResponse(res, 200, "Traitement effectué", {})
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
         }

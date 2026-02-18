@@ -326,6 +326,31 @@ router.post(
 );
 
 /**
+ * @swagger  
+ * /fund-subscriptions/start-maturation:
+ *   post:
+ *     summary: Transformer toutes les souscriptions à MATURED
+ *     tags: [Fonds Bloqués]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Traitement effectué
+ *       400:
+ *         description: Requête invalide
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.post(
+  "/start-maturation",
+  authMiddleware,
+  hasRole(['SUPER_ADMIN']),
+  FundSubscriptionController.transformSubscriptionToMatured
+);
+
+/**
  * @swagger
  * components:
  *   schemas:

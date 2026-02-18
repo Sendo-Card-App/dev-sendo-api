@@ -253,25 +253,19 @@ class KycController {
         const file = req.file as Express.Multer.File;
         
         try {
-            if (!publicId) {
-                sendError(res, 403, 'publicId manquant')
-            }
+            if (!publicId) return sendError(res, 400, 'publicId manquant');
+            if (!file) return sendError(res, 400, 'Fichier manquant');
 
-            if (!file) {
-                throw new Error("Fichier manquant")
-            }
+            const doc = await kycService.getKycDocumentByPublicId(publicId);
+            if (!doc) return sendError(res, 404, 'Document KYC introuvable');
 
-            const doc = await kycService.getKycDocumentByPublicId(publicId)
-            if (!doc) {
-                throw new Error("publicId incorrect")
-            }
             if (doc.status === 'REJECTED') {
                 await doc.update({ status: 'PENDING' })
             }
             
             // On supprime le fichier uploadé sur le cloud
             if (file) {  // Supprimez SEULEMENT si fichier uploadé
-                await cloudinary.uploader.destroy(file.filename);
+                await cloudinary.uploader.destroy(doc.publicId);
             }
 
             await doc.update({
@@ -279,12 +273,15 @@ class KycController {
                 publicId: file.filename
             });
 
-            logger.info("KYC mis à jour ", {
-                publicId,
-                user: req.user ? `Admin ID : ${req.user.id} - ${req.user.firstname} ${req.user.lastname}` : 'Système'
-            });
+            logger.info("KYC mis à jour", { publicId, admin: req.user?.id });
             
-            sendResponse(res, 200, 'KYC mis à jour avec succès', doc);
+            sendResponse(res, 200, 'KYC mis à jour avec succès', {
+                id: doc.id,
+                publicId: doc.publicId,
+                status: doc.status,
+                url: doc.url,
+                updatedAt: doc.updatedAt?.toISOString()
+            });
         } catch (error: any) {
             // On supprime le fichier uploadé sur le cloud
             if (file) {  // Supprimez SEULEMENT si fichier uploadé

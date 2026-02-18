@@ -120,7 +120,6 @@ router.put(
     '/:publicId/admin',
     authMiddleware,
     upload_single,
-    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'CUSTOMER']),
     kycController.updateKYC
 )
 

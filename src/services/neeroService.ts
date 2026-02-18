@@ -749,7 +749,7 @@ class NeeroGatewayService {
     }
 
     public async viewBasicInfoCard(cardId: number) {
-        const endpoint = `cards/${cardId}/?cardCategory=VIRTUAL`;
+        const endpoint = `cards/${cardId}?cardCategory=VIRTUAL`;
         const url = new URL(endpoint, this.baseBaasUrl).toString();
 
         try {

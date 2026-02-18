@@ -5,11 +5,7 @@ import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
 import Queue from 'bull';
 
-const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
-
-export const emailQueue = new Queue('email marketing', {
-  redis: { host: 'localhost', port: REDIS_TTL }
-});
+export const emailQueue = new Queue('email marketing', { redis: process.env.REDIS_URL });
 
 emailQueue.process(async (job) => {
   const { email, firstname, subject, text } = job.data;
@@ -79,7 +75,7 @@ class EmailController {
           }
         )
       );
-      await Promise.all(jobs); // Optionnel: attendre confirmation
+      //await Promise.all(jobs); // Optionnel: attendre confirmation
 
       sendResponse(res, 200, `Jobs enfilés pour ${allUsers.length} utilisateurs`);
     } catch (error: any) {

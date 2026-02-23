@@ -177,6 +177,11 @@ export const configs: ConfigModelCreate[] = [
         description: "Montant minimum à transférer du CANADA (XAF)"
     },
     {
+        name: "MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON",
+        value: 5000,
+        description: "Montant minimum à transférer du Cameroun vers la Canada (XAF)"
+    },
+    {
         name: "TRANSFER_FEES",
         value: 1,
         description: "Frais de transfert en dollars CAD ($)"

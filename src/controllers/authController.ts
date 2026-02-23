@@ -435,6 +435,15 @@ class AuthController {
       const user = await UserModel.findOne({ where: { email: email.trim() } });
       if (!user) return sendError(res, 404, "Ce compte n'existe pas")
 
+      // On vérifie si un précédent code de réinitialisation existe et on le supprime
+      await CodePhoneModel.destroy({
+        where: {
+          userId: user.id,
+          phone: user.phone,
+          type: 'RESET_PASSWORD'
+        }
+      });
+
       const code = generateNumericCode(6)
       await CodePhoneModel.create({
         userId: user.id,

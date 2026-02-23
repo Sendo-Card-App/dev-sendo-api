@@ -14,6 +14,7 @@ import { TransactionCreate } from "../types/Transaction";
 import walletService from "@services/walletService";
 import sequelize from "@config/db";
 import { Result } from "express-validator";
+import { notifyDeletingDebtUser, notifyRegularisationDebtUser } from "@services/emailService";
 
 
 class DebtController {
@@ -89,6 +90,8 @@ class DebtController {
                     return;
                 }
 
+                const debt = debts[index];
+
                 const transactionToCreate: TransactionCreate = {
                     amount: 0,
                     type: typesTransaction['1'],
@@ -125,17 +128,20 @@ class DebtController {
                     checkTransaction.status === "SUCCESSFUL" &&
                     new2Transaction.status === 'PENDING'
                 ) {
-                    await debts[index].destroy();
-                    
                     new2Transaction.status = "COMPLETED";
                     await new2Transaction.save()
+
+                    // Envoyer un mail
+                    await notifyRegularisationDebtUser(debt, false, debt.amount);
+                    
+                    await debt.destroy();
                     
                     // Envoyer une notification
                     const token = await notificationService.getTokenExpo(debts[index].user!.id)
                     if (token) {
                         await notificationService.save({
                             title: 'Sendo',
-                            content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${checkTransaction.amount} XAF`,
+                            content: `Paiement par Sendo de la dette #${debts[index].intitule} d'un montant de ${debt.amount} XAF`,
                             userId: debts[index].user!.id,
                             status: 'SENDED',
                             token: token?.token ?? '',
@@ -231,10 +237,13 @@ class DebtController {
                 checkTransaction.status === "SUCCESSFUL" &&
                 new2Transaction.status === 'PENDING'
             ) {
-                await debt.destroy();
-                
                 new2Transaction.status = "COMPLETED"
                 await new2Transaction.save()
+
+                // Envoyer un mail
+                await notifyRegularisationDebtUser(debt, false, debt.amount);
+                
+                await debt.destroy();
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
@@ -308,6 +317,9 @@ class DebtController {
 
                 transaction.status = 'COMPLETED';
                 await transaction.save()
+
+                // Envoyer un mail
+                await notifyRegularisationDebtUser(debts[index], false, debts[index].amount);
                 
                 await debts[index].destroy();
                 
@@ -387,6 +399,9 @@ class DebtController {
 
             transaction.status = 'COMPLETED';
             await transaction.save({ transaction: result });
+
+            // Envoyer un mail
+            await notifyRegularisationDebtUser(debt, false, debt.amount);
             
             await debt.destroy({ transaction: result });
             
@@ -478,6 +493,9 @@ class DebtController {
             }
             
             await result.commit();
+
+            // Envoyer un mail
+            await notifyRegularisationDebtUser(debt, true, Number(partialAmount));
     
             logger.info("Paiement partiel dette par Sendo", {
                 amount: Number(partialAmount),
@@ -583,6 +601,9 @@ class DebtController {
 
                 new2Transaction.status = mapNeeroStatusToSendo(checkTransaction.status);
                 await new2Transaction.save()
+
+                // Envoyer un mail
+                await notifyRegularisationDebtUser(debt, true, amountNum);
                 
                 // Envoyer une notification
                 const token = await notificationService.getTokenExpo(debt.user!.id)
@@ -637,6 +658,22 @@ class DebtController {
             });
             
             await debt.destroy();
+
+            // Envoyer un mail
+            await notifyDeletingDebtUser(debt);
+
+            // Envoyer une notification
+            const token = await notificationService.getTokenExpo(debt.user!.id)
+            if (token) {
+                await notificationService.save({
+                    title: 'Sendo',
+                    content: `Votre dette #${debt.intitule} d'un montant de ${debt.amount} XAF a été supprimée par Sendo`,
+                    userId: debt.user!.id,
+                    status: 'SENDED',
+                    token: token.token,
+                    type: 'SUCCESS_WITHDRAWAL_CARD'
+                })
+            }
 
             sendResponse(res, 204, 'Dette supprimée avec succès', {})
         } catch (error: any) {

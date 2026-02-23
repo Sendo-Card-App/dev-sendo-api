@@ -5,7 +5,7 @@ import UserRoleModel from "@models/user-role.model";
 import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
 import { generateCodeMerchant } from "@utils/functions";
-import { UpdateOptions } from "sequelize";
+import { Op, UpdateOptions } from "sequelize";
 import redisClient from '@config/cache';
 
 const REDIS_TTL = Number(process.env.REDIS_TTL) || 3600;
@@ -22,40 +22,80 @@ class AdminService {
         return AdminService.instance;
     }
 
-    async getAllDocuments(typeAccount: 'MERCHANT' | 'CUSTOMER', status: string, limit: number, startIndex: number) {
-        const where: Record<string, any> = {};
+    async getAllDocuments(
+        typeAccount: 'MERCHANT' | 'CUSTOMER', 
+        status: string, 
+        limit: number, 
+        startIndex: number,
+        search?: string
+    ) {
+        const where: any = {};
         if (status) where.status = status;
         if (typeAccount) where.typeAccount = typeAccount;
 
+        const include: any[] = [{
+            model: UserModel,
+            as: 'user',
+            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+        }];
+
+        if (search) {
+            const searchTerm = search.trim();
+            include[0].where = {
+                [Op.or]: [
+                    { firstname: { [Op.like]: `%${searchTerm}%` } },
+                    { lastname: { [Op.like]: `%${searchTerm}%` } },
+                    { email: { [Op.like]: `%${searchTerm}%` } },
+                    { phone: { [Op.like]: `%${searchTerm}%` } }
+                ]
+            };
+        }
+
         const result = await KycDocumentModel.findAndCountAll({
             where,
-            include: [{ 
-                model: UserModel, 
-                as: 'user', 
-                attributes: ['id', 'email', 'firstname', 'lastname'] 
-            }],
-            limit: limit,
+            include,  // Utilisez la variable include construite
+            limit,
             offset: startIndex,
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            distinct: true  // Évite les doublons de count avec include[web:12]
         });
 
         return result;
     }
 
-    async getDocumentsPending(typeAccount: 'MERCHANT' | 'CUSTOMER', limit: number, startIndex:number) {
+    async getDocumentsPending(
+        typeAccount: 'MERCHANT' | 'CUSTOMER', 
+        limit: number, 
+        startIndex:number,
+        search?: string
+    ) {
         const where: Record<string, any> = {};
         if (typeAccount) where.typeAccount = typeAccount;
+        
+        const include: any[] = [{
+            model: UserModel,
+            as: 'user',
+            attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+        }];
+
+        if (search) {
+            const searchTerm = search.trim();
+            include[0].where = {
+                [Op.or]: [
+                    { firstname: { [Op.like]: `%${searchTerm}%` } },
+                    { lastname: { [Op.like]: `%${searchTerm}%` } },
+                    { email: { [Op.like]: `%${searchTerm}%` } },
+                    { phone: { [Op.like]: `%${searchTerm}%` } }
+                ]
+            };
+        }
 
         const result = await KycDocumentModel.findAndCountAll({
             where: { 
                 status: 'PENDING', 
                 ...where 
             },
-            include: [{ 
-                model: UserModel, 
-                as: 'user', 
-                attributes: ['id', 'email', 'firstname', 'lastname'] 
-            }],
+            include,
             limit,
             offset: startIndex,
             order: [['createdAt', 'DESC']]

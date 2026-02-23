@@ -449,7 +449,7 @@ class AuthController {
         `Votre code de vérification est : ${code}`
       )
       
-      sendResponse(res, 200, 'Code de vérification envoyé');
+      sendResponse(res, 200, 'Code de vérification envoyé', { code });
     } catch (error: any) {
       sendError(res, 500, 'Erreur serveur', [error.message]);
     }

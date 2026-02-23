@@ -209,7 +209,9 @@ class CardController {
                         currency: 'XAF',
                         totalAmount: Number(config.value),
                         receiverId: user.id,
-                        receiverType: 'User'
+                        receiverType: 'User',
+                        method: 'WALLET',
+                        provider: 'WALLET'
                     }
                     const transactionCreated = await transactionService.createTransaction(transaction)
                     await walletService.debitWallet(
@@ -234,7 +236,9 @@ class CardController {
                             currency: 'XAF',
                             totalAmount: Number(config.value),
                             receiverId: user.id,
-                            receiverType: 'User'
+                            receiverType: 'User',
+                            method: 'WALLET',
+                            provider: 'WALLET'
                         }
                         const transactionCreated = await transactionService.createTransaction(transaction)
                         await walletService.debitWallet(

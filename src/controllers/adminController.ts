@@ -19,10 +19,10 @@ import configService from '@services/configService';
 
 class AdminController {
     async getAllDocuments(req: Request, res: Response) {
-        const { typeAccount, page, limit, startIndex, status } = res.locals.pagination;
+        const { typeAccount, page, limit, startIndex, status, search } = res.locals.pagination;
 
         try {
-            const documents = await adminService.getAllDocuments(typeAccount, status, limit, startIndex);
+            const documents = await adminService.getAllDocuments(typeAccount, status, limit, startIndex, search);
             const totalPages = Math.ceil(documents.count / limit);
             const responseData: PaginatedData = {
                 page,
@@ -49,10 +49,10 @@ class AdminController {
     }
 
     async getPendingDocuments(req: Request, res: Response) {
-        const { typeAccount, page, limit, startIndex } = res.locals.pagination;
+        const { typeAccount, page, limit, startIndex, search } = res.locals.pagination;
         
         try {
-            const documents = await adminService.getDocumentsPending(typeAccount, limit, startIndex);
+            const documents = await adminService.getDocumentsPending(typeAccount, limit, startIndex, search);
             const totalPages = Math.ceil(documents.count / limit);
             const responseData: PaginatedData = {
                 page,

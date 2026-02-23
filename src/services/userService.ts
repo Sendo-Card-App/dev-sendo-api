@@ -193,10 +193,7 @@ class UserService {
 
         await UserModel.update(updates, options);
 
-        const updatedUser = await UserModel.findByPk(userId);
-        if (!updatedUser) {
-            throw new Error('Utilisateur non trouvé après mise à jour');
-        }
+        const updatedUser = await userExits.reload();
         
         const token = await notificationService.getTokenExpo(userId)
         if (token) {
@@ -217,11 +214,11 @@ class UserService {
         const user = await UserModel.findByPk(userId);
         if (!user) throw new Error('Utilisateur introuvable');
     
-        if (!updates.oldPassword || !updates.newPassword) {
+        if (!updates.oldPassword.trim() || !updates.newPassword.trim()) {
             throw new Error("Les deux champs de mot de passe sont requis");
         }
     
-        if (!await user.comparePassword(updates.oldPassword)) {
+        if (!await user.comparePassword(updates.oldPassword.trim())) {
             throw new Error("Ancien mot de passe incorrect");
         }
     
@@ -233,11 +230,11 @@ class UserService {
             throw new Error("8 caractères minimum requis");
         }
 
-        if (!/(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}/.test(updates.newPassword)) {
+        if (!/(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}/.test(updates.newPassword.trim())) {
             throw new Error("Le mot de passe doit contenir au moins une majuscule, un chiffre et un caractère spécial");
         }        
     
-        user.password = updates.newPassword;
+        user.password = updates.newPassword.trim();
         await user.save();
 
         const token = await notificationService.getTokenExpo(user.id)

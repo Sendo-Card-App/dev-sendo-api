@@ -62,7 +62,7 @@ class MessageController {
                 }
 
                 if (messageSaved.conversation?.user?.email) {
-                    sendEmailWithHTML(
+                    await sendEmailWithHTML(
                         messageSaved.conversation.user.email,
                         'Nouvelle réponse de SENDO',
                         `<div><p>Un nouveau message vient d'etre envoyé dans votre conversation</p>
@@ -75,7 +75,7 @@ class MessageController {
                 }
             } else if (messageSaved.conversation?.userId === messageSaved.userId) {
                 if (messageSaved.conversation.admin?.email) {
-                    sendEmailWithHTML(
+                    await sendEmailWithHTML(
                         messageSaved.conversation.admin.email,
                         'Nouveau message client',
                         `<div><p>Un nouveau message vient d'etre envoyé dans une conversation</p>

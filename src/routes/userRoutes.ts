@@ -409,6 +409,10 @@ router.put(
  *                   type: string
  *                 district:
  *                   type: string
+ *                 dateOfBirth:
+ *                   type: string
+ *                 placeOfBirth:
+ *                   type: string
  *     responses:
  *       200:
  *         $ref: '#/components/responses/User'

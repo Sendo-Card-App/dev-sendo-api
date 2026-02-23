@@ -36,6 +36,11 @@ const router = Router();
  *         type: integer
  *         default: 10
  *       - in: query
+ *         name: search
+ *         required: false
+ *         type: string
+ *         default: ''
+ *       - in: query
  *         name: status
  *         required: false
  *         schema:
@@ -134,6 +139,11 @@ router.get(
  *         required: false
  *         type: integer
  *         default: 10
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         type: string
+ *         default: ''
  *     responses:
  *       200:
  *         description: Liste des documents en attente

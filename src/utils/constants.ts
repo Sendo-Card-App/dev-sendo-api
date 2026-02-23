@@ -417,7 +417,8 @@ export const typesNotification = [
     'SUCCESS_WITHDRAWAL_CARD',
     'SUCCESS_TRANSACTION_CARD',
     'DELETE_CARD',
-    'SUCCESS_ONBOARDING_PARTY'
+    'SUCCESS_ONBOARDING_PARTY',
+    'REGULARISATION_DEBT',
 ] as const;
   
 export type TypesNotification = typeof typesNotification[number];

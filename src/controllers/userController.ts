@@ -12,9 +12,6 @@ import TokenModel from '@models/token.model';
 import { typesToken } from '@utils/constants';
 import Expo from 'expo-server-sdk';
 import CodePhoneModel from '@models/code-phone.model';
-import UserModel from '@models/user.model';
-import MerchantModel from '@models/merchant.model';
-import ReferralCodeModel from '@models/referral-code.model';
 
 
 class UserController {

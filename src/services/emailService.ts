@@ -1,4 +1,5 @@
 import transporter from "@config/mailer";
+import CardTransactionDebtsModel from "@models/card-transaction-debts.model";
 import ParticipantSharedExpenseModel from "@models/participant-shared-expense.model";
 import SharedExpenseModel from "@models/shared-expense.model";
 import UserModel from "@models/user.model";
@@ -8,6 +9,11 @@ const sender = {
     address: process.env.EMAIL_FROM || '',
     name: "Sendo Team",
 };
+
+const senderRegularisation = {
+    address: process.env.EMAIL_REGULARISATION || '',
+    name: "Sendo Régularisation"
+}
 
 interface Attachment {
     filename: string;
@@ -427,6 +433,43 @@ export const sendSharedExpenseCloseToParticipants = async (
             `
         )
     })
+}
+
+export const notifyRegularisationDebtUser = async (
+    debt: CardTransactionDebtsModel, 
+    isPartial = false,
+    amount?: number
+) => {
+    await transporter.sendMail({
+        from: senderRegularisation,
+        to: debt.user!.email,
+        subject: 'Prélèvement pour régularisation de dette',
+        category: typesNotification['27'],
+        html: basicEmailTemplate(
+            `<p>Bonjour ${debt.user!.firstname} ${debt.user!.lastname},</p>
+            <p>Un prélèvement ${isPartial ? 'partiel' : 'total'} pour régularisation de la dette #${debt.intitule} sur votre carte VISA Sendo a été effectué.</p>
+            <ul>
+                <li>Montant régularisé : ${amount ? `${amount} XAF` : debt.amount} XAF</li>
+                <li>Date de régularisation : ${new Date().toLocaleDateString('fr-FR')}</li>
+            </ul>`
+        )
+    });
+}
+
+export const notifyDeletingDebtUser = async (
+    debt: CardTransactionDebtsModel
+) => {
+    await transporter.sendMail({
+        from: senderRegularisation,
+        to: debt.user!.email,
+        subject: 'Suppression de dette',
+        category: typesNotification['27'],
+        html: basicEmailTemplate(
+            `<p>Bonjour ${debt.user!.firstname} ${debt.user!.lastname},</p>
+            <p>Votre dette #${debt.intitule} de ${debt.amount} XAF a été supprimée par Sendo.</p>
+            <p>Si vous avez des questions, n'hésitez pas à contacter notre support.</p>`
+        )
+    });
 }
 
 // Template HTML de base pour les emails

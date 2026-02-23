@@ -360,7 +360,7 @@ class CardService {
 
     async updateStatusCard(cardId: number, status: TypesStatusCard) {
         const virtualCard = await VirtualCardModel.findOne({
-            where: { id: cardId },
+            where: { cardId },
             include: [{ 
                 model: UserModel,
                 as: 'user',
@@ -381,16 +381,9 @@ class CardService {
             })
         }
 
-        return VirtualCardModel.update({
-            status
-        }, {
-            where: { 
-                [Op.or]: [
-                    { id: cardId },
-                    { cardId: cardId }
-                ]
-            }
-        })
+        virtualCard!.status = status;
+        const newCard = await virtualCard!.save();
+        return newCard;
     }
 
     async createPaymentMethod(cardId: string | number, userId: number, idCard: number) {
@@ -677,12 +670,12 @@ class CardService {
         if (token) {
             await notificationService.save({
                 title: 'Sendo',
-                content: `Votre carte virtuelle **** **** **** ${virtualCard.last4Digits} a été bloquée suite à ${virtualCard.paymentRejectNumber} paiements rejetés.`,
-                userId: virtualCard.userId,
+                content: `Votre carte *****${virtualCard?.last4Digits} vient d'être supprimé suite à ${virtualCard.paymentRejectNumber} paiements rejetés.`,
+                userId: virtualCard!.user!.id,
                 status: 'SENDED',
                 token: token.token,
-                type: 'PAYMENT_FAILED'
-            });
+                type: 'DELETE_CARD'
+            })
         }
 
         await sendEmailWithHTML(

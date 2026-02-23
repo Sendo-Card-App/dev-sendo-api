@@ -46,5 +46,6 @@ export interface UserUpdate {
     city?: string;
     district?: string;
     picture?: string;
-    numberOfCardsCreated?: number;
+    dateOfBirth?: string;
+    placeOfBirth?: string;
 }

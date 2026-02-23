@@ -263,10 +263,8 @@ class KycController {
                 await doc.update({ status: 'PENDING' })
             }
             
-            // On supprime le fichier uploadé sur le cloud
-            if (file) {  // Supprimez SEULEMENT si fichier uploadé
-                await cloudinary.uploader.destroy(doc.publicId);
-            }
+            // On supprime l'ancien fichier uploadé sur le cloud
+            await cloudinary.uploader.destroy(doc.publicId);
 
             await doc.update({
                 url: file.path,

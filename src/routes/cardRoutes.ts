@@ -139,7 +139,7 @@ router.get(
     '/onboarding/requests/admin',
     authMiddleware, 
     paginationMiddleware,
-    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
+    hasRole(['CARD_MANAGER', 'COMPLIANCE_OFFICER', 'MANAGEMENT_CONTROLLER', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR']),
     cardController.getRequestsCreatingCard
 )
 
@@ -220,7 +220,7 @@ router.post(
     '/onboarding/admin/send-docs',
     authMiddleware,
     //checkKYC,
-    hasRole(['CARD_MANAGER', 'SUPER_ADMIN', 'CUSTOMER_ADVISER']),
+    hasRole(['CARD_MANAGER', 'SUPER_ADMIN']),
     cardController.uploadDocuments
 )
 
@@ -250,7 +250,7 @@ router.post(
 router.post(
     '/onboarding/admin/submit',
     authMiddleware,
-    hasRole(['CARD_MANAGER', 'SUPER_ADMIN', 'CUSTOMER_ADVISER']),
+    hasRole(['CARD_MANAGER', 'SUPER_ADMIN']),
     cardController.submitRequestOnboarding
 )
 

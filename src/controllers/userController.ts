@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { sendResponse, sendError } from '@utils/apiResponse';
 import userService from '@services/userService';
 import logger from '@config/logger';
-import { generatePassword } from '@utils/functions';
+import { ajouterPrefixe237, generatePassword } from '@utils/functions';
 import { sendEmailVerification, sendGlobalEmail, sendPasswordModifiedMail, sendUserMail, sendUserModifiedMail, successAddingSecondPhone } from '@services/emailService';
 import { PaginatedData } from '../types/BaseEntity';
 import adminService from '@services/adminService';
@@ -69,7 +69,7 @@ class UserController {
       lastname,
       email,
       password,
-      phone,
+      phone: ajouterPrefixe237(phone),
       country,
       address,
       dateOfBirth,
@@ -80,8 +80,6 @@ class UserController {
       const user = await authService.register(newUser);
       if (user) {
         const role = await adminService.findRoleById(parseInt(roleId))
-        await adminService.attributeRoleUser(user.id, role.id)
-        
         if (
           role.name === 'MERCHANT' && 
           (typeMerchantAccount == 'Particulier' || typeMerchantAccount == 'Entreprise')

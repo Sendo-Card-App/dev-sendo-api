@@ -42,7 +42,6 @@ CodePhoneModel.init(
     phone: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      unique: true,
       validate: {
         notEmpty: true,
       },

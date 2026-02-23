@@ -386,7 +386,8 @@ export const typesConfig = [
     'DEPOSIT_CARD_AVAILABILITY',
     'WITHDRAWAL_CARD_AVAILABILITY',
     'TRANSFER_CA_CAM_AVAILABILITY',
-    'TRANSFER_CAM_CA_AVAILABILITY'
+    'TRANSFER_CAM_CA_AVAILABILITY',
+    'MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

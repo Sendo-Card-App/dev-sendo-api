@@ -22,7 +22,8 @@ export const typesTransaction = [
     'ADMIN_SENDO',
     'GAIN',
     'AGENT_TO_CUSTOMER',
-    'FUND_SUBSCRIPTION'
+    'FUND_SUBSCRIPTION',
+    'REVERSE_CARD_BALANCE'
 ] as const
 export type TypesTransaction = typeof typesTransaction[number];
 
@@ -177,6 +178,11 @@ export const configs: ConfigModelCreate[] = [
         description: "Montant minimum à transférer du CANADA (XAF)"
     },
     {
+        name: "MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON",
+        value: 5000,
+        description: "Montant minimum à transférer du Cameroun vers la Canada (XAF)"
+    },
+    {
         name: "TRANSFER_FEES",
         value: 1,
         description: "Frais de transfert en dollars CAD ($)"
@@ -292,14 +298,24 @@ export const configs: ConfigModelCreate[] = [
         description: "Version de l'application Sendo sur android"
     },
     {
-        name: 'DEPOSIT_MOBILE_AVAILABILITY',
+        name: 'DEPOSIT_OM_SERVICE_AVAILABILITY',
         value: 1,
-        description: "Disponibilité du service des recharges par mobile money"
+        description: "Disponibilité du service Orange Money lors des recharges par mobile money"
     },
     {
-        name: 'WITHDRAWAL_MOBILE_AVAILABILITY',
+        name: 'DEPOSIT_MOMO_SERVICE_AVAILABILITY',
         value: 1,
-        description: "Disponibilité du service des retraits par mobile money"
+        description: "Disponibilité du service MTN MoMo lors des recharges par mobile money"
+    },
+    {
+        name: 'WITHDRAWAL_OM_SERVICE_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service Orange Money lors des retraits par mobile money"
+    },
+    {
+        name: 'WITHDRAWAL_MOMO_SERVICE_AVAILABILITY',
+        value: 1,
+        description: "Disponibilité du service Orange Money lors des retraits par mobile money"
     },
     {
         name: 'DEPOSIT_CARD_AVAILABILITY',
@@ -381,12 +397,15 @@ export const typesConfig = [
     'SENDO_WITHDRAW_INTERAC_FEES',
     'SENDO_VERSION_APP_IOS',
     'SENDO_VERSION_APP_ANDROID',
-    'DEPOSIT_MOBILE_AVAILABILITY',
-    'WITHDRAWAL_MOBILE_AVAILABILITY',
+    'DEPOSIT_OM_SERVICE_AVAILABILITY',
+    'DEPOSIT_MOMO_SERVICE_AVAILABILITY',
+    'WITHDRAWAL_OM_SERVICE_AVAILABILITY',
+    'WITHDRAWAL_MOMO_SERVICE_AVAILABILITY',
     'DEPOSIT_CARD_AVAILABILITY',
     'WITHDRAWAL_CARD_AVAILABILITY',
     'TRANSFER_CA_CAM_AVAILABILITY',
-    'TRANSFER_CAM_CA_AVAILABILITY'
+    'TRANSFER_CAM_CA_AVAILABILITY',
+    'MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

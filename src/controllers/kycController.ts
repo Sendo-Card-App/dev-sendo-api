@@ -230,6 +230,159 @@ class KycController {
         }
     }
 
+    async uploadKYCByAdmin(req: Request, res: Response) {
+        try {
+            if (!req.user) throw new Error('Utilisateur non authentifié');
+
+            const documents = JSON.parse(req.body.documents) as any[];
+            const files = req.files as Express.Multer.File[];
+            const country = req.user.country;
+            const userId = req.body.userId;
+
+            if (!Array.isArray(documents) || documents.length === 0) {
+                throw new Error('Aucun document à uploader');
+            }
+
+            if (!files || files.length !== documents.length) {
+                throw new Error('Nombre de fichiers et de documents non cohérent');
+            }
+
+            if (!userId) {
+                throw new Error('userId is required');
+            }
+
+            const alreadyUploaded = await kycService.checkKYCIsUploaded(
+                req.user.id,
+                country === "Cameroon" ? 'User' : 'Extern'
+            );
+
+            if (alreadyUploaded) {
+                throw new Error("Vous avez déjà envoyé vos KYC");
+            }
+
+            const results: (KycDocumentModel | null)[] = [];
+            const errors: string[] = [];
+
+            for (let i = 0; i < documents.length; i++) {
+                const { type, idDocumentNumber, taxIdNumber, expirationDate } = documents[i];
+                const file = files[i];
+
+                if (!type) {
+                    errors.push(`Document ${i + 1}: type manquant`);
+                    continue;
+                }
+
+                if (!file) {
+                    errors.push(`Document ${i + 1}: Aucun fichier fourni`);
+                    continue;
+                }
+
+                // Validation spécifique pour Cameroon
+                if (country === "Cameroon" && type === 'ID_PROOF') {
+                    if (!idDocumentNumber || !expirationDate) {
+                        errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
+                        continue;
+                    }
+                }
+
+                // Validation spécifique pour Canada
+                if (country === "Canada" && type === 'ID_PROOF') {
+                    if (!idDocumentNumber || !expirationDate) {
+                        errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
+                        continue;
+                    }
+                }
+
+                // Création du document KYC selon conditions
+                let doc: KycDocumentModel | null = null;
+
+                if (
+                    country === "Cameroon" &&
+                    type === "ID_PROOF" &&
+                    idDocumentNumber && expirationDate
+                ) {
+                    doc = await KycDocumentModel.create({
+                        userId,
+                        type,
+                        url: file.path,
+                        idDocumentNumber,
+                        taxIdNumber,
+                        expirationDate,
+                        publicId: file.filename,
+                        status: typesKYCStatus['0']
+                    });
+                } else if (
+                    country === "Cameroon" &&
+                    (type === "ADDRESS_PROOF" || type === "SELFIE") &&
+                    !idDocumentNumber && !taxIdNumber && !expirationDate
+                ) {
+                    doc = await KycDocumentModel.create({
+                        userId,
+                        type,
+                        url: file.path,
+                        publicId: file.filename,
+                        status: typesKYCStatus['0']
+                    });
+                } else if (
+                    country === "Canada" &&
+                    type === "ID_PROOF" &&
+                    idDocumentNumber && expirationDate && !taxIdNumber
+                ) {
+                    doc = await KycDocumentModel.create({
+                        userId,
+                        type,
+                        idDocumentNumber,
+                        expirationDate,
+                        url: file.path,
+                        publicId: file.filename,
+                        status: typesKYCStatus['0']
+                    });
+                } else if (
+                    country === "Canada" &&
+                    type === "SELFIE" &&
+                    !idDocumentNumber && !expirationDate && !taxIdNumber
+                ) {
+                    doc = await KycDocumentModel.create({
+                        userId,
+                        type,
+                        url: file.path,
+                        publicId: file.filename,
+                        status: typesKYCStatus['0']
+                    });
+                } else {
+                    errors.push(`Document ${i + 1}: Données invalides ou manquantes pour le type ${type}`);
+                    continue;
+                }
+
+                results.push(doc);
+            }
+
+            if (errors.length > 0) {
+                // En cas d'erreur, suppression des documents créés
+                await Promise.all(results.filter(r => r !== null).map(doc => kycService.deleteKYC(doc!.publicId)));
+                return sendError(res, 400, 'Erreurs dans les documents fournis', errors);
+            }
+
+            logger.info("KYC envoyés", {
+                admin: `${req.user.firstname} ${req.user.lastname}`,
+                userId: `User ID : ${userId}`,
+                documents: results.map(r => `${r?.type} - ${r?.status}`).join(', ')
+            });
+
+            return sendResponse(res, 201, 'KYC envoyés avec succès', results);
+
+        } catch (error: any) {
+            console.error('Erreur uploadKYC:', error);
+            if (req.user?.id) {
+                const kycDocuments = await kycService.getKycDocuments(req.user.id);
+                if (kycDocuments.length > 0) {
+                    await Promise.all(kycDocuments.map(k => kycService.deleteKYC(k.publicId)));
+                }
+            }
+            return sendError(res, 500, 'Erreur KYC', [error.message]);
+        }
+    }
+
     async deleteKYC(req: Request, res: Response) {
         const { publicId } = req.params
         if (!publicId) throw new Error('Envoyez le publicId du KYC');

@@ -173,7 +173,10 @@ export const upload_files_message = multer({
   
 export const upload_single = multer({
     storage,
-    limits: { fileSize: 2 * 1024 * 1024 }, // Limit de 2 MB
+    limits: { 
+        fileSize: 2 * 1024 * 1024,
+        fieldSize: 2 * 1024 * 1024  
+    }, // Limit de 2 MB
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/(jpg|jpeg|png|pdf|img)$/)) {
             return cb(new Error('Format de fichier non supporté'));

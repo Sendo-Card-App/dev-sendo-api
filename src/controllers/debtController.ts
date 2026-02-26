@@ -15,6 +15,7 @@ import walletService from "@services/walletService";
 import sequelize from "@config/db";
 import { Result } from "express-validator";
 import { notifyDeletingDebtUser, notifyRegularisationDebtUser } from "@services/emailService";
+import configService from "@services/configService";
 
 
 class DebtController {
@@ -83,6 +84,9 @@ class DebtController {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
             }
 
+            const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
+            if (!rejectFeesCard) throw new Error("Config introuvable");
+
             for (let index = 0; index < debts.length; index++) {
                 const balanceObject = await cardService.getBalance(virtualCard.paymentMethod!.paymentMethodId);
                 if (Number(balanceObject.balance) < Number(debts[index].amount)) {
@@ -100,7 +104,8 @@ class DebtController {
                     currency: typesCurrency['0'],
                     totalAmount: debts[index].amount,
                     method: typesMethodTransaction['2'],
-                    sendoFees: debts[index].amount,
+                    sendoFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? (Number(debt.amount) - 335) : Number(debt.amount),
+                    partnerFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? 335 : 0,
                     virtualCardId: virtualCard.id,
                     description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
                     receiverId: debts[index].user!.id,
@@ -201,6 +206,9 @@ class DebtController {
                 return;
             }
 
+            const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
+            if (!rejectFeesCard) throw new Error("Config introuvable");
+            
             const transactionToCreate: TransactionCreate = {
                 amount: 0,
                 type: typesTransaction['1'],
@@ -209,7 +217,8 @@ class DebtController {
                 currency: typesCurrency['0'],
                 totalAmount: debt.amount,
                 method: typesMethodTransaction['2'],
-                sendoFees: debt.amount,
+                sendoFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? (Number(debt.amount) - 335) : Number(debt.amount),
+                partnerFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? 335 : 0,
                 virtualCardId: virtualCard.id,
                 description: `Paiement par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
@@ -289,7 +298,11 @@ class DebtController {
                 throw new Error("Cette carte n'a aucune dette enregistree")
             }
 
+            const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
+            if (!rejectFeesCard) throw new Error("Config introuvable");
+
             for (let index = 0; index < debts.length; index++) {
+                const debt = debts[index]
                 const transactionToCreate: TransactionCreate = {
                     amount: 0,
                     type: typesTransaction['1'],
@@ -299,7 +312,8 @@ class DebtController {
                     totalAmount: debts[index].amount,
                     method: typesMethodTransaction['3'],
                     transactionReference: `ID Dette : #${debts[index].id}`,
-                    sendoFees: debts[index].amount,
+                    sendoFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? (Number(debt.amount) - 335) : Number(debt.amount),
+                    partnerFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? 335 : 0,
                     virtualCardId: debts[index].card!.id,
                     description: `Paiement par Sendo de la dette #${debts[index].intitule}`,
                     receiverId: debts[index].user!.id,
@@ -370,6 +384,9 @@ class DebtController {
             if (!debt) {
                 throw new Error("Dette introuvable")
             }
+
+            const rejectFeesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_REJECT_FEES')
+            if (!rejectFeesCard) throw new Error("Config introuvable");
             
             const transactionToCreate: TransactionCreate = {
                 amount: 0,
@@ -380,7 +397,8 @@ class DebtController {
                 totalAmount: Number(debt.amount),
                 method: typesMethodTransaction['3'],
                 transactionReference: `ID Dette : #${debt.id}`,
-                sendoFees: Number(debt.amount),
+                sendoFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? (Number(debt.amount) - 335) : Number(debt.amount),
+                partnerFees: Number(debt.amount) >= Number(rejectFeesCard!.value) ? 335 : 0,
                 virtualCardId: debt.card!.id,
                 description: `Paiement par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
@@ -430,7 +448,6 @@ class DebtController {
             sendResponse(res, 200, 'La requête a été initiée avec succès', {})
         } catch (error: any) {
             await result.rollback();
-            console.error("Erreur lors du paiement de la dette : ", error)
             sendError(res, 500, 'Erreur serveur', [error.message])
         }
     }
@@ -464,7 +481,8 @@ class DebtController {
                 totalAmount: Number(partialAmount),
                 method: typesMethodTransaction['3'],
                 transactionReference: `ID Dette : #${debt.id}`,
-                sendoFees: Number(partialAmount),
+                sendoFees: Number(debt.amount) >= 335 ? Number(partialAmount) : 0,
+                partnerFees: Number(debt.amount) <= 335 ? Number(partialAmount) : 0,
                 virtualCardId: debt.card!.id,
                 description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,
@@ -569,7 +587,8 @@ class DebtController {
                 currency: typesCurrency['0'],
                 totalAmount: amountNum,
                 method: typesMethodTransaction['2'],
-                sendoFees: amountNum,
+                sendoFees: Number(debt.amount) >= 335 ? Number(partialAmount) : 0,
+                partnerFees: Number(debt.amount) <= 335 ? Number(partialAmount) : 0,
                 virtualCardId: virtualCard.id,
                 description: `Paiement partiel par Sendo de la dette #${debt.intitule}`,
                 receiverId: debt.user!.id,

@@ -104,8 +104,8 @@ class WalletService {
                 if (Number(isAvailableTransfertService.value) === 0) throw new Error("Service de transfert indisponible")
 
                 configFeesValue = amount * (Number(feesConfig.value) / 100)
-                total = Math.ceil(amount + configFeesValue)
-                amountToIncrement = Math.ceil(amount * Number(SENDO_VALUE_CAD_CA_CAM.value))
+                total = amount + configFeesValue
+                amountToIncrement = amount * Number(SENDO_VALUE_CAD_CA_CAM.value)
 
                 // Enregistrer l'historique des mouvements sur les wallets
                 history_1 = await WalletHistoryModel.create({
@@ -126,6 +126,9 @@ class WalletService {
                 const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CAM_CA_AVAILABILITY')
                 if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
                 if (Number(isAvailableTransfertService.value) === 0) throw new Error("Service de transfert indisponible")
+
+                const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON')
+                if (Number(amount) < Number(configMinAmout!.value)) throw new Error(`Le montant minimum à transférer du Cameroun vers la Canada est de ${configMinAmout!.value} XAF`)
 
                 if (amount > 1000000) throw new Error("Vous ne pouvez pas envoyer plus de 1000000")
                 const palier = await merchantService.findPalierByMontant(amount, 'Palier bank')
@@ -173,7 +176,7 @@ class WalletService {
             // 5. Enregistrement de la transaction côté initiateur
             const transactionCreate: TransactionCreate = {
                 userId: fromWallet?.user?.id || 0,
-                type: typesTransaction['4'],
+                type: (fromWallet.currency === 'XAF' && toWallet.currency === 'CAD') ? 'TRANSFER' : typesTransaction['4'],
                 amount: Number(amount),
                 receiverId: toWallet?.user?.id || 0,
                 receiverType: 'User',
@@ -187,6 +190,7 @@ class WalletService {
                 bankName: getDescriptionTransaction(fromWallet.currency, toWallet.currency)
             }
             const transac = await transactionService.createTransaction(transactionCreate, { transaction });
+
             if (history_1 && history_2) {
                history_1.transactionId = transac.id
                 history_1.save()

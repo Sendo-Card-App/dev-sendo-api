@@ -14,6 +14,7 @@ import PaymentMethodModel from "@models/payment-method.model";
 import configService from "@services/configService";
 import notificationService from "@services/notificationService";
 import logger from "@config/logger";
+import ConfigModel from "@models/config.model";
 
 // Fonction d'attente générique
 export const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -343,11 +344,22 @@ class MobileMoneyController {
                 sendError(res, 403, 'Tous les champs doivent être fournis')
             }
 
-            const isAvailableDepositService = await configService.getConfigByName('DEPOSIT_MOBILE_AVAILABILITY')
-            if (!isAvailableDepositService) throw new Error("Configuration introuvable")
-            if (Number(isAvailableDepositService.value) === 0) {
-                sendError(res, 503, "Service de dépôt sur le portefeuille indisponible")
-                return;
+            const provider = detectOperator(phone).operator
+            let isAvailableDepositService: ConfigModel | null = null;
+            if (provider == 'Orange') {
+                isAvailableDepositService = await configService.getConfigByName('DEPOSIT_OM_SERVICE_AVAILABILITY')
+                if (!isAvailableDepositService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableDepositService.value) === 0) {
+                    sendError(res, 503, "Service de dépôt sur le portefeuille indisponible")
+                    return;
+                }
+            } else if (provider == 'MTN') {
+                isAvailableDepositService = await configService.getConfigByName('DEPOSIT_MOMO_SERVICE_AVAILABILITY')
+                if (!isAvailableDepositService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableDepositService.value) === 0) {
+                    sendError(res, 503, "Service de dépôt sur le portefeuille indisponible")
+                    return;
+                }
             }
 
             // 1. Conversion du montant en nombre entier
@@ -397,7 +409,7 @@ class MobileMoneyController {
                 totalAmount: amountNum + parseInt(`${fees}`),
                 method: typesMethodTransaction['0'],
                 provider: detectOtherMoneyTransferType(phone),
-                sendoFees: parseInt(`${fees}`),
+                sendoFees: fees,
                 description: "Dépôt sur le portefeuille",
                 receiverId: req.user!.id,
                 receiverType: 'User',
@@ -526,11 +538,22 @@ class MobileMoneyController {
                 return;
             }
 
-            const isAvailableWithdrawalService = await configService.getConfigByName('WITHDRAWAL_MOBILE_AVAILABILITY')
-            if (!isAvailableWithdrawalService) throw new Error("Configuration introuvable")
-            if (Number(isAvailableWithdrawalService.value) === 0) {
-                sendError(res, 503, "Service de retrait du portefeuille indisponible")
-                return;
+            const provider = detectOperator(phone).operator
+            let isAvailableWithdrawalService: ConfigModel | null = null;
+            if (provider == 'Orange') {
+                isAvailableWithdrawalService = await configService.getConfigByName('WITHDRAWAL_OM_SERVICE_AVAILABILITY')
+                if (!isAvailableWithdrawalService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableWithdrawalService.value) === 0) {
+                    sendError(res, 503, "Service de retrait du portefeuille indisponible")
+                    return;
+                }
+            } else if (provider == 'MTN') {
+                isAvailableWithdrawalService = await configService.getConfigByName('WITHDRAWAL_MOMO_SERVICE_AVAILABILITY')
+                if (!isAvailableWithdrawalService) throw new Error("Configuration introuvable")
+                if (Number(isAvailableWithdrawalService.value) === 0) {
+                    sendError(res, 503, "Service de retrait du portefeuille indisponible")
+                    return;
+                }
             }
 
             const amountNum = Number(amount);
@@ -569,7 +592,7 @@ class MobileMoneyController {
                 totalAmount: total,
                 method: typesMethodTransaction['0'],
                 provider: detectOtherMoneyTransferType(phone),
-                sendoFees: parseInt(`${fees}`),
+                sendoFees: fees,
                 description: "Retrait sur le portefeuille",
                 receiverId: req.user!.id,
                 receiverType: 'User',

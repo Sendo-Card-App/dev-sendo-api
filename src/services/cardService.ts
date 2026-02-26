@@ -522,7 +522,9 @@ class CardService {
                     currency: 'XAF',
                     totalAmount: Number(config.value),
                     receiverId: user.id,
-                    receiverType: 'User'
+                    receiverType: 'User',
+                    method: 'WALLET',
+                    provider: 'WALLET'
                 }
                 const transactionCreate = await transactionService.createTransaction(transaction)
                 
@@ -548,7 +550,9 @@ class CardService {
                         currency: 'XAF',
                         totalAmount: Number(config.value),
                         receiverId: user.id,
-                        receiverType: 'User'
+                        receiverType: 'User',
+                        method: 'WALLET',
+                        provider: 'WALLET'
                     }
                     const transactionCreate = await transactionService.createTransaction(transaction)
 
@@ -642,7 +646,7 @@ class CardService {
             // Enregistrer transaction
             const transactionToCreate: TransactionCreate = {
                 amount: Number(balanceObject.balance),
-                type: typesTransaction['0'],
+                type: typesTransaction['13'],
                 status: mapNeeroStatusToSendo(checkTransaction.status),
                 userId: virtualCard.userId,
                 currency: typesCurrency['0'],
@@ -652,7 +656,8 @@ class CardService {
                 virtualCardId: virtualCard.id,
                 description: `Dépôt des fonds de la carte sur le portefeuille`,
                 receiverId: virtualCard.userId,
-                receiverType: 'User'
+                receiverType: 'User',
+                provider: 'WALLET'
             };
             await transactionService.createTransaction(transactionToCreate);
         }

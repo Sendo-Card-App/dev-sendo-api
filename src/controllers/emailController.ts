@@ -1,21 +1,9 @@
 import transporter from "@config/mailer";
+import { emailQueue } from "@config/queue.worker";
 import UserModel from "@models/user.model";
 import { sendGlobalEmail } from "@services/emailService";
 import { sendError, sendResponse } from "@utils/apiResponse";
 import { Request, Response } from "express";
-import Queue from 'bull';
-
-export const emailQueue = new Queue('email marketing', { redis: process.env.REDIS_URL });
-
-emailQueue.process(async (job) => {
-  const { email, firstname, subject, text } = job.data;
-  await sendGlobalEmail(
-    email,
-    subject,
-    `<p>Bonjour ${firstname},<br>${text}</p>`,
-    'INFORMATION'
-  );
-});
 
 const sender = {
   address: process.env.EMAIL_FROM || '',
@@ -64,7 +52,7 @@ class EmailController {
         where: { status: 'ACTIVE' }
       })
 
-      const jobs = allUsers.map(user => 
+      allUsers.map(user => 
         emailQueue.add(
           'sendEmail', 
           { 
@@ -75,7 +63,6 @@ class EmailController {
           }
         )
       );
-      //await Promise.all(jobs); // Optionnel: attendre confirmation
 
       sendResponse(res, 200, `Jobs enfilés pour ${allUsers.length} utilisateurs`);
     } catch (error: any) {

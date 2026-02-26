@@ -62,7 +62,11 @@ class CardController {
                         currency: 'XAF',
                         totalAmount: Number(config.value),
                         receiverId: user.id,
-                        receiverType: 'User'
+                        receiverType: 'User',
+                        method: 'WALLET',
+                        provider: 'WALLET',
+                        sendoFees: Number(config.value) - 500,
+                        partnerFees: 500
                     }
                     const transactionCreated = await transactionService.createTransaction(transaction)
                     await walletService.debitWallet(
@@ -87,7 +91,11 @@ class CardController {
                             currency: 'XAF',
                             totalAmount: Number(config.value),
                             receiverId: user.id,
-                            receiverType: 'User'
+                            receiverType: 'User',
+                            method: 'WALLET',
+                            provider: 'WALLET',
+                            sendoFees: Number(config.value) - 500,
+                            partnerFees: 500
                         }
                         const transactionCreated = await transactionService.createTransaction(transaction)
                         await walletService.debitWallet(
@@ -211,7 +219,9 @@ class CardController {
                         receiverId: user.id,
                         receiverType: 'User',
                         method: 'WALLET',
-                        provider: 'WALLET'
+                        provider: 'WALLET',
+                        sendoFees: Number(config.value) - 500,
+                        partnerFees: 500
                     }
                     const transactionCreated = await transactionService.createTransaction(transaction)
                     await walletService.debitWallet(
@@ -238,7 +248,9 @@ class CardController {
                             receiverId: user.id,
                             receiverType: 'User',
                             method: 'WALLET',
-                            provider: 'WALLET'
+                            provider: 'WALLET',
+                            sendoFees: Number(config.value) - 500,
+                            partnerFees: 500
                         }
                         const transactionCreated = await transactionService.createTransaction(transaction)
                         await walletService.debitWallet(
@@ -361,7 +373,6 @@ class CardController {
             } else if (session.status === 'VERIFIED') {
                 submit = session
             }
-            console.log('submit : ', submit)
 
             // Update du status PartyCard
             const update: PartySessionUpdate = {
@@ -438,8 +449,10 @@ class CardController {
                     totalAmount: Number(config.value),
                     receiverId: user.id,
                     receiverType: 'User',
-                    sendoFees: Number(config.value),
-                    method: 'WALLET'
+                    sendoFees: Number(config.value) - 500,
+                    partnerFees: 500,
+                    method: 'WALLET',
+                    provider: 'WALLET'
                 }
                 const transactionCreate = await transactionService.createTransaction(transaction)
                 await walletService.debitWallet(
@@ -514,8 +527,10 @@ class CardController {
                     totalAmount: Number(config.value),
                     receiverId: user.id,
                     receiverType: 'User',
-                    sendoFees: Number(config.value),
-                    method: 'WALLET'
+                    sendoFees: Number(config.value) - 500,
+                    partnerFees: 500,
+                    method: 'WALLET',
+                    provider: 'WALLET'
                 }
                 const transactionCreate = await transactionService.createTransaction(transaction)
                 await walletService.debitWallet(
@@ -658,7 +673,7 @@ class CardController {
             }
             await cardService.freezeVirtualCard(payload)
             
-            await cardService.updateStatusCard(virtualCard?.id ?? 0, 'FROZEN')
+            await cardService.updateStatusCard(virtualCard!.cardId, 'FROZEN')
             const newCard = await virtualCard?.reload()
 
             logger.info("Carte virtuelle bloquée", {
@@ -720,7 +735,7 @@ class CardController {
             }
             await cardService.freezeVirtualCard(payload)
             
-            await cardService.updateStatusCard(virtualCard?.id ?? 0, 'ACTIVE')
+            await cardService.updateStatusCard(virtualCard!.cardId, 'ACTIVE')
             const newCard = await virtualCard?.reload()
 
             logger.info("Carte virtuelle débloquée", {
@@ -844,9 +859,9 @@ class CardController {
 
             //On vérifie s'il a assez de fonds dans son wallet
             const configFees = await configService.getConfigByName('SENDO_DEPOSIT_CARD_FEES')
-            const fees = configFees!.value
+            const fees = Number(configFees!.value)
             const wallet = await walletService.getBalanceWallet(req.user.id)
-            if (wallet && wallet.balance < (amountNum + parseInt(`${fees}`))) {
+            if (wallet && Number(wallet.balance) < (amountNum + fees)) {
                 throw new Error("Veuillez recharger votre portefeuille")
             }
 
@@ -858,7 +873,7 @@ class CardController {
                 currency: typesCurrency['0'],
                 totalAmount: amountNum + parseInt(`${fees}`),
                 method: typesMethodTransaction['2'],
-                sendoFees: parseInt(`${fees}`),
+                sendoFees: fees,
                 virtualCardId: virtualCard.id,
                 description: 'Dépôt sur la carte',
                 receiverId: req.user!.id,
@@ -872,8 +887,6 @@ class CardController {
             transaction.transactionReference = cashout.id
             const newTransaction = await transaction.save()
 
-            const checkTransaction = await neeroService.getTransactionIntentById(cashout.id)
-
             /** Cette façon de faire est temporaire */
             await walletService.debitWallet(
                 matriculeWallet,
@@ -883,9 +896,11 @@ class CardController {
                 transaction.id
             )
             if (virtualCard.status === 'PRE_ACTIVE') {
-                await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
+                await cardService.updateStatusCard(virtualCard.cardId, 'ACTIVE')
             }
             /** ça s'arrête ici */
+            
+            const checkTransaction = await neeroService.getTransactionIntentById(cashout.id)
 
             if (
                 checkTransaction.status === "SUCCESSFUL" &&
@@ -901,7 +916,7 @@ class CardController {
 
                 // On met à jour le status de la carte
                 /*if (virtualCard.status === 'PRE_ACTIVE') {
-                    await cardService.updateStatusCard(virtualCard.id, 'ACTIVE')
+                    await cardService.updateStatusCard(virtualCard!.cardId, 'ACTIVE')
                 }*/
 
                 // Envoyer une notification
@@ -1001,7 +1016,7 @@ class CardController {
             }
 
             const configFees = await configService.getConfigByName('SENDO_WITHDRAWAL_CARD_FEES')
-            const fees = configFees!.value
+            const fees = Number(configFees!.value)
 
             const transactionToCreate: TransactionCreate = {
                 amount: amountNum,
@@ -1009,9 +1024,9 @@ class CardController {
                 status: 'PENDING',
                 userId: req.user!.id,
                 currency: typesCurrency['0'],
-                totalAmount: amountNum + parseInt(`${fees}`),
+                totalAmount: amountNum + fees,
                 method: typesMethodTransaction['2'],
-                sendoFees: parseInt(`${fees}`),
+                sendoFees: fees,
                 virtualCardId: virtualCard.id,
                 description: 'Retrait sur la carte',
                 receiverId: req.user!.id,
@@ -1027,7 +1042,7 @@ class CardController {
             let payload: CashInPayload | undefined;
             if (virtualCard.paymentMethod) {
                 payload = {
-                    amount: amountNum + parseInt(`${fees}`),
+                    amount: amountNum + fees,
                     currencyCode: 'XAF',
                     confirm: true,
                     paymentType: 'NEERO_CARD_CASHOUT',
@@ -1213,7 +1228,6 @@ class CardController {
                         totalAmount: Number(balance.balance),
                         method: typesMethodTransaction['2'],
                         transactionReference: cashin.id,
-                        sendoFees: 0,
                         virtualCardId: virtualCard?.id,
                         description: 'Retrait sur la carte',
                         receiverId: req.user!.id,
@@ -1340,7 +1354,6 @@ class CardController {
                     totalAmount: roundToPreviousMultipleOfFive(Number(balance.balance)),
                     method: typesMethodTransaction['2'],
                     transactionReference: cashin.id,
-                    sendoFees: 0,
                     virtualCardId: virtualCard?.id,
                     description: 'Vidange de la carte',
                     receiverId: virtualCard!.user!.id,
@@ -1466,11 +1479,12 @@ class CardController {
                 totalAmount: Number(fees),
                 method: typesMethodTransaction['2'],
                 transactionReference: cashin.id,
-                sendoFees: Number(fees),
+                sendoFees: Number(fees) - 160,
                 virtualCardId: virtualCard!.id,
                 description: 'Frais infos carte',
                 receiverId: virtualCard!.userId,
-                receiverType: 'User'
+                receiverType: 'User',
+                partnerFees: 160
             }
             await transactionService.createTransaction(transactionToCreate)
       
@@ -1513,7 +1527,7 @@ class CardController {
             }
             
             await cardService.updateStatusCard(
-                virtualCard?.id ?? 0, 
+                virtualCard!.cardId, 
                 action === 'FREEZE' ? 'BLOCKED' : 'ACTIVE'
             )
             const newCard = await virtualCard?.reload()
@@ -1568,7 +1582,8 @@ class CardController {
                     method: 'VIRTUAL_CARD',
                     provider: 'WALLET',
                     receiverId: virtualCard?.user?.id ?? 0,
-                    receiverType: 'User'
+                    receiverType: 'User',
+                    sendoFees: Number(fees?.value) ?? 0
                 }
                 const transaction = await transactionService.createTransaction(TransactionCreate)
                 await walletService.debitWallet(
@@ -1592,7 +1607,7 @@ class CardController {
             }
 
             await cardService.updateStatusCard(
-                virtualCard?.id ?? 0, 
+                virtualCard!.cardId, 
                 'ACTIVE'
             )
             const newCard = await virtualCard?.reload()

@@ -44,7 +44,6 @@ class CashinService {
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard?.id,
                         description: `Frais de service #${object.reference}`,
-                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
                         receiverType: 'User',
@@ -82,7 +81,6 @@ class CashinService {
                         transactionReference: cashin.id,
                         virtualCardId: virtualCard.id,
                         description: `Frais de service #${object.reference}`,
-                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
                         provider: 'CARD',
                         receiverId: virtualCard.userId,
                         receiverType: 'User',
@@ -116,27 +114,6 @@ class CashinService {
                         'Paiement sur la carte',
                         `<p>${virtualCard?.user?.firstname} un paiement de ${troisChiffresApresVirgule(Number(object.totalAmount))} ${object.cardCurrencyCode} vient d'être effectué sur votre carte virtuelle **** **** **** ${virtualCard?.last4Digits}. Les frais Sendo n'ont pas pû être prélevés sur votre carte, par conséquent vous avez une dette de ${sendoFees} XAF enregistrée.</p>`
                     )
-                } else {
-                    // On enregistre la transaction des frais échouée
-                    const transactionToCreateDebt: TransactionCreate = {
-                        type: 'PAYMENT',
-                        amount: 0,
-                        status: 'PENDING',
-                        userId: virtualCard.userId,
-                        currency: object.cardCurrencyCode,
-                        totalAmount: sendoFees,
-                        method: typesMethodTransaction['2'],
-                        transactionReference: cashin.id,
-                        virtualCardId: virtualCard.id,
-                        description: `Frais de service #${object.reference}`,
-                        partnerFees: Number(object.totalAmount) - (Number(object.transactionOriginAmount) || Number(object.baseAmount)),
-                        provider: 'CARD',
-                        receiverId: virtualCard.userId,
-                        receiverType: 'User',
-                        sendoFees: sendoFees,
-                        createdAt: new Date(object.transactionDate)
-                    }
-                    await transactionService.createTransaction(transactionToCreateDebt)
                 }
             } else {
                 if (checkTransaction.status === "SUCCESSFUL") {
@@ -153,7 +130,8 @@ class CashinService {
                         description: `Frais de rejet : #${object.denialReason}`,
                         receiverId: userId!,
                         receiverType: 'User',
-                        sendoFees: sendoFees
+                        sendoFees: sendoFees - 335,
+                        partnerFees: 335
                     }
                     await transactionService.createTransaction(transactionToCreate)
 
@@ -193,7 +171,8 @@ class CashinService {
                         description: `Frais de rejet : #${object.denialReason}`,
                         receiverId: userId!,
                         receiverType: 'User',
-                        sendoFees: sendoFees
+                        sendoFees: sendoFees - 335,
+                        partnerFees: 335
                     }
                     await transactionService.createTransaction(transactionToCreate)
 

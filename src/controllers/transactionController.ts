@@ -36,7 +36,7 @@ class TransactionController {
         const { page, limit, startIndex, status, startDate, endDate } = res.locals.pagination;
 
         try {
-            const transactions = await transactionService.getAllTransactionsCanada(
+            const transactions = await transactionService.getAllTransactionsCaCam(
                 limit,
                 startIndex,
                 status,

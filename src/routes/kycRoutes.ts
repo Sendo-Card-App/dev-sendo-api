@@ -85,6 +85,46 @@ router.post(
 
 /**
  * @swagger
+ * /kyc/admin/upload:
+ *   post:
+ *     summary: Envoi de documents KYC pour validation par un ADMIN
+ *     description: Uploadez plusieurs documents avec leurs types et informations associées
+ *     tags:
+ *       - KYC
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               documents:
+ *                 type: string
+ *                 description: Objet document sérialisé en JSON
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       201:
+ *         description: Documents KYC uploadés avec succès
+ *       400:
+ *         description: Erreur de validation
+ *       403:
+ *         description: Données manquantes ou non autorisées
+ */
+router.post(
+    '/admin/upload', 
+    authMiddleware, 
+    upload_multi,
+    (req, res) => kycController.uploadKYCByAdmin(req, res)
+);
+
+/**
+ * @swagger
  * /kyc/{publicId}/admin:
  *   put:
  *     summary: Modification d'un document KYC sur le Dashboard

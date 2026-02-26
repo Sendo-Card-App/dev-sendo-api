@@ -126,6 +126,9 @@ class WalletService {
                 const isAvailableTransfertService = await configService.getConfigByName('TRANSFER_CAM_CA_AVAILABILITY')
                 if (!isAvailableTransfertService) throw new Error("Configuration introuvable")
                 if (Number(isAvailableTransfertService.value) === 0) throw new Error("Service de transfert indisponible")
+                
+                const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON')
+                if (Number(amount) < Number(configMinAmout!.value)) throw new Error(`Le montant minimum à transférer du Cameroun vers la Canada est de ${configMinAmout!.value} XAF`)
 
                 const configMinAmout = await configService.getConfigByName('MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON')
                 if (Number(amount) < Number(configMinAmout!.value)) throw new Error(`Le montant minimum à transférer du Cameroun vers la Canada est de ${configMinAmout!.value} XAF`)

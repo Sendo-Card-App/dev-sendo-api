@@ -53,7 +53,7 @@ router.post(
     '/init',
     authMiddleware, 
     verifyPasscode, 
-    checkKYC, 
+    //checkKYC, 
     hasRole(['CUSTOMER']),
     checkCountry(['Canada']),
     destinataireController.initTransfert
@@ -97,7 +97,7 @@ router.post(
     '/bank-init',
     authMiddleware, 
     verifyPasscode, 
-    checkKYC, 
+    //checkKYC, 
     hasRole(['CUSTOMER']),
     checkCountry(['Canada']),
     destinataireController.initBankTransfert
@@ -140,7 +140,7 @@ router.post(
     '/init-to-know-destinataire',
     authMiddleware, 
     hasRole(['CUSTOMER']), 
-    checkKYC, 
+    //checkKYC, 
     verifyPasscode,
     checkCountry(['Canada']),
     destinataireController.initTransfertFromDestinataire

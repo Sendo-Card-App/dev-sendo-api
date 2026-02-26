@@ -16,6 +16,7 @@
     "@types/winston": "^2.4.4",
     "bcrypt": "^5.1.1",
     "bull": "^4.16.5",
+    "bullmq": "^5.70.1",
     "cloudinary": "^1.41.3",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",

@@ -232,10 +232,17 @@ export default class FundSubscriptionService {
             offset: startIndex,
             limit,
             order: [['createdAt', 'DESC']],
-            include: [{
-                model: FundModel,
-                as: 'fund'
-            }],
+            include: [
+                {
+                    model: FundModel,
+                    as: 'fund'
+                },
+                {
+                    model: UserModel,
+                    as: 'user',
+                    attributes: ['id', 'firstname', 'lastname', 'email', 'phone']
+                }
+            ],
         });
     }
 

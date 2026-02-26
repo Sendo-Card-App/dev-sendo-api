@@ -95,6 +95,20 @@ router.get(
  *           default: 10
  *         description: Nombre d'éléments par page
  *       - in: query
+ *         name: type
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [WITHDRAWAL, TRANSFER]
+ *         description: Type de la transaction
+ *       - in: query
+ *         name: method
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [MOBILE_MONEY, INTERAC]
+ *         description: Méthode de la transaction
+ *       - in: query
  *         name: status
  *         required: false
  *         schema:
@@ -126,7 +140,62 @@ router.get(
     authMiddleware, 
     paginationMiddleware, 
     hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
-    transactionController.getTransactionsCanada
+    transactionController.getTransactionsCanadaCameroun
+);
+
+/**
+ * @swagger
+ * /transactions/camca:
+ *   get:
+ *     summary: Liste toutes les transactions des utilisateurs entre le Canada et le Cameroun
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Numéro de page pour la pagination
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Nombre d'éléments par page
+ *       - in: query
+ *         name: status
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, COMPLETED, FAILED, BLOCKED] 
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de début pour filtrer les transactions (inclus)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Date de fin pour filtrer les transactions (inclus)
+ *     tags: [Transactions]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des transactions
+ */
+router.get(
+    '/camca',
+    authMiddleware, 
+    paginationMiddleware, 
+    hasRole(['SUPER_ADMIN', 'SYSTEM_ADMIN', 'TECHNICAL_DIRECTOR', 'MANAGEMENT_CONTROLLER', 'COMPLIANCE_OFFICER', 'CUSTOMER_ADVISER', 'CARD_MANAGER']),
+    transactionController.getTransactionsCamerounCanada
 );
 
 /**

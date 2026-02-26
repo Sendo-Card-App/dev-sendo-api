@@ -608,6 +608,79 @@ class AdminController {
                 const destinataire = await transaction.getReceiver()
                 await cashoutService.init(destinataire!.phone || '', transaction.transactionId ||'')
             } else if (
+                transaction?.type === typesTransaction['2'] && 
+                transaction.method === typesMethodTransaction['3'] &&
+                status === typesStatusTransaction['1']
+            ) {
+                const fromWallet = await WalletModel.findOne({
+                    where: { userId: transaction.userId },
+                    include: [{ model: UserModel, as: 'user' }]
+                });
+                const toWallet = await WalletModel.findOne({
+                    where: { userId: transaction.receiverId },
+                    include: [{ model: UserModel, as: 'user' }]
+                });
+                if (!fromWallet || !toWallet) throw new Error('Portefeuille introuvable');
+
+                const SENDO_VALUE_CAD_CAM_CA = await configService.getConfigByName('SENDO_VALUE_CAD_CAM_CA')
+                if (!SENDO_VALUE_CAD_CAM_CA) throw new Error('Configuration CAD value introuvable');
+
+                // Enregistrer l'historique des mouvements sur les wallets
+                const amountToIncrement = Math.ceil(Number(transaction.amount) / Number(SENDO_VALUE_CAD_CAM_CA.value))
+
+                await fromWallet.decrement('balance', { by: transaction.totalAmount });
+                await toWallet.increment('balance', { by: amountToIncrement });
+
+                await WalletHistoryModel.create({
+                    previousValue: fromWallet.balance,
+                    newValue: fromWallet.balance - transaction.totalAmount,
+                    walletId: fromWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA",
+                    transactionId: transaction.id
+                })
+                await WalletHistoryModel.create({
+                    previousValue: toWallet.balance,
+                    newValue: toWallet.balance + amountToIncrement,
+                    walletId: toWallet.id,
+                    updatedBy: fromWallet.userId,
+                    reason: "Sendo-Sendo CAM-CA",
+                    transactionId: transaction.id
+                })
+
+                transaction.status = 'COMPLETED'
+                await transaction.save();
+
+                const tokenSender = await notificationService.getTokenExpo(fromWallet.user!.id)
+                if (tokenSender) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: fromWallet.user!.id,
+                        content: `Votre transfert de ${transaction.amount} ${fromWallet.currency} à ${toWallet.user?.firstname} a été effectué avec succès`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenSender.token
+                    })
+                }
+                const tokenReceiver = await notificationService.getTokenExpo(toWallet.user!.id)
+                if (tokenReceiver) {
+                    await notificationService.save({
+                        type: 'SUCCESS_TRANSFER_FUNDS',
+                        userId: toWallet.user!.id,
+                        content: `Vous avez reçu de ${fromWallet.user?.firstname} une somme de ${amountToIncrement} CAD sur votre portefeuille SENDO`,
+                        title: 'Sendo',
+                        status: 'SENDED',
+                        token: tokenReceiver.token
+                    })
+                }
+
+                await successTransferFunds(
+                    fromWallet.user!, 
+                    toWallet.user?.email ?? "", 
+                    amountToIncrement,
+                    toWallet.currency,
+                )
+            } /*else if (
                 transaction.type === "WALLET_TO_WALLET" &&
                 transaction.status === "PENDING" &&
                 transaction.method === "WALLET" &&
@@ -682,7 +755,7 @@ class AdminController {
                     amountToIncrement,
                     toWallet.currency,
                 )
-            } else if (status === typesStatusTransaction['3']) {
+            }*/ else if (status === typesStatusTransaction['3']) {
                 transaction.status = 'BLOCKED'
                 await transaction.save();
 

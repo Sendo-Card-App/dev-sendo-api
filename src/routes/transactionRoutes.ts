@@ -99,7 +99,7 @@ router.get(
  *         required: false
  *         schema:
  *           type: string
- *           enum: [WITHDRAWAL, TRANSFER]
+ *           enum: [WITHDRAWAL, TRANSFER, DEPOSIT]
  *         description: Type de la transaction
  *       - in: query
  *         name: method

@@ -1,4 +1,4 @@
-import { enleverPrefixe237, formaterDateISO, getCodeRegionCameroun, isBefore, mapNeeroStatusToSendo, mapStatusCard } from '../utils/functions';
+import { enleverPrefixe237, formaterDateISO, getCodeRegionCameroun, isBefore, mapNeeroStatusToSendo, mapStatusCard, roundToPreviousMultipleOfFive } from '../utils/functions';
 import neeroService, { CashInPayload, PaymentMethodCardPayload, PaymentMethodCreate } from './neeroService';
 import { CardPayload, CreateCardModel, CreateCardPayload, CreateCardResponse, CreateOnboardingSessionResponse, FreezeCardPayload, PartyObject, UploadDocumentsPayload, UploadDocumentsResponse } from '../types/Neero';
 import PartyCard from '@models/party-card.model';
@@ -602,7 +602,6 @@ class CardService {
 
     async handleCardTermination(
         virtualCard: VirtualCardModel, 
-        eventData: any,
         paymentMethod: PaymentMethodModel,
         paymentMethodMerchant: PaymentMethodModel
     ) {
@@ -610,7 +609,7 @@ class CardService {
         const balanceObject = await this.getBalance(paymentMethod.paymentMethodId);
         if (Number(balanceObject.balance) > 0) {
             const cashinPayload: CashInPayload = {
-                amount: Number(balanceObject.balance),
+                amount: roundToPreviousMultipleOfFive(Number(balanceObject.balance)),
                 currencyCode: 'XAF',
                 confirm: true,
                 paymentType: 'NEERO_CARD_CASHOUT',
@@ -619,8 +618,29 @@ class CardService {
             };
 
             const cashin = await neeroService.createCashInPayment(cashinPayload);
-            const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id);
-            const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id);
+
+            const transactionId = cashin.id;
+
+            // 🔄 NOUVEAU : Polling pour attendre finalisation
+            let attempts = 0;
+            const maxAttempts = 30;
+            let checkTransaction: any = null;
+
+            while (attempts < maxAttempts) {
+                checkTransaction = await neeroService.getTransactionIntentById(transactionId);
+                const isFinalized = checkTransaction.statusUpdates.some((update: any) => 
+                    update.status === "SUCCESSFUL" || update.status === "FAILED"
+                );
+                
+                if (isFinalized) break;
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                attempts++;
+            }
+
+            if (!checkTransaction) {
+                throw new Error(`Cashout timeout après ${maxAttempts * 2}s pour ${transactionId}`);
+            }
 
             // Transaction réussie → notifications
             if (checkTransaction.statusUpdates.some((update: any) => update.status === "SUCCESSFUL")) {
@@ -668,7 +688,12 @@ class CardService {
             cardCategory: 'VIRTUAL'
         };
         await this.deleteCard(payload);
-        await this.updateStatusCard(virtualCard.cardId, 'TERMINATED');
+
+        // On check à nouveau le statut de la carte
+        const neeroInfoCard = await neeroService.viewBasicInfoCard(virtualCard!.cardId)
+        if (!neeroInfoCard) return;
+
+        await this.updateStatusCard(virtualCard.cardId, neeroInfoCard.status);
 
         // Notifications finales
         const token = await notificationService.getTokenExpo(virtualCard.userId);

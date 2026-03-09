@@ -59,6 +59,7 @@ export const typesStatusCard = [
     'IN_TERMINATION',
     'SUSPENDED',
     'BLOCKED',
+    'FAILED_TERMINATION'
 ] as const
 export type TypesStatusCard = typeof typesStatusCard[number]
 
@@ -341,6 +342,11 @@ export const configs: ConfigModelCreate[] = [
         name: 'SENDO_VALUE_CAD_CAM_CA',
         value: 500,
         description: "Valeur Sendo du CAD pour les transactions CAM-CA (XAF)"
+    },
+    {
+        name: 'SENDO_INVESTMENT_FEES',
+        value: 10,
+        description: "Valeur de la commission obtenue à la fin d'une année d'investissement (%)"
     }
 ]
 
@@ -405,7 +411,8 @@ export const typesConfig = [
     'WITHDRAWAL_CARD_AVAILABILITY',
     'TRANSFER_CA_CAM_AVAILABILITY',
     'TRANSFER_CAM_CA_AVAILABILITY',
-    'MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON'
+    'MIN_AMOUNT_TO_TRANSFER_FROM_CAMEROON',
+    'SENDO_INVESTMENT_FEES'
 ] as const;
 export type TypesConfig = typeof typesConfig[number];
 

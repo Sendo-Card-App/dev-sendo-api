@@ -49,6 +49,67 @@ router.get(
 
 /**
  * @swagger  
+ * /fund-subscriptions/funds/{id}:
+ *   put:
+ *     summary: Modifier un fond d'investissement
+ *     tags: [Fonds Bloqués]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID du fond d'investissement
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Nom du fond
+ *               amountXAF:
+ *                 type: integer
+ *                 description: Montant en XAF
+ *               amountCAD:
+ *                 type: integer
+ *                 description: Montant en CAD
+ *               annualCommission:
+ *                 type: integer
+ *                 description: Commission annuelle
+ *     responses:
+ *       200:
+ *         description: Fond modifié
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Modification réussie réussie
+ *                 data:
+ *                   $ref: '#/components/schemas/FundSubscription'
+ *       400:
+ *         description: Requête invalide
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.put(
+  "/funds/:id",
+  authMiddleware,
+  hasRole(['SUPER_ADMIN']),
+  FundSubscriptionController.updateFund
+);
+
+/**
+ * @swagger  
  * /fund-subscriptions/subscribe:
  *   post:
  *     summary: Souscrire à un fond bloqué (investire)

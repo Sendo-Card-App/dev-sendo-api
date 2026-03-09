@@ -236,7 +236,6 @@ class KycController {
 
             const documents = JSON.parse(req.body.documents) as any[];
             const files = req.files as Express.Multer.File[];
-            const country = req.user.country;
             const userId = req.body.userId;
 
             if (!Array.isArray(documents) || documents.length === 0) {
@@ -251,9 +250,12 @@ class KycController {
                 throw new Error('userId is required');
             }
 
+            const user = await userService.getUserById(Number(userId));
+            if (!user) throw new Error("Utilisateur introuvable")
+
             const alreadyUploaded = await kycService.checkKYCIsUploaded(
                 req.user.id,
-                country === "Cameroon" ? 'User' : 'Extern'
+                user.country === "Cameroon" ? 'User' : 'Extern'
             );
 
             if (alreadyUploaded) {
@@ -278,7 +280,7 @@ class KycController {
                 }
 
                 // Validation spécifique pour Cameroon
-                if (country === "Cameroon" && type === 'ID_PROOF') {
+                if (user.country === "Cameroon" && type === 'ID_PROOF') {
                     if (!idDocumentNumber || !expirationDate) {
                         errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
                         continue;
@@ -286,7 +288,7 @@ class KycController {
                 }
 
                 // Validation spécifique pour Canada
-                if (country === "Canada" && type === 'ID_PROOF') {
+                if (user.country === "Canada" && type === 'ID_PROOF') {
                     if (!idDocumentNumber || !expirationDate) {
                         errors.push(`Document ${i + 1}: Veuillez envoyer le numéro de la pièce d'identité et sa date d'expiration`);
                         continue;
@@ -297,7 +299,7 @@ class KycController {
                 let doc: KycDocumentModel | null = null;
 
                 if (
-                    country === "Cameroon" &&
+                    user.country === "Cameroon" &&
                     type === "ID_PROOF" &&
                     idDocumentNumber && expirationDate
                 ) {
@@ -312,7 +314,7 @@ class KycController {
                         status: typesKYCStatus['0']
                     });
                 } else if (
-                    country === "Cameroon" &&
+                    user.country === "Cameroon" &&
                     (type === "ADDRESS_PROOF" || type === "SELFIE") &&
                     !idDocumentNumber && !taxIdNumber && !expirationDate
                 ) {
@@ -324,7 +326,7 @@ class KycController {
                         status: typesKYCStatus['0']
                     });
                 } else if (
-                    country === "Canada" &&
+                    user.country === "Canada" &&
                     type === "ID_PROOF" &&
                     idDocumentNumber && expirationDate && !taxIdNumber
                 ) {
@@ -338,7 +340,7 @@ class KycController {
                         status: typesKYCStatus['0']
                     });
                 } else if (
-                    country === "Canada" &&
+                    user.country === "Canada" &&
                     type === "SELFIE" &&
                     !idDocumentNumber && !expirationDate && !taxIdNumber
                 ) {

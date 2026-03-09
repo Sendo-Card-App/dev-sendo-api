@@ -3,6 +3,7 @@ import { PaginatedData } from "../types/BaseEntity";
 import { Request, Response } from 'express'
 import { sendError, sendResponse } from "@utils/apiResponse";
 import logger from "@config/logger";
+import { tryCatch } from "bullmq";
 
 export default class FundSubscriptionController {
     static async listFundSubscriptions(req: Request, res: Response) {
@@ -169,6 +170,25 @@ export default class FundSubscriptionController {
             logger.info("[FUND SUBSCRIPTION] Transformation des souscriptions arrivées à maturité effectuée par l'administrateur ID: " + adminId);
 
             sendResponse(res, 200, "Traitement effectué", {})
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message])
+        }
+    }
+
+    static async updateFund(req: Request, res: Response) {
+        const { id } = req.params
+        
+        try {
+            if (!id) {
+                sendError(res, 400, "fund id is required")
+            }
+
+            const newFund = await fundSubscriptionService.updateFund(
+                id,
+                req.body
+            )
+
+            sendResponse(res, 200, "Fond de souscription modifié", newFund)
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
         }

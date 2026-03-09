@@ -101,6 +101,9 @@ class TransactionService {
         } else if (type === 'WITHDRAWAL') {
             // WITHDRAWAL => INTERAC par défaut
             where.method = method ?? 'INTERAC';
+        } else if (type === 'DEPOSIT') {
+            // DEPOSIT => INTERAC par défaut
+            where.method = method ?? 'INTERAC';
         }
 
         // Filtre status optionnel

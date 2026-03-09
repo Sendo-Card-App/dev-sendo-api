@@ -7,7 +7,6 @@ import UserModel from "@models/user.model";
 import WalletModel from "@models/wallet.model";
 import transactionService from "./transactionService";
 import userService from "./userService";
-import sequelize from "@config/db";
 import notificationService from "./notificationService";
 import { sendEmailWithHTML } from "./emailService";
 
@@ -537,5 +536,25 @@ export default class FundSubscriptionService {
 
         await request.save();
         return request;
+    }
+
+    static async updateFund(
+        fundId: string,
+        data: {
+            name?: string,
+            amountXAF?: number,
+            amountCAD?: number,
+            annualCommission?: number
+        }
+    ) {
+        const fund = await FundModel.findByPk(fundId)
+        if (!fund) throw new Error("Fond de souscription introuvable")
+
+        if (data.name) fund.name = data.name
+        if (data.amountXAF) fund.amountXAF = data.amountXAF
+        if (data.amountCAD) fund.amountCAD = data.amountCAD
+        if (data.annualCommission) fund.annualCommission = data.annualCommission
+
+        return fund.save();
     }
 }

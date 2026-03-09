@@ -865,13 +865,23 @@ class StatisticsService {
 
             const result = await sequelize.transaction(async transaction => {
                 const [
-                    totalFeesRaw,
+                    totalSendoFeesRaw,
+                    totalPartnerFeesRaw,
                     averageFeesRaw,
                     feesByType,
                     recentFees
                 ] = await Promise.all([
-                    // Somme totale des commissions
+                    // Somme totale des commissions Sendo
                     TransactionModel.sum('sendoFees', { 
+                        where: {
+                            ...whereClause,
+                            status: 'COMPLETED'
+                        }, 
+                        transaction 
+                    }),
+
+                    // Somme totale des commissions Neero
+                    TransactionModel.sum('partnerFees', { 
                         where: {
                             ...whereClause,
                             status: 'COMPLETED'
@@ -913,13 +923,15 @@ class StatisticsService {
                         transaction
                     })
                 ]);
-                const totalFees = totalFeesRaw || 0;
+                const totalSendoFees = totalSendoFeesRaw || 0;
+                const totalPartnerFees = totalPartnerFeesRaw || 0;
                 const averageFees = averageFeesRaw && typeof averageFeesRaw === 'object' && 'averageFees' in averageFeesRaw 
                     ? Number((averageFeesRaw as { averageFees: string | number }).averageFees)
                     : 0;
 
                 return {
-                    totalFees,
+                    totalSendoFees,
+                    totalPartnerFees,
                     averageFees,
                     feesByType: feesByType.map(f => ({
                         type: f.type,
@@ -930,6 +942,7 @@ class StatisticsService {
                         amount: tx.amount,
                         totalAmount: tx.totalAmount,
                         sendoFees: tx.sendoFees,
+                        partnerFees: tx.partnerFees,
                         type: tx.type,
                         status: tx.status,
                         currency: tx.currency,

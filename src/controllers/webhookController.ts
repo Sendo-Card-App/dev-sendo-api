@@ -316,6 +316,13 @@ class WebhookController {
                     }
                     transaction.status = 'COMPLETED';
                     await transaction.save();
+                } else if (
+                    transaction?.type === 'REVERSE_CARD_BALANCE' &&
+                    transaction.status === 'PENDING' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    transaction.status = 'COMPLETED';
+                    await transaction.save();
                 }
             } else if (
                 mapNeeroStatusToSendo(event.data.object.newStatus) === "FAILED" ||
@@ -335,9 +342,6 @@ class WebhookController {
                         intitule: transaction.description || 'Frais de service'
                     }
                     await cardService.saveDebt(debt)
-
-                    transaction.status = 'FAILED';
-                    await transaction.save();
                 } else if (
                     transaction &&
                     transaction.type === 'WITHDRAWAL' && 
@@ -352,6 +356,24 @@ class WebhookController {
                         requestWithdraw.status = 'FAILED';
                         await requestWithdraw.save();
                     }
+                } else if (
+                    transaction?.type === 'REVERSE_CARD_BALANCE' &&
+                    transaction.status === 'PENDING' &&
+                    transaction.method === 'VIRTUAL_CARD'
+                ) {
+                    // Crédite son portefeuille
+                    await walletService.creditWallet(
+                        transaction.user?.wallet?.matricule || "",
+                        transaction.amount,
+                        "REVERSE_CARD_BALANCE",
+                        transaction.userId,
+                        transaction.id
+                    )
+                }
+
+                if (transaction) {
+                    transaction.status = 'FAILED';
+                    await transaction.save();
                 }
 
                 const token = await notificationService.getTokenExpo(transaction!.user!.id)
@@ -446,12 +468,17 @@ class WebhookController {
                 exchangeRates = await configService.getConfigByName('EXCHANGE_RATES_FEES')
             }
             const totalAmountWithEchangeRates = amountNum * (Number(exchangeRates?.value ?? 0) / 100) // 1
-            const feesCard = await configService.getConfigByName('SENDO_TRANSACTION_CARD_FEES') // 2
-            const feesCardPercentage = await configService.getConfigByName('SENDO_TRANSACTION_CARD_PERCENTAGE') // 3
-            const totalAmountWithFeesCardPercentage = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentage?.value ?? 0) / 100) // 3
+            const feesCardSendo = await configService.getConfigByName('SENDO_TRANSACTION_CARD_FEES') // 2 (1)
+            const feesCardNeero = await configService.getConfigByName('NEERO_TRANSACTION_CARD_FEES') // 2 (2)
+            const feesCardPercentageSendo = await configService.getConfigByName('SENDO_TRANSACTION_CARD_PERCENTAGE') // 3 (1)
+            const feesCardPercentageNeero = await configService.getConfigByName('NEERO_TRANSACTION_CARD_PERCENTAGE') // 3 (2)
+            const totalAmountWithFeesCardPercentageSendo = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentageSendo?.value ?? 0) / 100) // 4 (1)
+            const totalAmountWithFeesCardPercentageNeero = (amountNum + totalAmountWithEchangeRates) * (Number(feesCardPercentageNeero?.value ?? 0) / 100) // 4 (2)
             const virtualCard = await cardService.getVirtualCard(event.data.object.cardId, undefined, undefined)
             const token = await notificationService.getTokenExpo(virtualCard?.user?.id ?? 0)
-            const sendoFees = totalAmountWithEchangeRates + Number(feesCard?.value ?? 0) + totalAmountWithFeesCardPercentage
+            const sendoFees = totalAmountWithEchangeRates + Number(feesCardSendo?.value ?? 0) + totalAmountWithFeesCardPercentageSendo
+            const neeroFees = totalAmountWithEchangeRates + Number(feesCardNeero?.value ?? 0) + totalAmountWithFeesCardPercentageNeero
+            const totalFees = neeroFees + sendoFees
 
             try {
                 // On enregistre la transaction
@@ -462,18 +489,22 @@ class WebhookController {
                         amount: Number(event.data.object.totalAmount),
                         status: "COMPLETED",
                         userId: virtualCard!.userId,
-                        currency: event.data.object.cardCurrencyCode,
+                        currency: event.data.object.transactionOriginCurrencyCode,
                         totalAmount: Number(event.data.object.totalAmount),
                         method: typesMethodTransaction['2'],
                         transactionReference: event.data.object.transactionId,
                         virtualCardId: virtualCard?.id,
                         description: event.data.object.reference,
+                        //partnerFees: neeroFees,
+                        sendoFees,
                         partnerFees: 200,
                         provider: 'CARD',
                         receiverId: virtualCard!.userId,
                         receiverType: 'User',
                         exchangeRates: totalAmountWithEchangeRates,
-                        createdAt: event.data.object.transactionDate
+                        createdAt: event.data.object.transactionDate,
+                        bankName: event.data.object.merchantCity,
+                        accountNumber: event.data.object.transactionOriginAmount
                     }
                     await transactionService.createTransaction(transactionToCreate)
 
@@ -505,12 +536,12 @@ class WebhookController {
                     // Si la carte a assez de fonds pour prélever les frais SENDO
                     if (
                         balanceObject.balance &&
-                        (Number(balanceObject.balance) >= roundToNextMultipleOfFive(sendoFees)) &&
+                        (Number(balanceObject.balance) >= roundToNextMultipleOfFive(totalFees)) &&
                         virtualCard
                     ) {
                         // On prélève les frais SENDO sur la transaction
                         const payload: CashInPayload = {
-                            amount: roundToNextMultipleOfFive(sendoFees),
+                            amount: roundToNextMultipleOfFive(totalFees),
                             currencyCode: 'XAF',
                             confirm: true,
                             paymentType: 'NEERO_CARD_CASHOUT',
@@ -519,7 +550,7 @@ class WebhookController {
                         }
                         await cashinService.init(
                             payload, 
-                            roundToNextMultipleOfFive(sendoFees), 
+                            roundToNextMultipleOfFive(totalFees), 
                             event.data.object, 
                             virtualCard, 
                             token!, 
@@ -527,7 +558,7 @@ class WebhookController {
                         )
                     } else if (
                         balanceObject.balance &&
-                        (Number(balanceObject.balance) < Number(sendoFees)) && 
+                        (Number(balanceObject.balance) < Number(totalFees)) && 
                         Number(balanceObject.balance) > 0 &&
                         virtualCard
                     ) {
@@ -551,7 +582,7 @@ class WebhookController {
 
                         // ensuite on vérifie si le wallet possède de l'argent
                         const user = await userService.getUserById(virtualCard!.user!.id)
-                        const result = (Number(sendoFees) - roundToPreviousMultipleOfFive(Number(balanceObject.balance || 0)))
+                        const result = (Number(totalFees) - roundToPreviousMultipleOfFive(Number(balanceObject.balance || 0)))
                         if (user!.wallet!.balance > 0 && user!.wallet!.balance > result) {
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
@@ -567,7 +598,9 @@ class WebhookController {
                                 provider: 'CARD',
                                 receiverId: virtualCard?.user?.id ?? 0,
                                 receiverType: 'User',
-                                sendoFees: troisChiffresApresVirgule(result)
+                                sendoFees: troisChiffresApresVirgule(result),
+                                bankName: event.data.object.merchantCity,
+                                accountNumber: event.data.object.transactionOriginAmount
                             }
                             const transaction = await transactionService.createTransaction(transactionToCreate)
 
@@ -593,7 +626,9 @@ class WebhookController {
                                 provider: 'CARD',
                                 receiverId: virtualCard?.user?.id ?? 0,
                                 receiverType: 'User',
-                                sendoFees: Number(user!.wallet!.balance)
+                                sendoFees: Number(user!.wallet!.balance),
+                                bankName: event.data.object.merchantCity,
+                                accountNumber: event.data.object.transactionOriginAmount
                             }
                             const transaction = await transactionService.createTransaction(transactionToCreate)
 
@@ -637,7 +672,7 @@ class WebhookController {
                     }
                     const dette = await cardService.saveDebt(debt)
     
-                    virtualCard.paymentRejectNumber! += 1;
+                    const paymentRejectNumber = virtualCard.paymentRejectNumber + 1
                     await virtualCard.save();
 
                     const paymentMethod = await cardService.getPaymentMethod(undefined, undefined, virtualCard.id)
@@ -645,15 +680,16 @@ class WebhookController {
                     const balanceObject = await cardService.getBalance(paymentMethod.paymentMethodId)
 
                     // Vérifier dès maintenant si suppression nécessaire (après incrémentation)
-                    const shouldTerminateCard = virtualCard.paymentRejectNumber >= 2;
+                    const shouldTerminateCard = paymentRejectNumber >= 2;
 
                     const paymentMethodMerchant = await neeroService.getPaymentMethodMarchant()
                     if (!paymentMethodMerchant) return;
 
                     // S'il a assez de fonds pour payer, on paie
+                    const user = await userService.getUserById(virtualCard!.user!.id)
                     if (
                         rejectFeesCard && 
-                        balanceObject.balance &&
+                        balanceObject &&
                         (Number(balanceObject.balance) >= Number(rejectFeesCard.value)) &&
                         virtualCard
                     ) {
@@ -701,20 +737,41 @@ class WebhookController {
                         }
                     } else if (
                         rejectFeesCard &&
-                        balanceObject.balance &&
-                        (Number(balanceObject.balance) < Number(rejectFeesCard.value))
+                        balanceObject &&
+                        (Number(balanceObject.balance) < Number(rejectFeesCard.value) && 
+                            Number(balanceObject.balance) > 0
+                        )
                     ) {
-                        // ensuite on vérifie si le wallet possède de l'argent
-                        // On débite les frais de rejet
-                        const user = await userService.getUserById(virtualCard!.user!.id)
-                        if (Number(user!.wallet!.balance) > Number(rejectFeesCard!.value)) {
+                        // On retire ce qu'il y a dans la carte
+                        const payload: CashInPayload = {
+                            amount: roundToPreviousMultipleOfFive(Number(balanceObject.balance)),
+                            currencyCode: 'XAF',
+                            confirm: true,
+                            paymentType: 'NEERO_CARD_CASHOUT',
+                            sourcePaymentMethodId: paymentMethod.paymentMethodId,
+                            destinationPaymentMethodId: paymentMethodMerchant.paymentMethodId
+                        }
+
+                        await cashinService.init(
+                            payload, 
+                            roundToPreviousMultipleOfFive(Number(balanceObject.balance)), 
+                            event.data.object, 
+                            virtualCard, 
+                            token!, 
+                            true, 
+                            virtualCard.userId
+                        )
+
+                        // Et puis le reste, on le rétire dans le wallet
+                        const newValueDette = Number(rejectFeesCard.value) - roundToPreviousMultipleOfFive(Number(balanceObject.balance));
+                        if (Number(user!.wallet!.balance) >= newValueDette) {
                             const transactionToCreate: TransactionCreate = {
                                 type: 'PAYMENT',
                                 amount: 0,
                                 status: "COMPLETED",
                                 userId: virtualCard?.user?.id ?? 0,
                                 currency: 'XAF',
-                                totalAmount: Number(rejectFeesCard!.value),
+                                totalAmount: newValueDette,
                                 method: typesMethodTransaction['2'],
                                 transactionReference: event.id,
                                 virtualCardId: virtualCard?.id,
@@ -722,14 +779,15 @@ class WebhookController {
                                 provider: 'CARD',
                                 receiverId: virtualCard?.user?.id ?? 0,
                                 receiverType: 'User',
-                                sendoFees: Number(rejectFeesCard!.value) - 335,
-                                partnerFees: 335
+                                sendoFees: newValueDette,
+                                bankName: event.data.object.merchantCity,
+                                accountNumber: event.data.object.transactionOriginAmount
                             }
                             const transaction = await transactionService.createTransaction(transactionToCreate)
-
+                            
                             await walletService.debitWallet(
                                 user!.wallet!.matricule,
-                                Number(rejectFeesCard!.value),
+                                newValueDette,
                                 "Paiement frais de rejet",
                                 transaction.userId,
                                 transaction.id
@@ -742,115 +800,117 @@ class WebhookController {
                             virtualCard.paymentRejectNumber = 0;
                             await virtualCard.save();
                         } else {
-                            // On retire ce qu'il y a dans la carte
-                            if (balanceObject.balance && Number(balanceObject.balance) > 0) {
-                                const payload: CashInPayload = {
-                                    amount: roundToPreviousMultipleOfFive(Number(balanceObject.balance)),
-                                    currencyCode: 'XAF',
-                                    confirm: true,
-                                    paymentType: 'NEERO_CARD_CASHOUT',
-                                    sourcePaymentMethodId: paymentMethod.paymentMethodId,
-                                    destinationPaymentMethodId: paymentMethodMerchant.paymentMethodId
-                                }
-
-                                await cashinService.init(
-                                    payload, 
-                                    roundToPreviousMultipleOfFive(Number(balanceObject.balance)), 
-                                    event.data.object, 
-                                    virtualCard, 
-                                    token!, 
-                                    true, 
-                                    virtualCard.userId
-                                )
+                            const transactionToCreate: TransactionCreate = {
+                                type: 'PAYMENT',
+                                amount: 0,
+                                status: 'FAILED',
+                                userId: virtualCard?.user?.id ?? 0,
+                                currency: 'XAF',
+                                totalAmount: Number(user!.wallet!.balance),
+                                method: typesMethodTransaction['2'],
+                                transactionReference: event.id,
+                                virtualCardId: virtualCard?.id,
+                                description: `Frais de rejet : #${event.data.object.denialReason}`,
+                                provider: 'CARD',
+                                receiverId: virtualCard?.user?.id ?? 0,
+                                receiverType: 'User',
+                                sendoFees: Number(user!.wallet!.balance),
+                                bankName: event.data.object.merchantCity,
+                                accountNumber: event.data.object.transactionOriginAmount
                             }
+                            const transaction = await transactionService.createTransaction(transactionToCreate)
 
-                            // Et puis le reste, on rétire ce qu'il y a dans le wallet
-                            const newValueDette = Number(rejectFeesCard.value) - roundToPreviousMultipleOfFive(Number(balanceObject.balance));
-                            if (Number(user!.wallet!.balance) > newValueDette) {
-                                const transactionToCreate: TransactionCreate = {
-                                    type: 'PAYMENT',
-                                    amount: 0,
-                                    status: "COMPLETED",
-                                    userId: virtualCard?.user?.id ?? 0,
-                                    currency: 'XAF',
-                                    totalAmount: newValueDette,
-                                    method: typesMethodTransaction['2'],
-                                    transactionReference: event.id,
-                                    virtualCardId: virtualCard?.id,
-                                    description: `Frais de rejet : #${event.data.object.denialReason}`,
-                                    provider: 'CARD',
-                                    receiverId: virtualCard?.user?.id ?? 0,
-                                    receiverType: 'User',
-                                    sendoFees: newValueDette
-                                }
-                                const transaction = await transactionService.createTransaction(transactionToCreate)
-                                
-                                await walletService.debitWallet(
-                                    user!.wallet!.matricule,
-                                    newValueDette,
-                                    "Paiement frais de rejet",
-                                    transaction.userId,
-                                    transaction.id
-                                )
+                            await walletService.debitWallet(
+                                user!.wallet!.matricule,
+                                Number(user!.wallet!.balance),
+                                "Paiement frais de rejet",
+                                transaction.userId,
+                                transaction.id
+                            )
 
-                                // On supprime la dette
-                                await dette.destroy();
+                            // On met à jour la dette
+                            dette.amount = newValueDette - Number(user!.wallet!.balance);
+                            await dette.save();
 
-                                // On remet le paymentRejectNumber de la carte à 0
-                                virtualCard.paymentRejectNumber = 0;
-                                await virtualCard.save();
-                            } else {
-                                const transactionToCreate: TransactionCreate = {
-                                    type: 'PAYMENT',
-                                    amount: 0,
-                                    status: 'FAILED',
-                                    userId: virtualCard?.user?.id ?? 0,
-                                    currency: 'XAF',
-                                    totalAmount: Number(user!.wallet!.balance),
-                                    method: typesMethodTransaction['2'],
-                                    transactionReference: event.id,
-                                    virtualCardId: virtualCard?.id,
-                                    description: `Frais de rejet : #${event.data.object.denialReason}`,
-                                    provider: 'CARD',
-                                    receiverId: virtualCard?.user?.id ?? 0,
-                                    receiverType: 'User',
-                                    sendoFees: Number(user!.wallet!.balance)
-                                }
-                                const transaction = await transactionService.createTransaction(transactionToCreate)
-
-                                await walletService.debitWallet(
-                                    user!.wallet!.matricule,
-                                    Number(user!.wallet!.balance),
-                                    "Paiement frais de rejet",
-                                    transaction.userId,
-                                    transaction.id
-                                )
-
-                                // On met à jour la dette
-                                dette.amount = Number(user!.wallet!.balance) - newValueDette;
-                                await dette.save();
-                            }
-
+                            // On supprime la carte
                             if (shouldTerminateCard) {
                                 await cardService.handleCardTermination(
                                     virtualCard, 
-                                    event.data.object,
                                     paymentMethod,
                                     paymentMethodMerchant
                                 );
                             }
+
+                            await sendEmailWithHTML(
+                                virtualCard?.user?.email ?? '',
+                                'Paiement sur la carte',
+                                `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.</p>`
+                            )
+                            
+                            if (token) {
+                                await notificationService.save({
+                                    title: 'Sendo',
+                                    content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.`,
+                                    userId: virtualCard!.userId,
+                                    status: 'SENDED',
+                                    token: token.token,
+                                    type: 'PAYMENT_FAILED'
+                                })
+                            }
                         }
+                    } else if (
+                        rejectFeesCard &&
+                        user &&
+                        user.wallet &&
+                        Number(balanceObject.balance) === 0 &&
+                        Number(user.wallet.balance) >= Number(rejectFeesCard.value)
+                    ) {
+                        const transactionToCreate: TransactionCreate = {
+                            type: 'PAYMENT',
+                            amount: 0,
+                            status: "COMPLETED",
+                            userId: virtualCard?.user?.id ?? 0,
+                            currency: 'XAF',
+                            totalAmount: Number(rejectFeesCard!.value),
+                            method: typesMethodTransaction['2'],
+                            transactionReference: event.id,
+                            virtualCardId: virtualCard?.id,
+                            description: `Frais de rejet : #${event.data.object.denialReason}`,
+                            provider: 'CARD',
+                            receiverId: virtualCard?.user?.id ?? 0,
+                            receiverType: 'User',
+                            sendoFees: Number(rejectFeesCard!.value) - 335,
+                            partnerFees: 335,
+                            bankName: event.data.object.merchantCity,
+                            accountNumber: event.data.object.transactionOriginAmount
+                        }
+                        const transaction = await transactionService.createTransaction(transactionToCreate)
+
+                        await walletService.debitWallet(
+                            user!.wallet!.matricule,
+                            Number(rejectFeesCard!.value),
+                            "Paiement frais de rejet",
+                            transaction.userId,
+                            transaction.id
+                        )
+
+                        // On supprime la dette
+                        await dette.destroy();
+
+                        // On remet le paymentRejectNumber de la carte à 0
+                        virtualCard.paymentRejectNumber = 0;
+                        await virtualCard.save();
 
                         await sendEmailWithHTML(
                             virtualCard?.user?.email ?? '',
                             'Paiement sur la carte',
-                            `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.</p>`
+                            `<p>Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être prêlevée sur votre portefeuille.</p>`
                         )
                         
                         if (token) {
                             await notificationService.save({
                                 title: 'Sendo',
-                                content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être enregistrée.`,
+                                content: `Un paiement de ${Number(event.data.object.totalAmount)} XAF vient d'échouer sur votre carte **** **** **** ${virtualCard?.last4Digits}. Une dette de ${rejectFeesCard.value} XAF vient d'être prêlevée sur votre portefeuille.`,
                                 userId: virtualCard!.userId,
                                 status: 'SENDED',
                                 token: token.token,

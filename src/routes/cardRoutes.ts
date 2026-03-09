@@ -443,6 +443,30 @@ router.get(
 
 /**
  * @swagger
+ * /cards/neero/{cardId}:
+ *   get:
+ *     summary: Récupère les détails d'une carte virtuelle
+ *     tags: [Virtual Cards]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cardId
+ *         required: true
+ *         type: number
+ *         default: 123
+ *     responses:
+ *       200:
+ *         description: Détails de la carte virtuelle côté Neero
+ */
+router.get(
+    '/neero/:cardId',
+    authMiddleware,
+    cardController.viewDetailsVirtualCardNeero
+)
+
+/**
+ * @swagger
  * /cards/freeze/{cardId}:
  *   put:
  *     summary: Bloquer une carte virtuelle

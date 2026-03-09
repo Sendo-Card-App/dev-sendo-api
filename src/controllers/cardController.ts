@@ -78,33 +78,32 @@ class CardController {
                     )
                 }
             } else {
-                // On détermine d'abord si la première création de carte est gratuitre
+                // On détermine d'abord si la première création de carte est gratuite
                 const configFirstCreating = await configService.getConfigByName('IS_FREE_FIRST_CREATING_CARD')
                 if (configFirstCreating && configFirstCreating.value === 0) {
                     if (config && user?.wallet && Number(config.value) > 0) {
                         const transaction: TransactionCreate = {
-                            amount: Number(config.value),
+                            amount: 0,
                             userId: user.id,
                             type: 'PAYMENT',
                             description: 'Frais de création de carte',
                             status: 'COMPLETED',
                             currency: 'XAF',
-                            totalAmount: Number(config.value),
+                            totalAmount: 0,
                             receiverId: user.id,
                             receiverType: 'User',
                             method: 'WALLET',
-                            provider: 'WALLET',
-                            sendoFees: Number(config.value) - 500,
-                            partnerFees: 500
+                            provider: 'WALLET'
                         }
                         const transactionCreated = await transactionService.createTransaction(transaction)
-                        await walletService.debitWallet(
+                        // On a déjà récupéré les frais lors de l'onboarding
+                        /*await walletService.debitWallet(
                             user?.wallet?.matricule, 
                             Number(config.value),
                             "Création de carte",
-                            user.id,
+                            req.user.id,
                             transactionCreated.id
-                        )
+                        )*/
                     }
                 }
             }
@@ -238,28 +237,27 @@ class CardController {
                 if (configFirstCreating && configFirstCreating.value === 0) {
                     if (config && user?.wallet && Number(config.value) > 0) {
                         const transaction: TransactionCreate = {
-                            amount: Number(config.value),
+                            amount: 0,
                             userId: user.id,
                             type: 'PAYMENT',
                             description: 'Frais de création de carte',
                             status: 'COMPLETED',
                             currency: 'XAF',
-                            totalAmount: Number(config.value),
+                            totalAmount: 0,
                             receiverId: user.id,
                             receiverType: 'User',
                             method: 'WALLET',
-                            provider: 'WALLET',
-                            sendoFees: Number(config.value) - 500,
-                            partnerFees: 500
+                            provider: 'WALLET'
                         }
                         const transactionCreated = await transactionService.createTransaction(transaction)
-                        await walletService.debitWallet(
+                        // On a déjà récupéré les frais lors de l'onboarding
+                        /*await walletService.debitWallet(
                             user?.wallet?.matricule, 
                             Number(config.value),
                             "Création de carte par admin",
                             req.user.id,
                             transactionCreated.id
-                        )
+                        )*/
                     }
                 }
             }
@@ -449,8 +447,7 @@ class CardController {
                     totalAmount: Number(config.value),
                     receiverId: user.id,
                     receiverType: 'User',
-                    sendoFees: Number(config.value) - 500,
-                    partnerFees: 500,
+                    partnerFees: Number(config.value),
                     method: 'WALLET',
                     provider: 'WALLET'
                 }
@@ -705,6 +702,22 @@ class CardController {
             }
 
             sendResponse(res, 200, 'Détails de la carte récupérés', virtualCard)
+        } catch (error: any) {
+            sendError(res, 500, 'Erreur serveur', [error.message])
+        }
+    }
+
+    async viewDetailsVirtualCardNeero(req: Request, res: Response) {
+        const { cardId } = req.params
+        try {
+            if (!req.user) {
+                sendError(res, 403, "Utilisateur non authentifié");
+                return;
+            }
+
+            const neeroInfoCard = await neeroService.viewBasicInfoCard(Number(cardId))
+
+            sendResponse(res, 200, 'Détails de la carte neero', neeroInfoCard)
         } catch (error: any) {
             sendError(res, 500, 'Erreur serveur', [error.message])
         }
@@ -1178,8 +1191,6 @@ class CardController {
             if (!paymentMethodMerchant) {
                 throw new Error("Erreur lors de la récupération de la source")
             }
-
-            let payload: CashInPayload | undefined;
             
             const paymentMethod = await cardService.getPaymentMethod(
                 undefined, 
@@ -1191,93 +1202,11 @@ class CardController {
                 throw new Error("Erreur de récupération de la méthode de paiement de la carte")
             }
 
-            const balance = await cardService.getBalance(paymentMethod.paymentMethodId)
-
-            if (balance && balance.balance > 0) {
-                if (paymentMethod) {
-                    payload = {
-                        amount: roundToNextMultipleOfFive(Number(balance.balance)),
-                        currencyCode: 'XAF',
-                        confirm: true,
-                        paymentType: 'NEERO_CARD_CASHOUT',
-                        sourcePaymentMethodId: paymentMethod.paymentMethodId,
-                        destinationPaymentMethodId: paymentMethodMerchant.paymentMethodId
-                    }
-                }
-
-                if (!payload) {
-                    throw new Error("Le payload de cashout n'a pas pu être généré.");
-                }
-                
-                const cashin = await neeroService.createCashInPayment(payload)
-
-                const neeroTransaction = await neeroService.getTransactionIntentById(cashin.id)
-
-                const checkTransaction = await neeroService.getTransactionIntentById(neeroTransaction.id)
-
-                // On retire les fonds de la carte virtuelle vers le portefeuille
-                if (
-                    mapNeeroStatusToSendo(checkTransaction.status) === "COMPLETED"
-                ) {
-                    const transactionToCreate: TransactionCreate = {
-                        amount: Number(balance.balance),
-                        type: typesTransaction['1'],
-                        status: mapNeeroStatusToSendo(checkTransaction.status),
-                        userId: req.user!.id,
-                        currency: typesCurrency['0'],
-                        totalAmount: Number(balance.balance),
-                        method: typesMethodTransaction['2'],
-                        transactionReference: cashin.id,
-                        virtualCardId: virtualCard?.id,
-                        description: 'Retrait sur la carte',
-                        receiverId: req.user!.id,
-                        receiverType: 'User'
-                    }
-                    const transaction = await transactionService.createTransaction(transactionToCreate)
-
-                    await walletService.creditWallet(
-                        virtualCard?.user?.wallet?.matricule ?? '',
-                        balance.balance,
-                        "Supprimer la carte",
-                        virtualCard?.user?.id,
-                        transaction.id
-                    )
-                    
-                    // Envoyer une notification
-                    const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-                    if (token) {
-                        await notificationService.save({
-                            title: 'Sendo',
-                            content: `Tous les fonds de votre carte *****${virtualCard?.last4Digits} ont été déplacé sur votre portefeuille`,
-                            userId: virtualCard!.user!.id,
-                            status: 'SENDED',
-                            token: token.token,
-                            type: 'SUCCESS_WITHDRAWAL_CARD'
-                        })
-                    }
-                }
-            }
-
-            const payloadDeleteCard: CardPayload = {
-                cardId: Number(cardId),
-                cardCategory: 'VIRTUAL'
-            }
-            
-            await cardService.deleteCard(payloadDeleteCard)
-
-            await cardService.updateStatusCard(payloadDeleteCard.cardId, 'TERMINATED')
-
-            const token = await notificationService.getTokenExpo(virtualCard!.user!.id)
-            if (token) {
-                await notificationService.save({
-                    title: 'Sendo',
-                    content: `Votre carte *****${virtualCard?.last4Digits} vient d'être supprimé avec succès`,
-                    userId: virtualCard!.user!.id,
-                    status: 'SENDED',
-                    token: token.token,
-                    type: 'DELETE_CARD'
-                })
-            }
+            await cardService.handleCardTermination(
+                virtualCard!,
+                paymentMethod,
+                paymentMethodMerchant
+            )
 
             logger.info(`L'utilisateur ${req.user.id} a supprimé la carte virtuelle ${cardId}`);
 

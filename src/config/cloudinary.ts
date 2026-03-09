@@ -35,6 +35,20 @@ const storageOptions: CloudinaryStorageOptions = {
     },
 };
 
+const storageAdminOptions: CloudinaryStorageOptions = {
+    cloudinary: cloudinary,
+    params: {
+        folder: 'kyc_documents',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'img'],
+        resource_type: 'auto',
+        public_id: async (req, file) => {
+            const numbers = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+            const timestamp = Date.now();
+            return `kyc_${numbers}_${timestamp}`;
+        },
+    },
+};
+
 const storageMerchantOptions: CloudinaryStorageOptions = {
     cloudinary: cloudinary,
     params: {
@@ -120,6 +134,7 @@ const storageOptionsPub: CloudinaryStorageOptions = {
 };
 
 const storage = new CloudinaryStorage(storageOptions);
+const storageAdmin = new CloudinaryStorage(storageAdminOptions);
 const storagePub = new CloudinaryStorage(storageOptionsPub);
 const storagePicture = new CloudinaryStorage(storageOptionsPicture);
 const storageRequest = new CloudinaryStorage(storageOptionsRequest);
@@ -140,6 +155,17 @@ export const upload = multer({
 
 export const upload_multi = multer({
     storage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // Limit de 2 MB
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/(jpg|jpeg|png|pdf|img)$/)) {
+            return cb(new Error('Format de fichier non supporté'));
+        }
+        cb(null, true);
+    }
+}).array('files');
+
+export const upload_multi_admin = multer({
+    storage: storageAdmin,
     limits: { fileSize: 2 * 1024 * 1024 }, // Limit de 2 MB
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.match(/(jpg|jpeg|png|pdf|img)$/)) {
